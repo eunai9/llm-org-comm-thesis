@@ -1,0 +1,43 @@
+# --- data and run artefacts (never committed) ---
+data/*
+!data/external/
+data/external/*
+!data/external/.gitkeep
+!data/external/SOURCES.md
+!data/external/title_to_rank.csv
+!data/external/alias_overrides.csv
+runs/
+outputs/figures/
+outputs/tables/
+
+# --- secrets ---
+.env
+
+# --- python ---
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# --- data formats that should never land in git ---
+*.parquet
+*.duckdb
+*.csv.gz
+
+# --- latex ---
+thesis/*.aux
+thesis/*.log
+thesis/*.out
+thesis/*.toc
+thesis/*.fls
+thesis/*.fdb_latexmk
+thesis/*.synctex.gz
+
+# machine-specific symlink to the OneDrive reference library
+refs

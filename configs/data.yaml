@@ -1,0 +1,38 @@
+# Data-processing configuration.
+#
+# NOTE: `power` weights and the corpus filters are FROZEN before validation.
+# Changing them after seeing the seniority correlation is circular reasoning.
+
+data:
+  seed: 20260807
+
+  corpus:
+    date_start: "1999-01-01"
+    date_end: "2002-06-30"
+    min_body_tokens: 20
+    max_body_tokens: 600
+    internal_domains:
+      - enron.com
+
+  sample_sizes:
+    label: 3000      # S_label     -> LLM labelling, power validation
+    shots: 200       # S_shots     -> real threads used as simulator stimuli
+    real_eval: 400   # S_real_eval -> real replies scored by the judge
+
+  power:
+    # Layer A: rule-based linguistic features (all messages).
+    layer_a_weights:
+      directive_rate: 1.0
+      hedge_rate: -1.0
+      deference_rate: -1.0
+      commitment_rate: 0.5
+      question_ratio: -0.5
+      imperative_ratio: 1.0
+    # Layer B: network and structural features (all messages).
+    layer_b_weights:
+      recipient_count: 0.5
+      is_broadcast: 0.5
+      sender_centrality: 1.0
+      thread_initiation_rate: 1.0
+      last_word_rate: 1.0
+      reply_latency_asymmetry: 1.0

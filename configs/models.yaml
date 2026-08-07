@@ -1,0 +1,37 @@
+# Exact model identifiers. Pin fixed IDs, never moving aliases: an eight-month
+# project spans several model releases, and a silently-swapped model
+# invalidates comparisons across runs.
+#
+# The exposé requires the judge to be a different model from the simulator.
+# Two providers satisfy that across families; within a family the IDs must
+# still differ, so the judge-swap 2x2 has no self-judging cell. This is
+# enforced by tests/test_config.py::test_judge_and_simulator_span_two_providers.
+#
+# !!! TODO(August, before the September pilot) !!!
+# The OpenAI identifiers below are PLACEHOLDERS and are very likely stale.
+# Confirm both against the live model list, replace them, and record the
+# confirmation date here. The Anthropic IDs are current as of 2026-08.
+#   Confirmed on: ____________
+
+models:
+  simulator:
+    - provider: anthropic
+      model_id: claude-opus-5
+      role_label: sim_anthropic
+    - provider: openai
+      model_id: gpt-4o                 # TODO confirm
+      role_label: sim_openai
+
+  judge:
+    - provider: anthropic
+      model_id: claude-sonnet-5
+      role_label: judge_anthropic
+    - provider: openai
+      model_id: gpt-4o-mini            # TODO confirm; consider a stronger
+      role_label: judge_openai         #      judge -- Q3 validity depends on it
+
+  # Cheap, high-volume structured labelling of the 3,000-message sample.
+  labeller:
+    provider: anthropic
+    model_id: claude-haiku-4-5
+    role_label: labeller

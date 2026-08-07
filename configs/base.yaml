@@ -1,0 +1,12 @@
+# Defaults shared by every run. Override in data.yaml / models.yaml or a
+# run-specific layer.
+project: thesis-org-comm
+
+run:
+  # Abort before submitting a batch whose projected cost exceeds this.
+  max_cost_usd: 60.0
+  # Refuse to start a non-pilot run from a dirty working tree, so every
+  # figure can be traced back to an exact commit.
+  require_clean_git: true
+  # Serve from the response cache when a request has been made before.
+  use_cache: true

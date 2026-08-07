@@ -1,0 +1,30 @@
+# Runtime dependencies. Pinned loosely now; freeze exact versions before the
+# main experimental runs (October) so results stay reproducible.
+
+# --- config & environment ---
+pydantic>=2.7
+pydantic-settings>=2.3
+PyYAML>=6.0
+python-dotenv>=1.0
+
+# --- data processing (Phase 2) ---
+pandas>=2.2
+pyarrow>=16.0
+duckdb>=1.0
+numpy>=1.26
+
+# --- LLM providers (Phase 3) ---
+anthropic>=0.40
+openai>=1.40
+
+# Added in later phases (kept here as a roadmap, install when needed):
+#   spacy + en_core_web_sm      -- linguistic features (Layer A)
+#   convokit                    -- politeness strategies (Layer A)
+#   networkx                    -- network measures (Layer B)
+#   rapidfuzz                   -- alias clustering
+#   sentence-transformers       -- embeddings, diversity, propagation
+#   scikit-learn                -- propagation classifier, real-vs-generated AUC
+#   statsmodels                 -- mixed models (Q1)
+#   pingouin, krippendorff      -- ICC and inter-rater reliability (Q3)
+#   matplotlib                  -- figures
+#   jinja2                      -- prompt templates

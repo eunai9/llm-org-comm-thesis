@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "thesis"
+version = "0.1.0"
+description = "LLMs for Simulating Organizational Communication and Decision-Making with Email"
+requires-python = ">=3.12"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# E/W pycodestyle, F pyflakes, I isort, N naming, UP pyupgrade,
+# B bugbear, SIM simplify, PTH prefer pathlib, RUF ruff-specific
+select = ["E", "W", "F", "I", "N", "UP", "B", "SIM", "PTH", "RUF"]
+ignore = ["E501"]  # line length is black's job
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src", "tests"]
+strict = true
+warn_unreachable = true
+# Third-party libs without stubs; extend as dependencies are added.
+[[tool.mypy.overrides]]
+module = ["duckdb.*", "pandas.*", "pyarrow.*", "yaml.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
