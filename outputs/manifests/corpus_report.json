@@ -1,0 +1,36 @@
+{
+  "corpus": {
+    "distinct_message_ids": 517401,
+    "duplication_factor": 2.0341,
+    "empty_after_cleaning": 16686,
+    "files_on_disk": 517401,
+    "messages_with_threading_headers": 0,
+    "recipient_rows": 1611163,
+    "unique_messages": 254359
+  },
+  "coverage": {
+    "distinct_senders_in_eligible_pool": 191,
+    "eligible_from_known_owner": 52712,
+    "eligible_messages": 117794,
+    "median_eligible_messages_per_sender": 108,
+    "messages_from_known_owner": 102972,
+    "senders_with_at_least_100": 100,
+    "share_of_eligible": 0.4475,
+    "share_of_unique": 0.4048
+  },
+  "eligibility_filters": {
+    "date_end": "2002-06-30",
+    "date_start": "1999-01-01",
+    "internal_domains": [
+      "enron.com"
+    ],
+    "max_body_tokens": 600,
+    "min_body_tokens": 20
+  },
+  "generated_at": "2026-08-08T21:27:41+00:00",
+  "identity": {
+    "mailboxes_with_outgoing_mail": 146,
+    "owner_addresses": 191,
+    "owners_with_multiple_addresses": 40
+  }
+}
