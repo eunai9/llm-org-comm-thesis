@@ -24,7 +24,7 @@ import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from email.message import Message
-from email.parser import Parser
+from email.parser import BytesParser, Parser
 from email.utils import getaddresses, parsedate_to_datetime
 from typing import Final
 
@@ -246,13 +246,16 @@ class ParsedMessage:
         return len(self.to_addrs) + len(self.cc_addrs) + len(self.bcc_addrs)
 
 
-def parse_message(raw: str, source_path: str) -> ParsedMessage:
+def parse_message(raw: str | bytes, source_path: str) -> ParsedMessage:
     """Parse one raw message blob into a :class:`ParsedMessage`.
 
-    Never raises on malformed input: unparseable fields become ``None`` or
-    empty strings so a single bad message cannot abort a 500k-file ingest.
+    Accepts ``bytes`` (how files are read during ingest, which lets the email
+    library apply the charset declared in the headers) or ``str`` (convenient
+    in tests). Never raises on malformed input: unparseable fields become
+    ``None`` or empty strings so a single bad message cannot abort a
+    500k-file ingest.
     """
-    msg = Parser().parsestr(raw)
+    msg = BytesParser().parsebytes(raw) if isinstance(raw, bytes) else Parser().parsestr(raw)
 
     message_id_raw = msg.get("Message-ID")
     message_id = message_id_raw.strip().strip("<>") if message_id_raw else None
