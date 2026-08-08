@@ -4,6 +4,7 @@ data/*
 data/external/*
 !data/external/.gitkeep
 !data/external/SOURCES.md
+!data/external/enron_provenance.md
 !data/external/title_to_rank.csv
 !data/external/alias_overrides.csv
 runs/
