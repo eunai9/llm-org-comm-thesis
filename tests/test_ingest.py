@@ -97,10 +97,32 @@ def test_duplication_factor_reported(maildir: Path, tmp_path: Path) -> None:
     assert report.duplication_factor == pytest.approx(5 / 3)
 
 
-def test_dedup_falls_back_to_content_hash_without_message_id(maildir: Path, tmp_path: Path) -> None:
+def test_distinct_message_ids_are_reported(maildir: Path, tmp_path: Path) -> None:
+    """Evidence for keying on content: IDs do not collapse the way content does."""
     report = ingest(maildir, tmp_path / "out")
-    assert report.deduped_by_message_id == 2
-    assert report.deduped_by_content_hash == 1
+    assert report.distinct_message_ids == 2
+    assert report.unique_messages == 3
+
+
+def test_folder_copies_with_different_message_ids_still_dedup(tmp_path: Path) -> None:
+    """The real corpus gives each folder copy its own Message-ID.
+
+    This is the regression guard for the bug that made deduplication a no-op:
+    keying on Message-ID kept both copies and doubled the corpus.
+    """
+    root = tmp_path / "maildir"
+    shared_body = (
+        "Date: Mon, 14 May 2001 16:39:00 -0700 (PDT)\nFrom: a@enron.com\n"
+        "To: b@enron.com\nSubject: Storage\nX-From: A\n\nThe forecast.\n"
+    )
+    _write(root / "a" / "sent" / "1.", "Message-ID: <111.JavaMail@thyme>\n" + shared_body)
+    _write(root / "b" / "inbox" / "1.", "Message-ID: <222.JavaMail@thyme>\n" + shared_body)
+
+    report = ingest(root, tmp_path / "out")
+    assert report.files_scanned == 2
+    assert report.distinct_message_ids == 2
+    assert report.unique_messages == 1
+    assert report.duplicate_copies == 1
 
 
 def test_writes_parquet_matching_schema(maildir: Path, tmp_path: Path) -> None:

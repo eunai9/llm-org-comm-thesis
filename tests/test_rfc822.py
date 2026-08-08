@@ -17,7 +17,9 @@ from thesis.data.rfc822 import (
     clean_body,
     content_fingerprint,
     extract_addresses,
+    extract_message_ids,
     normalize_address,
+    normalize_message_id,
     parse_date,
     parse_message,
     strip_quoted_text,
@@ -85,12 +87,37 @@ def test_missing_date_header_does_not_raise() -> None:
     assert msg.body_clean == "Body text here."
 
 
-def test_missing_message_id_falls_back_to_content_hash() -> None:
-    raw = "From: a@enron.com\nSubject: s\n\nBody.\n"
+def test_dedup_key_is_always_the_content_hash() -> None:
+    """Message-ID must never be the dedup key -- it is per-file in this corpus."""
+    raw = "Message-ID: <present@thyme>\nFrom: a@enron.com\nSubject: s\n\nBody.\n"
     msg = parse_message(raw, "p")
-    assert msg.message_id is None
+    assert msg.message_id == "present@thyme"
     assert msg.dedup_key == msg.content_hash
     assert len(msg.content_hash) == 64
+
+
+def test_same_message_different_message_ids_dedups_together() -> None:
+    """Regression: the JavaMail export gives each folder copy its own ID.
+
+    Two files that are the same message must collapse even though their
+    Message-IDs differ, which is exactly the case that broke the first
+    implementation.
+    """
+    body = "Date: Mon, 14 May 2001 16:39:00 -0700\nFrom: a@enron.com\n"
+    body += "To: b@enron.com\nSubject: Storage\n\nHere is the forecast.\n"
+    sent = parse_message("Message-ID: <31556025.JavaMail.evans@thyme>\n" + body, "sent/1.")
+    inbox = parse_message("Message-ID: <33335249.JavaMail.evans@thyme>\n" + body, "inbox/9.")
+    assert sent.message_id != inbox.message_id
+    assert sent.dedup_key == inbox.dedup_key
+
+
+def test_distinct_forwards_are_not_merged() -> None:
+    """Forwards clean to an empty body, so the hash must use the raw body."""
+    head = "Date: Mon, 14 May 2001 16:39:00 -0700\nFrom: a@enron.com\nSubject: FW: x\n\n"
+    one = parse_message(head + "-----Original Message-----\n\nFirst report.\n", "p")
+    two = parse_message(head + "-----Original Message-----\n\nSecond report.\n", "p")
+    assert one.body_clean == two.body_clean == ""
+    assert one.dedup_key != two.dedup_key
 
 
 def test_outlook_original_message_chain_is_removed() -> None:
@@ -261,3 +288,61 @@ def test_parsed_message_is_immutable() -> None:
     msg = parse_message(WELL_FORMED, "p")
     with pytest.raises((AttributeError, TypeError)):
         msg.subject = "changed"  # type: ignore[misc]
+
+
+# --------------------------------------------------------------------------
+# Threading headers
+# --------------------------------------------------------------------------
+
+
+def test_in_reply_to_and_references_are_parsed() -> None:
+    raw = (
+        "Message-ID: <c@thyme>\nIn-Reply-To: <b@thyme>\n"
+        "References: <a@thyme> <b@thyme>\n"
+        "From: x@enron.com\nSubject: Re: topic\n\nReply body.\n"
+    )
+    msg = parse_message(raw, "p")
+    assert msg.in_reply_to == "b@thyme"
+    assert msg.references == ("a@thyme", "b@thyme")
+
+
+def test_threading_headers_absent_is_not_an_error() -> None:
+    msg = parse_message(WELL_FORMED, "p")
+    assert msg.in_reply_to is None
+    assert msg.references == ()
+
+
+def test_extract_message_ids_deduplicates_preserving_order() -> None:
+    assert extract_message_ids("<b@t> <a@t> <b@t>") == ("b@t", "a@t")
+
+
+def test_extract_message_ids_handles_unbracketed_values() -> None:
+    assert extract_message_ids("a@thyme b@thyme") == ("a@thyme", "b@thyme")
+
+
+def test_extract_message_ids_on_empty_input() -> None:
+    assert extract_message_ids(None) == ()
+    assert extract_message_ids("") == ()
+
+
+def test_message_id_normalization_strips_angle_brackets() -> None:
+    assert normalize_message_id("  <abc@thyme>  ") == "abc@thyme"
+    assert normalize_message_id("   ") is None
+
+
+def test_eight_bit_header_bytes_do_not_crash() -> None:
+    """Non-ASCII bytes in X-To make compat32 return a Header, not a str.
+
+    This crashed a real ingest run before header_text() coerced the value.
+    """
+    raw = (
+        b"Message-ID: <x@thyme>\r\nFrom: a@enron.com\r\n"
+        b"To: b@enron.com\r\nSubject: Caf\xe9 review\r\n"
+        b"X-To: Jos\xe9 Garc\xeda, Bj\xf6rn Andr\xe9\r\n"
+        b"X-From: Ren\xe9e M\xfcller\r\n\r\nBody text.\r\n"
+    )
+    msg = parse_message(raw, "p")
+    assert isinstance(msg.x_to, str)
+    assert isinstance(msg.x_from, str)
+    assert isinstance(msg.subject, str)
+    assert msg.body_clean == "Body text."

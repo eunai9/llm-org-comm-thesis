@@ -2,10 +2,16 @@
 
 The corpus stores one copy of a message per mailbox folder it appears in, so
 the sender's Sent copy and each recipient's Inbox copy are separate files on
-disk. The raw file count is therefore roughly double the number of distinct
+disk. The raw file count is therefore roughly 2.4x the number of distinct
 messages, and quoting the raw figure as the study's N would overstate it.
 Deduplication happens here, and the before/after counts are written to
 ``ingest_report.json`` so they can be reported in the thesis.
+
+Deduplication keys on a content fingerprint, never on Message-ID. The
+JavaMail export minted a fresh Message-ID per file, so ``distinct_message_ids``
+comes out equal to ``files_scanned`` and keying on it would deduplicate
+nothing. That equality is reported rather than hidden, because it is the
+evidence for the choice.
 
 Output:
 
@@ -44,6 +50,8 @@ MESSAGE_SCHEMA = pa.schema(
     [
         pa.field("message_uid", pa.string(), nullable=False),
         pa.field("message_id", pa.string()),
+        pa.field("in_reply_to", pa.string()),
+        pa.field("references", pa.list_(pa.string())),
         pa.field("source_path", pa.string(), nullable=False),
         # Parquet has no second-resolution timestamp, so a "s" field is
         # silently widened to "ms" on write. Declare "ms" up front so the
@@ -83,10 +91,10 @@ class IngestReport:
     files_unreadable: int = 0
     unique_messages: int = 0
     duplicate_copies: int = 0
-    deduped_by_message_id: int = 0
-    deduped_by_content_hash: int = 0
+    distinct_message_ids: int = 0
     empty_after_cleaning: int = 0
     missing_date: int = 0
+    has_threading_headers: int = 0
     missing_from: int = 0
     recipient_rows: int = 0
     parts_written: int = 0
@@ -133,6 +141,8 @@ def _message_row(msg: ParsedMessage, uid: str) -> dict[str, object]:
     return {
         "message_uid": uid,
         "message_id": msg.message_id,
+        "in_reply_to": msg.in_reply_to,
+        "references": list(msg.references),
         "source_path": msg.source_path,
         "date": msg.date,
         "from_addr": msg.from_addr,
@@ -183,6 +193,7 @@ def ingest(
     buffer = _Buffer()
     all_recipients: list[dict[str, object]] = []
     seen: set[str] = set()
+    message_ids: set[str] = set()
     part_index = 0
 
     for path in iter_message_files(maildir):
@@ -199,18 +210,18 @@ def ingest(
         relative = str(path.relative_to(maildir))
         msg = parse_message(raw, relative)
         uid = msg.dedup_key
+        if msg.message_id is not None:
+            message_ids.add(msg.message_id)
 
         if uid in seen:
             report.duplicate_copies += 1
             continue
         seen.add(uid)
 
-        if msg.message_id:
-            report.deduped_by_message_id += 1
-        else:
-            report.deduped_by_content_hash += 1
         if msg.date is None:
             report.missing_date += 1
+        if msg.in_reply_to or msg.references:
+            report.has_threading_headers += 1
         if msg.from_addr is None:
             report.missing_from += 1
         if not msg.body_clean:
@@ -232,6 +243,7 @@ def ingest(
         part_index += 1
 
     report.parts_written = part_index
+    report.distinct_message_ids = len(message_ids)
     report.recipient_rows = len(all_recipients)
 
     recipients_table = pa.Table.from_pylist(all_recipients, schema=RECIPIENT_SCHEMA)
@@ -265,11 +277,16 @@ def main() -> None:
     log.info("files scanned          %8d", report.files_scanned)
     log.info("unique messages        %8d", report.unique_messages)
     log.info("duplicate copies       %8d", report.duplicate_copies)
+    log.info(
+        "distinct Message-IDs   %8d  (== files scanned: IDs are per-file)",
+        report.distinct_message_ids,
+    )
     log.info("duplication factor     %8.2f", report.duplication_factor)
     log.info("empty after cleaning   %8d", report.empty_after_cleaning)
     log.info("missing date           %8d", report.missing_date)
     log.info("missing from           %8d", report.missing_from)
     log.info("recipient rows         %8d", report.recipient_rows)
+    log.info("with threading hdrs    %8d", report.has_threading_headers)
 
 
 if __name__ == "__main__":
