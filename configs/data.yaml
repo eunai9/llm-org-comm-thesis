@@ -20,19 +20,26 @@ data:
     real_eval: 400   # S_real_eval -> real replies scored by the judge
 
   power:
-    # Layer A: rule-based linguistic features (all messages).
+    # Layer A: rule-based linguistic features (all messages), matching the
+    # exact column names features.py produces. `directive_rate` and
+    # `imperative_ratio` were two separate placeholder entries at planning
+    # time; features.py implements one measure (structural imperative +
+    # obligation-modal detection) under the name `imperative_ratio`, so the
+    # duplicate entry is removed here. This is a naming correction made
+    # before any power_score has been computed -- not weight-tuning.
     layer_a_weights:
-      directive_rate: 1.0
+      imperative_ratio: 1.0
       hedge_rate: -1.0
       deference_rate: -1.0
       commitment_rate: 0.5
       question_ratio: -0.5
-      imperative_ratio: 1.0
-    # Layer B: network and structural features (all messages).
+    # Layer B: network and structural features, matching network.py's
+    # column names (`recipient_count` -> `n_recipients`, `sender_centrality`
+    # -> `eigenvector_centrality`).
     layer_b_weights:
-      recipient_count: 0.5
+      n_recipients: 0.5
       is_broadcast: 0.5
-      sender_centrality: 1.0
+      eigenvector_centrality: 1.0
       thread_initiation_rate: 1.0
       last_word_rate: 1.0
       reply_latency_asymmetry: 1.0

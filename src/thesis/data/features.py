@@ -301,14 +301,35 @@ def iter_message_texts(messages_glob: str) -> Iterator[tuple[str, str]]:
 
     Empty-after-cleaning messages (forwards with no authored text, ~6.6% of
     the corpus) have nothing for these features to measure and are skipped.
+
+    Streams from DuckDB rather than calling ``.fetchall()`` -- at ~238k
+    messages, materializing every row as a Python object up front measurably
+    adds to peak memory in an environment already tight on RAM (WSL's default
+    cap is well under what a 4-worker spaCy pipeline plus DuckDB plus this
+    list would ask for at once; see run_extraction's chunking for the other
+    half of this fix).
     """
     con = duckdb.connect()
-    rows = con.execute(
+    cursor = con.execute(
         "SELECT message_uid, body_clean FROM read_parquet(?) WHERE NOT is_empty_after_clean",
         [messages_glob],
-    ).fetchall()
+    )
+    while batch := cursor.fetchmany(2_000):
+        yield from batch
     con.close()
-    yield from rows
+
+
+def _iter_row_chunks(
+    pairs: Iterator[tuple[str, str]], chunk_size: int
+) -> Iterator[list[tuple[str, str]]]:
+    chunk: list[tuple[str, str]] = []
+    for pair in pairs:
+        chunk.append(pair)
+        if len(chunk) >= chunk_size:
+            yield chunk
+            chunk = []
+    if chunk:
+        yield chunk
 
 
 def run_extraction(
@@ -317,29 +338,52 @@ def run_extraction(
     *,
     batch_size: int = _SPACY_BATCH_SIZE,
     n_process: int = _SPACY_N_PROCESS,
+    chunk_size: int = 10_000,
     limit: int | None = None,
 ) -> int:
     """Extract features for every message and write one Parquet file.
 
+    Processes ``chunk_size`` messages at a time and writes each chunk as its
+    own Parquet row-group, rather than holding parsed spaCy output for the
+    entire corpus in memory before writing anything. Peak memory is bounded
+    by one chunk, not by corpus size -- the earlier all-at-once version is
+    what coincided with two WSL crashes during a 4-process run over the full
+    ~238k messages.
+
     Returns the number of messages processed.
     """
     nlp = _load_nlp()
-    pairs = list(iter_message_texts(messages_glob))
-    if limit is not None:
-        pairs = pairs[:limit]
-    uids = [uid for uid, _ in pairs]
-    texts = [text for _, text in pairs]
+    pairs = iter_message_texts(messages_glob)
 
-    rows: list[dict[str, object]] = []
-    docs = nlp.pipe(texts, batch_size=batch_size, n_process=n_process)
-    for uid, doc in zip(uids, docs, strict=True):
-        rows.append(_feature_row(extract_features(uid, doc)))
-        if len(rows) % 20_000 == 0:
-            log.info("processed %d / %d messages", len(rows), len(pairs))
+    writer: pq.ParquetWriter | None = None
+    n_written = 0
+    try:
+        for chunk in _iter_row_chunks(pairs, chunk_size):
+            if limit is not None and n_written >= limit:
+                break
+            if limit is not None:
+                chunk = chunk[: limit - n_written]
 
-    table = pa.Table.from_pylist(rows, schema=FEATURES_SCHEMA)
-    pq.write_table(table, out_path, compression="zstd")
-    return len(rows)
+            uids = [uid for uid, _ in chunk]
+            texts = [text for _, text in chunk]
+            docs = nlp.pipe(texts, batch_size=batch_size, n_process=n_process)
+            rows = [
+                _feature_row(extract_features(uid, doc))
+                for uid, doc in zip(uids, docs, strict=True)
+            ]
+
+            table = pa.Table.from_pylist(rows, schema=FEATURES_SCHEMA)
+            if writer is None:
+                writer = pq.ParquetWriter(out_path, FEATURES_SCHEMA, compression="zstd")
+            writer.write_table(table)
+
+            n_written += len(rows)
+            log.info("processed %d messages", n_written)
+    finally:
+        if writer is not None:
+            writer.close()
+
+    return n_written
 
 
 def main() -> None:
