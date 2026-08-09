@@ -18,9 +18,16 @@ anthropic>=0.40
 openai>=1.40
 
 # Added in later phases (kept here as a roadmap, install when needed):
-#   spacy + en_core_web_sm      -- linguistic features (Layer A)
-#   convokit                    -- politeness strategies (Layer A)
-#   networkx                    -- network measures (Layer B)
+spacy==3.8.15
+networkx==3.6.1
+# en_core_web_sm model: `python -m spacy download en_core_web_sm`
+#
+# convokit was evaluated for Layer A politeness strategies and dropped:
+# its dependency resolution stalled/hung on this environment (heavy,
+# sometimes-conflicting tree: nltk corpus downloads, sklearn, a pinned
+# spaCy version). Layer A uses a hand-curated lexicon instead -- see
+# src/thesis/data/features.py for the citation basis and the scope-cut
+# note. Not attempted again without a specific reason to revisit it.
 #   rapidfuzz                   -- alias clustering
 #   sentence-transformers       -- embeddings, diversity, propagation
 #   scikit-learn                -- propagation classifier, real-vs-generated AUC
