@@ -16,7 +16,7 @@ you to read, not for a computer to run. Updated after each work session.
 | Project setup (coding environment, GitHub) | Done |
 | Download and clean the Enron email dataset | Done |
 | Figure out *who* sent each email (identity) | Done |
-| Look up each person's job title / rank | Not started — waiting on a source document (see "What's next") |
+| Look up each person's job title / rank | Done |
 | Reconstruct email conversation threads | Done |
 | Build the AI agent simulator | Not started |
 | Build the AI judge | Not started |
@@ -163,21 +163,76 @@ your thesis as a stated limitation.
 
 ---
 
+### 6. Job titles and seniority ranking (Aug 9)
+
+This finishes the piece that was blocked: knowing not just *who* sent an
+email, but what their **job title and seniority level** was, so hierarchy can
+actually be compared.
+
+**Both of the two sources we agreed on turned out to be dead links** — I
+checked thoroughly (see the sourcing conversation for details) and neither
+was actually retrievable anymore. Rather than give up, I searched further and
+found a **live, working alternative**: a 156-person employee list
+(name, department, job title, and a Junior/Senior label) published by a
+statistics professor who has done formal research on this exact dataset, with
+a legitimate academic citation. Full details of what was tried and why it was
+swapped are recorded in `data/external/SOURCES.md`.
+
+**How the matching works:** Enron's own email system named each person's
+mailbox folder in a very consistent way — surname, plus first-initial (e.g.
+Sally Beck → `beck-s`). So instead of fuzzy-guessing who's who from names in
+email headers (error-prone), the code rebuilds that exact folder-naming
+pattern from the employee list's names and matches it directly against the
+real mailbox folder names. This is precise rather than approximate.
+
+**I also built a job-title → seniority-rank table by hand** — 36 distinct
+titles found in the employee list ("VP Trading", "Mgr Trading", "Director",
+etc.), each assigned a rank from 1 (entry-level) to 6 (President/CEO), done
+**before** looking at any result, so the ranking couldn't be unconsciously
+shaped to produce a nicer-looking answer. This table is committed to the
+project (`data/external/title_to_rank.csv`) and can go straight into a
+thesis appendix.
+
+**Results:**
+
+| | |
+|---|---:|
+| Employees in the source list | 156 |
+| Successfully matched to a mailbox | 129 (82.7%) |
+| **Eligible emails with a known sender title/rank** | **47,567 / 117,794 (40.4%)** |
+
+The 27 unmatched people break down cleanly:
+- A handful are genuinely two different people who share a surname and first
+  initial (e.g. two people named "Dean, C..."), correctly left unresolved
+  rather than guessed at
+- A few appear in the employee list but never sent an email that survived
+  into the usable dataset
+- A very small number are one-off naming quirks (e.g. someone who went by
+  their middle name, or a two-word surname the automatic pattern didn't
+  expect) — noted rather than hand-patched, since chasing 3–4 individual
+  people with special-case code isn't worth the added complexity
+
+**A nice sanity check:** the by-hand rank table was cross-checked against the
+employee list's own Junior/Senior label after the fact. They agree
+**completely** — every rank category (Manager, Director, VP, etc.) lines up
+with exactly one of Junior or Senior, with zero contradictions. That's good
+independent evidence the ranking is sound.
+
+⚠️ **40.4% is now the real, final number for how much of the dataset can be
+used in the hierarchy analysis (Q1).** This is slightly lower than the
+44.8% mentioned before, because now the bar is "we know their exact job
+title," not just "we know who they are." Both are healthy numbers for this
+kind of study.
+
+---
+
 ## What's next
 
-**Waiting on you:**
-
-- **The employee job-title list.** To compare how people at different levels
-  of the company write, we need each person's job title (Employee, Manager,
-  Director, VP, etc.). This isn't part of the email dataset — it's a separate
-  published list. There are a couple of versions researchers use, so please
-  tell me which one you want to cite in your methods section and I'll use that.
-
-**Ready to start once the above is sorted:**
+Both remaining data-processing pieces are now unblocked:
 
 - Measure the "power" expressed in each email (how directive vs. deferential
-  the language is) — this is one of the core measures for your Q1.
-- Build the AI agent simulator.
+  the language is) — one of the core measures for Q1.
+- Start building the AI agent simulator.
 
 ---
 
@@ -186,3 +241,5 @@ your thesis as a stated limitation.
 - **All code and this file:** https://github.com/eunai9/llm-org-comm-thesis
 - **Auto-generated data summary:** `outputs/manifests/corpus_report.md`
 - **Conversations to hand-check:** `data/interim/threads_review_sample.txt`
+- **Where the employee/title data came from, and what didn't work:**
+  `data/external/SOURCES.md`

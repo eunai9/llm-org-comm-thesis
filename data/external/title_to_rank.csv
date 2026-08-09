@@ -1,0 +1,37 @@
+title,seniority_rank,rank_label,given_seniority
+Administrator,1,Employee,Junior
+Analyst,1,Employee,Junior
+Assistant,1,Employee,Junior
+Associate,1,Employee,Junior
+Attorney,1,Employee,Junior
+Cnsl,1,Employee,Junior
+Employee,1,Employee,Junior
+Gen Cnsl Asst,1,Employee,Junior
+Specialist,1,Employee,Junior
+Specialist Legal,1,Employee,Junior
+Trader,1,Employee,Junior
+Manager,2,Manager,Junior
+Mgr Trading,2,Manager,Junior
+Dir Trading,3,Director,Senior
+Director,3,Director,Senior
+Director & Cnsl,3,Director,Senior
+Director & Gen Cnsl Asst,3,Director,Senior
+VP,4,Vice President,Senior
+VP & Asst Gen Cnsl,4,Vice President,Senior
+VP & CFO,4,Vice President,Senior
+VP & CRO,4,Vice President,Senior
+VP & CTO,4,Vice President,Senior
+VP & Chief of Staff,4,Vice President,Senior
+VP & Gen Cnsl,4,Vice President,Senior
+VP Trading,4,Vice President,Senior
+VP of Enron Canada,4,Vice President,Senior
+VP of Enron Online,4,Vice President,Senior
+VP of Government Affairs,4,Vice President,Senior
+VP of Regulatory Affairs,4,Vice President,Senior
+COO,5,Managing Director,Senior
+Mng Dir Trading,5,Managing Director,Senior
+Mng Director & Gen Cnsl,5,Managing Director,Senior
+Mng Director Research,5,Managing Director,Senior
+EGM President & CEO,6,President/CEO,Senior
+ENA President & CEO,6,President/CEO,Senior
+President & CEO,6,President/CEO,Senior
