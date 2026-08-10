@@ -18,6 +18,7 @@ you to read, not for a computer to run. Updated after each work session.
 | Figure out *who* sent each email (identity) | Done |
 | Look up each person's job title / rank | Done |
 | Reconstruct email conversation threads | Done |
+| Measure "power" expressed in each email's writing style | Done |
 | Build the AI agent simulator | Not started |
 | Build the AI judge | Not started |
 
@@ -35,6 +36,13 @@ you to read, not for a computer to run. Updated after each work session.
   immediately instead of showing up later in your results.
 - **Coverage** — what percentage of emails we can actually use, after
   applying a filter (e.g. "we know who sent it").
+- **Power score** — a single number per email meant to capture how much
+  linguistic and behavioral "authority" the writer is projecting (giving
+  directions vs. hedging, being replied to quickly vs. slowly, and so on).
+- **Construct validity** — whether a measurement actually measures the thing
+  it claims to. For the power score, the check is: do people in more senior
+  roles actually score higher? If not, the measurement isn't capturing what
+  it was designed to capture, whatever else it might be picking up.
 
 ---
 
@@ -226,13 +234,70 @@ kind of study.
 
 ---
 
+### 7. The power score (Aug 10)
+
+This is the measurement Q1 (the hierarchy question) depends on most: a
+per-email score meant to capture how much authority a person's writing
+projects, combining two kinds of signal that were built and frozen
+*before* either was ever run against real results:
+
+- **Writing-style signal** — how often someone gives direct instructions vs.
+  hedges ("maybe", "perhaps"), defers ("if it's not too much trouble"), or
+  makes personal commitments ("I'll take care of it"). Measured with a
+  natural-language-processing tool (spaCy) run over every one of the
+  237,627 usable emails.
+- **Behavioral signal** — how central someone is in the email network, how
+  often they start conversations vs. get the last word, and whether people
+  reply to them faster than they reply to others.
+
+**This step ran into serious engineering trouble before it worked.** A
+single email in the dataset — not a real message, more like a 1.7-million
+character block of pasted text — was large enough to overwhelm the
+text-processing tool's memory needs and crashed the environment outright,
+twice, before the cause was pinned down. The fix excludes the 46 emails
+in the whole dataset (0.02%) that are implausibly long to be real
+correspondence, which then let the real run complete cleanly in about 77
+minutes. A second, unrelated crash turned out to be a Windows configuration
+issue (too much memory reserved for the Linux environment, leaving Windows
+itself unable to breathe) and was fixed separately. Both fixes are committed
+so this won't recur.
+
+**The result — reported honestly, exactly as planned in advance:**
+
+| Seniority rank | Mean power score | Emails |
+|---|---:|---:|
+| 1 — Junior employee | **+0.088** | 27,467 |
+| 2 — Manager | −0.044 | 10,906 |
+| 3 — Director | −0.025 | 17,729 |
+| 4 — Vice President | +0.003 | 18,092 |
+| 5 — Managing Director | −0.010 | 6,703 |
+| 6 — President / CEO | +0.016 | 3,796 |
+
+**The score does not track seniority.** If it worked as hoped, the numbers
+would climb steadily from rank 1 to rank 6. Instead junior employees score
+highest, executives are barely above zero, and the statistical correlation
+between rank and score is essentially flat (slightly negative, technically:
+Spearman's ρ = −0.065 — for reference, 0 means no relationship at all).
+
+This was flagged as a real possibility from the start, specifically so it
+wouldn't be tempting to quietly adjust the formula until it "worked." The
+formula stays exactly as originally frozen. **This is now a real, reportable
+finding for the thesis** — either the writing-style/network theory of
+"power" needs revisiting for this dataset, or (more likely, worth checking
+next) the two pieces that make up this score need to be looked at
+separately rather than only as a combined number, and compared against the
+upcoming AI-judged labels as a second opinion.
+
+---
+
 ## What's next
 
-Both remaining data-processing pieces are now unblocked:
+Data processing (Phase 2) is functionally complete. Next up:
 
-- Measure the "power" expressed in each email (how directive vs. deferential
-  the language is) — one of the core measures for Q1.
-- Start building the AI agent simulator.
+- Start building the AI agent simulator (Phase 3) — the personas, memory,
+  and prompt design that generate simulated email responses.
+- Decide, with your supervisor, how to present the power-score null result:
+  as-is, or split into its two components for a more granular look.
 
 ---
 
