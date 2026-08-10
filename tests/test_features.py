@@ -146,3 +146,44 @@ def test_multiple_sentences_average_correctly() -> None:
     f = features("Send the report. The weather is nice. I agree. Thanks for your help.")
     assert f.n_sentences == 4
     assert f.imperative_ratio == pytest.approx(0.25)
+
+
+def test_oversized_message_is_excluded_not_crashed(tmp_path):  # type: ignore[no-untyped-def]
+    """A message longer than MAX_BODY_CHARS must be skipped in SQL, not handed
+    to spaCy -- this is the fix for a real corpus outlier (a 1.7M-character
+    message) that crashed extraction with spaCy's own nlp.max_length guard.
+    """
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    from thesis.data.features import (
+        MAX_BODY_CHARS,
+        count_oversized_messages,
+        iter_message_texts,
+    )
+
+    schema = pa.schema(
+        [
+            pa.field("message_uid", pa.string()),
+            pa.field("body_clean", pa.string()),
+            pa.field("is_empty_after_clean", pa.bool_()),
+        ]
+    )
+    rows = [
+        {"message_uid": "short", "body_clean": "Send the report.", "is_empty_after_clean": False},
+        {
+            "message_uid": "huge",
+            "body_clean": "x" * (MAX_BODY_CHARS + 1),
+            "is_empty_after_clean": False,
+        },
+        {"message_uid": "empty", "body_clean": "", "is_empty_after_clean": True},
+    ]
+    out_dir = tmp_path / "messages"
+    out_dir.mkdir()
+    pq.write_table(pa.Table.from_pylist(rows, schema=schema), out_dir / "part-00000.parquet")
+    glob = str(out_dir / "*.parquet")
+
+    assert count_oversized_messages(glob) == 1
+
+    uids = [uid for uid, _ in iter_message_texts(glob)]
+    assert uids == ["short"]

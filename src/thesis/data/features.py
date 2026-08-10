@@ -58,6 +58,19 @@ log = get_logger(__name__)
 _SPACY_BATCH_SIZE = 256
 _SPACY_N_PROCESS = 4
 
+# A tiny number of messages in this corpus are not correspondence at all --
+# pasted documents, log dumps, or attachments that ended up in the body text
+# -- and run past a million characters (the largest is 1.7M). spaCy's parser
+# needs roughly 1GB of temporary memory per 100,000 characters, so a message
+# that size alone can exceed the machine's entire RAM budget; this is what
+# caused several apparent "hangs" during development (a worker thrashing on
+# memory allocation looks identical to a deadlock from the outside, until it
+# either OOMs or spaCy's own nlp.max_length safety check raises). Filtering
+# these out in SQL, before spaCy ever sees them, is cheap and drops only 46
+# of 237,673 messages (0.02%) -- corpus noise, not lost business
+# correspondence, all of which sits under a few thousand characters.
+MAX_BODY_CHARS = 100_000
+
 # --------------------------------------------------------------------------
 # Lexicons. Multi-word entries are matched as substrings on the lower-cased
 # sentence text; single tokens are matched against the lemmatized token set,
@@ -296,11 +309,30 @@ def _feature_row(features: MessageFeatures) -> dict[str, object]:
     }
 
 
-def iter_message_texts(messages_glob: str) -> Iterator[tuple[str, str]]:
-    """Yield (message_uid, body_clean) for every non-empty message.
+def count_oversized_messages(messages_glob: str, max_chars: int = MAX_BODY_CHARS) -> int:
+    """How many non-empty messages exceed the length cap -- for the report."""
+    con = duckdb.connect()
+    row = con.execute(
+        "SELECT count(*) FROM read_parquet(?) "
+        "WHERE NOT is_empty_after_clean AND length(body_clean) > ?",
+        [messages_glob, max_chars],
+    ).fetchone()
+    con.close()
+    assert row is not None
+    return int(row[0])
+
+
+def iter_message_texts(
+    messages_glob: str, max_chars: int = MAX_BODY_CHARS
+) -> Iterator[tuple[str, str]]:
+    """Yield (message_uid, body_clean) for every non-empty message short
+    enough for spaCy to parse safely.
 
     Empty-after-cleaning messages (forwards with no authored text, ~6.6% of
-    the corpus) have nothing for these features to measure and are skipped.
+    the corpus) have nothing for these features to measure. Messages over
+    ``max_chars`` are excluded for the memory reason documented on
+    :data:`MAX_BODY_CHARS` -- both filters happen in SQL, so the oversized
+    text is never even fetched, let alone handed to spaCy.
 
     Streams from DuckDB rather than calling ``.fetchall()`` -- at ~238k
     messages, materializing every row as a Python object up front measurably
@@ -311,8 +343,9 @@ def iter_message_texts(messages_glob: str) -> Iterator[tuple[str, str]]:
     """
     con = duckdb.connect()
     cursor = con.execute(
-        "SELECT message_uid, body_clean FROM read_parquet(?) WHERE NOT is_empty_after_clean",
-        [messages_glob],
+        "SELECT message_uid, body_clean FROM read_parquet(?) "
+        "WHERE NOT is_empty_after_clean AND length(body_clean) <= ?",
+        [messages_glob, max_chars],
     )
     while batch := cursor.fetchmany(2_000):
         yield from batch
@@ -392,12 +425,32 @@ def main() -> None:
     parser.add_argument("--out", default=str(INTERIM_DIR / "features.parquet"))
     parser.add_argument("--limit", type=int, default=None, help="For smoke tests.")
     parser.add_argument("--n-process", type=int, default=_SPACY_N_PROCESS)
+    parser.add_argument(
+        "--chunk-size",
+        type=int,
+        default=10_000,
+        help="Messages per write chunk. Smaller values give more frequent "
+        "progress log lines, at the cost of more (smaller) Parquet row groups.",
+    )
     args = parser.parse_args()
 
     configure_logging()
     ensure_dirs()
 
-    n = run_extraction(args.messages, args.out, n_process=args.n_process, limit=args.limit)
+    n_oversized = count_oversized_messages(args.messages)
+    if n_oversized:
+        log.info(
+            "excluding %d message(s) over %d chars (see MAX_BODY_CHARS)",
+            n_oversized,
+            MAX_BODY_CHARS,
+        )
+    n = run_extraction(
+        args.messages,
+        args.out,
+        n_process=args.n_process,
+        chunk_size=args.chunk_size,
+        limit=args.limit,
+    )
     log.info("wrote %d rows to %s", n, args.out)
 
 
