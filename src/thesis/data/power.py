@@ -40,6 +40,7 @@ from itertools import pairwise
 import duckdb
 import pandas as pd
 import pyarrow as pa
+import pyarrow.parquet as pq
 
 from thesis.config import Config, load_config
 from thesis.data.identity import resolve_owners
@@ -92,7 +93,7 @@ def load_joined_features(
             a.deference_rate,
             a.commitment_rate,
             a.question_ratio,
-            CASE WHEN m.n_recipients >= 10 THEN 1.0 ELSE 0.0 END AS is_broadcast,
+            CAST(CASE WHEN m.n_recipients >= 10 THEN 1.0 ELSE 0.0 END AS DOUBLE) AS is_broadcast,
             n.eigenvector_centrality,
             n.thread_initiation_rate,
             n.last_word_rate,
@@ -102,7 +103,7 @@ def load_joined_features(
         LEFT JOIN read_parquet(?) AS n ON n.address = m.from_addr
         """,
         [messages_glob, str(features_path), str(network_path)],
-    ).arrow()
+    ).to_arrow_table()
     con.close()
     return table.to_pandas()
 
@@ -233,7 +234,7 @@ def main() -> None:
         scored[["message_uid", "from_addr", "power_score", "n_power_components"]],
         preserve_index=False,
     )
-    pa.parquet.write_table(out_table, args.out, compression="zstd")
+    pq.write_table(out_table, args.out, compression="zstd")
     log.info("wrote %s", args.out)
 
     validation = validate_against_seniority(scored, args.messages)

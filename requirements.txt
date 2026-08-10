@@ -1,37 +1,74 @@
-# Runtime dependencies. Pinned loosely now; freeze exact versions before the
-# main experimental runs (October) so results stay reproducible.
-
-# --- config & environment ---
-pydantic>=2.7
-pydantic-settings>=2.3
-PyYAML>=6.0
-python-dotenv>=1.0
-
-# --- data processing (Phase 2) ---
-pandas>=2.2
-pyarrow>=16.0
-duckdb>=1.0
-numpy>=1.26
-
-# --- LLM providers (Phase 3) ---
-anthropic>=0.40
-openai>=1.40
-
-# Added in later phases (kept here as a roadmap, install when needed):
-spacy==3.8.15
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anthropic==0.121.0
+anyio==4.14.2
+ast_serialize==0.8.0
+black==26.5.1
+blis==1.3.3
+catalogue==2.0.10
+certifi==2026.7.22
+charset-normalizer==3.4.9
+click==8.4.2
+cloudpathlib==0.24.0
+confection==1.3.3
+cymem==2.0.13
+distro==1.9.0
+docstring_parser==0.18.0
+duckdb==1.5.5
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl#sha256=1932429db727d4bff3deed6b34cfc05df17794f4a52eeb26cf8928f7c1a0fb85
+h11==0.16.0
+httpcore==1.0.9
+httpx==0.28.1
+idna==3.18
+iniconfig==2.3.0
+Jinja2==3.1.6
+jiter==0.16.0
+librt==0.15.0
+markdown-it-py==4.2.0
+MarkupSafe==3.0.3
+mdurl==0.1.2
+murmurhash==1.0.15
+mypy==2.3.0
+mypy_extensions==1.1.0
 networkx==3.6.1
-# en_core_web_sm model: `python -m spacy download en_core_web_sm`
-#
-# convokit was evaluated for Layer A politeness strategies and dropped:
-# its dependency resolution stalled/hung on this environment (heavy,
-# sometimes-conflicting tree: nltk corpus downloads, sklearn, a pinned
-# spaCy version). Layer A uses a hand-curated lexicon instead -- see
-# src/thesis/data/features.py for the citation basis and the scope-cut
-# note. Not attempted again without a specific reason to revisit it.
-#   rapidfuzz                   -- alias clustering
-#   sentence-transformers       -- embeddings, diversity, propagation
-#   scikit-learn                -- propagation classifier, real-vs-generated AUC
-#   statsmodels                 -- mixed models (Q1)
-#   pingouin, krippendorff      -- ICC and inter-rater reliability (Q3)
-#   matplotlib                  -- figures
-#   jinja2                      -- prompt templates
+numpy==2.5.1
+openai==2.53.0
+packaging==26.3
+pandas==3.0.5
+pathspec==1.1.1
+platformdirs==4.11.0
+pluggy==1.6.0
+preshed==3.0.13
+pyarrow==25.0.0
+pydantic==2.13.4
+pydantic-settings==2.15.0
+pydantic_core==2.46.4
+Pygments==2.20.0
+pytest==9.1.1
+python-dateutil==2.9.0.post0
+python-dotenv==1.2.2
+pytokens==0.4.1
+PyYAML==6.0.3
+requests==2.34.2
+rich==15.0.0
+ruff==0.16.2
+scipy==1.18.0
+setuptools==84.0.0
+shellingham==1.5.4
+six==1.17.0
+smart_open==8.0.1
+sniffio==1.3.1
+spacy==3.8.15
+spacy-legacy==3.0.12
+spacy-loggers==1.0.5
+srsly==2.5.3
+-e git+ssh://git@github.com/eunai9/llm-org-comm-thesis.git@45cb5703318d7036fe1882ab2937a99a7c6cd1aa#egg=thesis
+thinc==8.3.13
+tqdm==4.70.0
+typer==0.27.1
+typing-inspection==0.4.2
+typing_extensions==4.16.0
+urllib3==2.7.0
+wasabi==1.1.3
+weasel==1.0.0
+wrapt==2.3.0
