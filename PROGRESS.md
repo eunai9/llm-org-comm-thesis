@@ -18,7 +18,8 @@ you to read, not for a computer to run. Updated after each work session.
 | Figure out *who* sent each email (identity) | Done |
 | Look up each person's job title / rank | Done |
 | Reconstruct email conversation threads | Done |
-| Measure "power" expressed in each email's writing style | Done |
+| Measure "power" expressed in each email's writing style | Done (see note below) |
+| Draw the samples the simulator and judge will use | Done |
 | Build the AI agent simulator | Not started |
 | Build the AI judge | Not started |
 
@@ -290,14 +291,57 @@ upcoming AI-judged labels as a second opinion.
 
 ---
 
+### 8. Sampling: drawing the three sets everything downstream uses (Aug 14)
+
+Before you looked at options for revising the power score, you asked what
+the next step would be if you simply left it as-is for now. This section is
+that next step, and it does not depend on however the power-score question
+eventually gets resolved.
+
+Everything from here on — the AI simulator, the AI judge, the labelling —
+needs specific, fixed sets of real emails to work with, drawn **once**, with
+one random seed, so every later result traces back to the same starting
+point. Three sets, drawn from the 47,567 emails that pass every filter
+(real correspondence, reasonable length, sender's job title known, inside
+the study window):
+
+| Sample | What it's for | Drawn |
+|---|---|---:|
+| S_label | Emails an AI will label (purpose, tone, etc.) to check the power score and train further labelling | 3,000 / 3,000 |
+| S_shots | Real email threads the simulator will be prompted with, to write realistic replies | 200 / 200 |
+| S_real_eval | The *actual* real replies inside those same 200 threads, so a real reply and an AI-written reply can be judged side-by-side, answering the exact same message | 302 / 400 |
+
+**S_real_eval came up short of the target (302, not 400) — reported
+honestly rather than padded.** There simply aren't 400 real replies sitting
+inside emails that also pass every other filter; some of the 200 threads
+only had one or two eligible replies. This doesn't threaten anything
+downstream — it just means slightly fewer real-vs-AI paired comparisons
+later.
+
+**A performance problem, caught and fixed before it could recur:** the
+first real run of this step took **47 minutes**, which was surprising for
+what should be quick. The cause was a common but easy-to-miss inefficiency
+— checking each of the ~18,000 real conversation threads one at a time in a
+slow way, instead of all at once. Rewritten to check them all in a single
+step, the exact same result now takes **under one second**. Worth
+mentioning only because it's the kind of thing that would have made
+re-running this step later (e.g. after any small config change) a
+half-hour tax for no reason.
+
+---
+
 ## What's next
 
-Data processing (Phase 2) is functionally complete. Next up:
+Data processing (Phase 2) is now fully complete — every piece the plan
+called for in August is built, run on the real corpus, and committed.
 
 - Start building the AI agent simulator (Phase 3) — the personas, memory,
-  and prompt design that generate simulated email responses.
-- Decide, with your supervisor, how to present the power-score null result:
-  as-is, or split into its two components for a more granular look.
+  and prompt design that generate simulated email responses, using
+  S_shots as the real stimuli.
+- The power-score method question is still open — you're reading through
+  options for a more current, LLM-based approach before deciding. Nothing
+  else is blocked on that decision; it can be revisited any time before the
+  labelling step (S_label) is actually run.
 
 ---
 
