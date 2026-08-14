@@ -1,0 +1,17 @@
+{
+  "eligible_pool_size": 47567,
+  "generated_at": "2026-08-14T16:59:09+00:00",
+  "s_label": {
+    "drawn": 3000,
+    "requested": 3000
+  },
+  "s_real_eval": {
+    "drawn": 302,
+    "requested": 400
+  },
+  "s_shots": {
+    "drawn": 200,
+    "requested": 200
+  },
+  "seed": 20260807
+}
