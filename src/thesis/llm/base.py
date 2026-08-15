@@ -133,6 +133,19 @@ class CompletionRequest:
     system: str | None = None
     output_schema: dict[str, Any] | None = None
     cache_system: bool = False
+
+    # Which independent draw this is for an otherwise identical prompt.
+    #
+    # Replicates exist to measure how much the model's output *varies* when
+    # asked the same thing repeatedly. Their prompts are byte-identical by
+    # construction, so without something to tell them apart the cache would
+    # serve draw 1 for every replicate: every replicate would be the same
+    # text, measured variance would be exactly zero, and the diversity
+    # analysis would silently be reporting a property of the cache rather
+    # than of the model. This field participates in the cache key so each
+    # draw is its own entry.
+    variant: int = 0
+
     metadata: dict[str, str] = field(default_factory=dict)
 
 

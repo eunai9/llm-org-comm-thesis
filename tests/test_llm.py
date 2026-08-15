@@ -264,3 +264,22 @@ def test_sonnet_5_has_a_higher_cache_minimum_than_opus_5() -> None:
 def test_unknown_model_capabilities_raise() -> None:
     with pytest.raises(UnknownModelError):
         capabilities_for("claude-opus-4-1")
+
+
+def test_replicates_of_an_identical_prompt_get_distinct_cache_keys() -> None:
+    """Replicates measure output variability, so each draw needs its own entry.
+
+    Their prompts are byte-identical by construction. Without the variant field
+    in the key, draw 1's response would be served for every replicate: measured
+    variance would be exactly zero and the diversity analysis would be
+    reporting a property of the cache rather than of the model.
+    """
+    keys = {cache_key(_request(variant=i), "anthropic") for i in range(1, 6)}
+    assert len(keys) == 5
+
+
+def test_same_variant_still_hits_the_cache() -> None:
+    """The reproducibility guarantee must survive the replicate fix."""
+    assert cache_key(_request(variant=3), "anthropic") == cache_key(
+        _request(variant=3), "anthropic"
+    )

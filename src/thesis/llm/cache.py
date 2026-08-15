@@ -59,6 +59,10 @@ def _canonical_payload(request: CompletionRequest, provider: str) -> dict[str, A
         "messages": [{"role": m.role, "content": m.content} for m in request.messages],
         "max_tokens": request.max_tokens,
         "output_schema": request.output_schema,
+        # Distinguishes independent draws of an identical prompt; see
+        # CompletionRequest.variant. Excluding it would collapse every
+        # replicate onto one cached response.
+        "variant": request.variant,
     }
 
 

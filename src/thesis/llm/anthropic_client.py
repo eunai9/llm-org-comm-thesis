@@ -36,6 +36,7 @@ from thesis.llm.base import (
     Capabilities,
     CompletionRequest,
     CompletionResponse,
+    Provider,
     Usage,
 )
 from thesis.logging_setup import get_logger
@@ -86,7 +87,11 @@ def capabilities_for(model: str) -> Capabilities:
 class AnthropicClient:
     """Thin wrapper over the Anthropic SDK."""
 
-    provider = "anthropic"
+    # Annotated with the Literal type rather than left to inference: without
+    # it this attribute is a plain str, the class silently fails to satisfy
+    # the LLMClient protocol, and the failure only surfaces wherever a client
+    # is first passed as one.
+    provider: Provider = "anthropic"
 
     def __init__(self, client: anthropic.Anthropic | None = None) -> None:
         # The zero-argument constructor resolves credentials from the
