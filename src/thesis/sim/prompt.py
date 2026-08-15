@@ -29,8 +29,10 @@ and says plainly that it is not authoritative.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
+from thesis.sim.memory import MemoryItem, render_memory_block, retrieve
 from thesis.sim.persona import Persona, render_persona_block
 from thesis.sim.scenario import Scenario, render_scenario_block
 
@@ -156,20 +158,59 @@ class AssembledPrompt:
         return f"{self.stable_prefix}\n\n{self.variable_suffix}"
 
 
-def build_stable_prefix(persona: Persona, direction: str) -> str:
-    """Everything that is constant for a (persona, direction) pair."""
-    return "\n\n".join(
-        [
-            TASK_FRAMING.strip(),
-            ORGANIZATION_CONTEXT.strip(),
-            "## Your role",
-            "",
-            render_persona_block(persona),
-            HIERARCHY_CONTEXT.strip(),
-            DECISION_TAXONOMY.strip(),
-            f"In this exchange, you are writing {_direction_phrase(direction)}.",
-        ]
+def memory_query(persona: Persona, direction: str) -> str:
+    """The query memories are retrieved against.
+
+    Deliberately built from the persona and direction rather than from the
+    scenario. Retrieving against the scenario would make the retrieved set --
+    and therefore the prompt prefix -- different for every cell, which would
+    silently reduce the prompt cache to nothing.
+
+    It is also the cleaner experimental control, and the plan says so: memory
+    is "generated once per (persona x counterpart_rank) pair and reused across
+    scenarios". Holding memory constant across scenarios means a difference
+    between two cells cannot be an artifact of them having remembered
+    different things.
+    """
+    return (
+        f"{persona.rank_label} in {persona.department}, " f"writing {_direction_phrase(direction)}"
     )
+
+
+def build_stable_prefix(
+    persona: Persona,
+    direction: str,
+    memories: Sequence[MemoryItem] = (),
+) -> str:
+    """Everything that is constant for a (persona, direction) pair.
+
+    Memory sits inside the cached prefix, which is only sound because it is
+    retrieved per (persona, direction) rather than per scenario -- see
+    :func:`memory_query`.
+    """
+    sections = [
+        TASK_FRAMING.strip(),
+        ORGANIZATION_CONTEXT.strip(),
+        "## Your role",
+        "",
+        render_persona_block(persona),
+        HIERARCHY_CONTEXT.strip(),
+        DECISION_TAXONOMY.strip(),
+    ]
+    memory_block = render_memory_block(memories)
+    if memory_block:
+        sections.append(memory_block)
+    sections.append(f"In this exchange, you are writing {_direction_phrase(direction)}.")
+    return "\n\n".join(sections)
+
+
+def retrieve_for_group(
+    persona: Persona,
+    direction: str,
+    store: Sequence[MemoryItem],
+) -> list[MemoryItem]:
+    """Retrieve the memories for one cache group, once."""
+    return retrieve(store, memory_query(persona, direction))
 
 
 def _direction_phrase(direction: str) -> str:
@@ -180,7 +221,11 @@ def _direction_phrase(direction: str) -> str:
     }[direction]
 
 
-def assemble(persona: Persona, scenario: Scenario) -> AssembledPrompt:
+def assemble(
+    persona: Persona,
+    scenario: Scenario,
+    memories: Sequence[MemoryItem] = (),
+) -> AssembledPrompt:
     """Build one prompt, split at the cache breakpoint.
 
     ``cache_group`` names the set of cells that share a prefix. Ordering a run
@@ -189,7 +234,7 @@ def assemble(persona: Persona, scenario: Scenario) -> AssembledPrompt:
     expires before the next cell needs it.
     """
     return AssembledPrompt(
-        stable_prefix=build_stable_prefix(persona, scenario.direction),
+        stable_prefix=build_stable_prefix(persona, scenario.direction, memories),
         variable_suffix="\n\n".join([render_scenario_block(scenario), OUTPUT_INSTRUCTION.strip()]),
         cache_group=f"{persona.persona_id}__{scenario.direction}",
     )

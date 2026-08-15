@@ -306,3 +306,51 @@ def test_cache_group_separates_models() -> None:
 def test_ordering_preserves_every_cell() -> None:
     cells = _cells()
     assert {c.cell_id for c in order_for_cache(cells)} == {c.cell_id for c in cells}
+
+
+# ------------------------------------------------- memory inside the prefix
+
+
+def test_memory_is_constant_across_scenarios_in_a_cache_group() -> None:
+    """Memory sits in the cached prefix, so it must not vary per scenario.
+
+    Retrieving against the scenario would make every cell's prefix unique and
+    silently reduce the prompt cache to nothing.
+    """
+    from thesis.sim.memory import MemoryItem
+    from thesis.sim.prompt import retrieve_for_group
+
+    persona = _persona()
+    store = [
+        MemoryItem(text=f"observation {i}", importance=0.5, hours_ago=float(i)) for i in range(20)
+    ]
+    memories = retrieve_for_group(persona, "up", store)
+
+    up_scenarios = [s for s in build_scenarios() if s.direction == "up"]
+    prefixes = {assemble(persona, s, memories).stable_prefix for s in up_scenarios}
+    assert len(prefixes) == 1
+
+
+def test_memory_query_ignores_scenario_content() -> None:
+    from thesis.sim.prompt import memory_query
+
+    query = memory_query(_persona(), "up")
+    assert "Director" in query and "Trading" in query
+    for scenario in build_scenarios():
+        assert scenario.incoming_message not in query
+
+
+def test_memory_appears_in_the_prefix_not_the_suffix() -> None:
+    from thesis.sim.memory import MemoryItem
+    from thesis.sim.prompt import build_stable_prefix
+
+    memories = [MemoryItem(text="I always double-check volumes", importance=0.9, hours_ago=2.0)]
+    prefix = build_stable_prefix(_persona(), "up", memories)
+    assert "I always double-check volumes" in prefix
+
+
+def test_prefix_without_memory_omits_the_section_entirely() -> None:
+    """An empty memory store must not leave a dangling empty heading."""
+    from thesis.sim.prompt import build_stable_prefix
+
+    assert "What you have in mind" not in build_stable_prefix(_persona(), "up", [])
