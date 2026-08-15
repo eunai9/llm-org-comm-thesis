@@ -42,6 +42,7 @@ from thesis.config import Config, load_config
 from thesis.llm.base import CompletionRequest, LLMClient, Message, Usage
 from thesis.llm.cache import ResponseCache, cache_key
 from thesis.llm.cost import CostLedger, LedgerEntry, cost_usd, guard_budget
+from thesis.llm.stub_client import is_stub_model
 from thesis.logging_setup import configure_logging, get_logger
 from thesis.paths import CACHE_DIR, COST_LEDGER, MANIFESTS_DIR, RUNS_DIR, ensure_dirs
 from thesis.sim.grid import GridCell, expand, order_for_cache, summarize
@@ -67,7 +68,14 @@ RESULT_SCHEMA = pa.schema(
         pa.field("direction", pa.string()),
         pa.field("stakes", pa.string()),
         pa.field("replicate", pa.int32()),
+        # The model the design asked for. This is the experimental factor,
+        # and is what analysis should group by.
         pa.field("model", pa.string()),
+        # The model that actually answered. Normally identical to `model`, but
+        # an offline run records a "stub-" id here -- so stub output is
+        # identifiable from the results file alone, without needing to know
+        # how the run was invoked.
+        pa.field("response_model", pa.string()),
         pa.field("role_label", pa.string()),
         pa.field("subject", pa.string()),
         pa.field("body", pa.string()),
@@ -140,6 +148,9 @@ class RunManifest:
     n_from_cache: int = 0
     n_generated: int = 0
     n_invalid: int = 0
+    # True when any response came from the stub client. Recorded so a manifest
+    # cannot be mistaken for the provenance of a real run.
+    offline: bool = False
     usage: dict[str, int] = field(default_factory=dict)
     total_cost_usd: float = 0.0
     finished_at: str | None = None
@@ -183,6 +194,17 @@ def _memories_for(
     return retrieve_for_group(cell.persona, cell.scenario.direction, store)
 
 
+def _is_billable(response_model: str, *, from_cache: bool) -> bool:
+    """Whether this response actually cost money.
+
+    A cache hit never reached the provider, and a stub response never left the
+    machine. Pricing either one would inflate the cost ledger -- the file the
+    thesis's total-spend figure is summed from -- with money that was never
+    spent.
+    """
+    return not from_cache and not is_stub_model(response_model)
+
+
 def _result_row(
     cell: GridCell,
     run_id: str,
@@ -190,6 +212,7 @@ def _result_row(
     usage: Usage,
     *,
     from_cache: bool,
+    response_model: str,
 ) -> dict[str, Any]:
     return {
         "cell_id": cell.cell_id,
@@ -203,6 +226,7 @@ def _result_row(
         "stakes": cell.scenario.stakes,
         "replicate": cell.replicate,
         "model": cell.model,
+        "response_model": response_model,
         "role_label": cell.role_label,
         "subject": payload["subject"],
         "body": payload["body"],
@@ -213,7 +237,14 @@ def _result_row(
         "input_tokens": usage.input_tokens,
         "cache_read_input_tokens": usage.cache_read_input_tokens,
         "output_tokens": usage.output_tokens,
-        "cost_usd": 0.0 if from_cache else cost_usd(cell.model, usage),
+        # Priced against the model that actually answered, not the one the
+        # design asked for: in an offline run those differ, and pricing the
+        # configured model would bill a stub run at real rates.
+        "cost_usd": (
+            cost_usd(cell.model, usage)
+            if _is_billable(response_model, from_cache=from_cache)
+            else 0.0
+        ),
     }
 
 
@@ -296,19 +327,32 @@ def run_grid(
             continue
 
         rows.append(
-            _result_row(cell, run_id, payload, response.usage, from_cache=response.from_cache)
+            _result_row(
+                cell,
+                run_id,
+                payload,
+                response.usage,
+                from_cache=response.from_cache,
+                response_model=response.model,
+            )
         )
         totals = totals + response.usage
+        billable = _is_billable(response.model, from_cache=response.from_cache)
         ledger.record(
             LedgerEntry(
                 run_id=run_id,
                 provider=client.provider,
                 model=cell.model,
-                call_kind="simulate",
+                # Labelled distinctly so a stub run is identifiable in the
+                # ledger rather than looking like a real call that cost $0.
+                call_kind="simulate" if not is_stub_model(response.model) else "simulate-stub",
                 usage=response.usage,
-                from_cache=response.from_cache,
+                from_cache=not billable,
             )
         )
+
+        if is_stub_model(response.model):
+            manifest.offline = True
 
         if index % 100 == 0:
             log.info(
@@ -354,6 +398,15 @@ def main() -> None:
         action="store_true",
         help="Serve only from cache; fail rather than call the API.",
     )
+    parser.add_argument(
+        "--offline",
+        action="store_true",
+        help=(
+            "Use the stub client: no API key, no cost, no network. Exercises "
+            "the whole pipeline, but the output is templated text and is NOT "
+            "usable as a result."
+        ),
+    )
     parser.add_argument("--out", default=str(RUNS_DIR / "simulation.parquet"))
     args = parser.parse_args()
 
@@ -362,7 +415,13 @@ def main() -> None:
     config = load_config()
 
     commit, dirty = git_state()
-    if dirty and not args.pilot and config.run.require_clean_git and not args.dry_run:
+    if (
+        dirty
+        and not args.pilot
+        and not args.offline
+        and config.run.require_clean_git
+        and not args.dry_run
+    ):
         msg = (
             "refusing to start a non-pilot run from a dirty working tree: "
             "results could not be traced back to a commit. Commit first, or "
@@ -391,7 +450,17 @@ def main() -> None:
 
     log.info("design: %s", json.dumps(summarize(cells)))
 
-    client = AnthropicClient()
+    client: LLMClient
+    if args.offline:
+        from thesis.llm.stub_client import StubClient
+
+        client = StubClient()
+        log.warning(
+            "OFFLINE MODE: responses are templated, not generated. Output is "
+            "for pipeline testing only and must not be reported as a result."
+        )
+    else:
+        client = AnthropicClient()
     stores: dict[str, Sequence[MemoryItem]] = {}
 
     if args.dry_run:
@@ -411,7 +480,7 @@ def main() -> None:
         n_cells=len(cells),
     )
 
-    if not args.pilot:
+    if not args.pilot and not args.offline:
         projection = dry_run(cells, client, stores, config)
         guard_budget(float(projection["projected_cost_usd"]), config.run.max_cost_usd)
 
