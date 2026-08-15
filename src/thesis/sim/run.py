@@ -42,6 +42,7 @@ from thesis.config import Config, load_config
 from thesis.llm.base import CompletionRequest, LLMClient, Message, Usage
 from thesis.llm.cache import ResponseCache, cache_key
 from thesis.llm.cost import CostLedger, LedgerEntry, cost_usd, guard_budget
+from thesis.llm.ollama_client import is_local_model
 from thesis.llm.stub_client import is_stub_model
 from thesis.logging_setup import configure_logging, get_logger
 from thesis.paths import CACHE_DIR, COST_LEDGER, MANIFESTS_DIR, RUNS_DIR, ensure_dirs
@@ -197,12 +198,14 @@ def _memories_for(
 def _is_billable(response_model: str, *, from_cache: bool) -> bool:
     """Whether this response actually cost money.
 
-    A cache hit never reached the provider, and a stub response never left the
-    machine. Pricing either one would inflate the cost ledger -- the file the
-    thesis's total-spend figure is summed from -- with money that was never
-    spent.
+    A cache hit never reached the provider, and neither a stub response nor a
+    locally-run model ever left the machine. Pricing any of them would inflate
+    the cost ledger -- the file the thesis's total-spend figure is summed
+    from -- with money that was never spent.
     """
-    return not from_cache and not is_stub_model(response_model)
+    return (
+        not from_cache and not is_stub_model(response_model) and not is_local_model(response_model)
+    )
 
 
 def _result_row(
@@ -351,7 +354,7 @@ def run_grid(
             )
         )
 
-        if is_stub_model(response.model):
+        if is_stub_model(response.model) or is_local_model(response.model):
             manifest.offline = True
 
         if index % 100 == 0:
@@ -399,6 +402,16 @@ def main() -> None:
         help="Serve only from cache; fail rather than call the API.",
     )
     parser.add_argument(
+        "--local",
+        metavar="MODEL",
+        default=None,
+        help=(
+            "Generate with a local Ollama model (e.g. llama3.2:3b): real "
+            "generated text, no key, no cost. Output is marked local/ and is "
+            "NOT usable as a result."
+        ),
+    )
+    parser.add_argument(
         "--offline",
         action="store_true",
         help=(
@@ -419,6 +432,7 @@ def main() -> None:
         dirty
         and not args.pilot
         and not args.offline
+        and not args.local
         and config.run.require_clean_git
         and not args.dry_run
     ):
@@ -459,6 +473,22 @@ def main() -> None:
             "OFFLINE MODE: responses are templated, not generated. Output is "
             "for pipeline testing only and must not be reported as a result."
         )
+    elif args.local:
+        from thesis.llm.ollama_client import OllamaClient, OllamaUnavailableError
+
+        client = OllamaClient(args.local)
+        if not client.is_available():
+            msg = (
+                "no Ollama server reachable. Start it with 'ollama serve', "
+                f"and pull the model with 'ollama pull {args.local}'."
+            )
+            raise OllamaUnavailableError(msg)
+        log.warning(
+            "LOCAL MODE (%s): text is genuinely generated, but by a local "
+            "model rather than a pinned provider model. Output is marked "
+            "local/ and must not be reported as a result.",
+            args.local,
+        )
     else:
         client = AnthropicClient()
     stores: dict[str, Sequence[MemoryItem]] = {}
@@ -480,7 +510,7 @@ def main() -> None:
         n_cells=len(cells),
     )
 
-    if not args.pilot and not args.offline:
+    if not args.pilot and not args.offline and not args.local:
         projection = dry_run(cells, client, stores, config)
         guard_budget(float(projection["projected_cost_usd"]), config.run.max_cost_usd)
 

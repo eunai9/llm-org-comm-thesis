@@ -25,7 +25,10 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol, runtime_checkable
 
-Provider = Literal["anthropic", "openai"]
+# Includes local execution alongside the two paid families. config.Provider
+# stays restricted to the paid ones on purpose: a local model is a development
+# tool, not something the experimental design may be configured to run on.
+Provider = Literal["anthropic", "openai", "ollama"]
 Role = Literal["user", "assistant"]
 
 
