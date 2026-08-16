@@ -354,3 +354,27 @@ def test_prefix_without_memory_omits_the_section_entirely() -> None:
     from thesis.sim.prompt import build_stable_prefix
 
     assert "What you have in mind" not in build_stable_prefix(_persona(), "up", [])
+
+
+def test_output_instruction_forbids_echoing_the_decision() -> None:
+    """A local prototype run opened bodies with 'decline.' as the first word.
+
+    The decision is separate structured bookkeeping the recipient never sees;
+    an email that begins with the category label is not something anyone
+    sends. The earlier wording ('no commentary about your choices') did not
+    actually forbid stating the choice itself.
+    """
+    from thesis.sim.prompt import OUTPUT_INSTRUCTION
+
+    text = OUTPUT_INSTRUCTION.lower()
+    assert "do not open with the decision word" in text
+    assert "separate" in text
+
+
+def test_output_instruction_stays_out_of_the_cached_prefix() -> None:
+    """Editing it must invalidate cached responses, not silently reuse them."""
+    from thesis.sim.prompt import OUTPUT_INSTRUCTION
+
+    assembled = assemble(_persona(), build_scenarios()[0])
+    assert OUTPUT_INSTRUCTION.strip() in assembled.variable_suffix
+    assert OUTPUT_INSTRUCTION.strip() not in assembled.stable_prefix

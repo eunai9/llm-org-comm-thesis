@@ -132,9 +132,23 @@ would, given who is on the other end.
 OUTPUT_INSTRUCTION = """\
 ## Your reply
 
-Reply now, in the required structured format. The `body` field should contain \
-only the text of the email itself - no signature block, no quoted original \
-message, and no commentary about your choices.
+Reply now, in the required structured format.
+
+The `decision` field is separate bookkeeping, recorded alongside your email
+for the study. It is not part of the email and the recipient never sees it.
+
+So the `body` field must read as the email you would actually send:
+
+- Do not open with the decision word. An email that begins "Decline." or
+  "Accept." is not something anyone sends; write the sentence a person would
+  write, and let the decision field record the stance separately.
+- Do not restate or label your stance anywhere in the body. Convey it the way
+  the email itself would - by what you say, not by naming the category.
+- No signature block, no quoted original message, and no commentary about
+  how you chose to respond.
+
+The `reasoning_brief` field is where the rationale goes, as one complete
+sentence.
 """
 
 
