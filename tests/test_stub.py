@@ -76,7 +76,8 @@ def test_results_schema_records_the_responding_model() -> None:
 
 
 def test_stub_run_costs_nothing(tmp_path: Path) -> None:
-    from conftest import make_cells, make_manifest
+    from tests.conftest import make_cells, make_manifest
+
     from thesis.config import load_config
     from thesis.sim.run import run_grid
 

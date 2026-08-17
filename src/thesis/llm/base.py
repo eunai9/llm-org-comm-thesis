@@ -172,6 +172,28 @@ class CompletionResponse:
 
 
 @runtime_checkable
+class BatchClient(Protocol):
+    """The subset of a client the batch pass actually uses.
+
+    Separated from :class:`LLMClient` so the batch code states its real
+    dependency. Requiring the full client there would force test doubles to
+    stub methods that are never called, and would type-admit clients that
+    cannot batch at all -- the local Ollama client raises on submission, and
+    the type system should be able to say so.
+    """
+
+    provider: Provider
+
+    def submit_batch(self, requests: Sequence[tuple[str, CompletionRequest]]) -> str:
+        """Submit ``(custom_id, request)`` pairs; return the provider batch id."""
+        ...
+
+    def fetch_batch(self, batch_id: str) -> dict[str, CompletionResponse] | None:
+        """Return results keyed by ``custom_id``, or ``None`` if still running."""
+        ...
+
+
+@runtime_checkable
 class LLMClient(Protocol):
     """What every provider client must offer.
 
