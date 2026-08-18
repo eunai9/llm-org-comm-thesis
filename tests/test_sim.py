@@ -378,3 +378,37 @@ def test_output_instruction_stays_out_of_the_cached_prefix() -> None:
     assembled = assemble(_persona(), build_scenarios()[0])
     assert OUTPUT_INSTRUCTION.strip() in assembled.variable_suffix
     assert OUTPUT_INSTRUCTION.strip() not in assembled.stable_prefix
+
+
+# --------------------------------------------------------- persona snapshot
+
+
+def test_freeze_and_load_round_trips_exactly(tmp_path):  # type: ignore[no-untyped-def]
+    """A third party without the ~270MB processed corpus loads this file
+    instead; it must reproduce the original personas exactly, not approximately."""
+    from thesis.sim.persona import freeze_personas, load_frozen_personas
+
+    original = [_persona("r3_trading", 3), _persona("r5_legal", 5, department="Legal")]
+    path = tmp_path / "snapshot.json"
+
+    freeze_personas(original, path)
+    restored = load_frozen_personas(path)
+
+    assert restored == original
+
+
+def test_load_frozen_personas_raises_a_clear_error_when_missing(tmp_path):  # type: ignore[no-untyped-def]
+    from thesis.sim.persona import load_frozen_personas
+
+    with pytest.raises(FileNotFoundError, match="no persona snapshot"):
+        load_frozen_personas(tmp_path / "does_not_exist.json")
+
+
+def test_committed_snapshot_is_present_and_loadable() -> None:
+    """The file a supervisor without the corpus actually depends on."""
+    from thesis.sim.persona import PERSONAS_SNAPSHOT_PATH, load_frozen_personas
+
+    assert PERSONAS_SNAPSHOT_PATH.is_file()
+    personas = load_frozen_personas()
+    assert len(personas) == 10
+    assert {p.department for p in personas} == {"Trading", "Legal"}

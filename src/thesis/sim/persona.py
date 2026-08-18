@@ -33,19 +33,30 @@ state, not hide.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Literal
 
 import duckdb
 import pyarrow as pa
 
-from thesis.logging_setup import get_logger
-from thesis.paths import INTERIM_DIR, MESSAGES_PARQUET_GLOB
+from thesis.logging_setup import configure_logging, get_logger
+from thesis.paths import EXTERNAL_DIR, INTERIM_DIR, MESSAGES_PARQUET_GLOB
 
 log = get_logger(__name__)
 
 FEATURES_PATH = INTERIM_DIR / "features.parquet"
+
+# A frozen snapshot of derive_personas() output, computed from the real
+# corpus and committed to the repo. The corpus itself (~270MB of processed
+# Enron mail) is deliberately not committed, so anyone without it -- a
+# supervisor testing the demo on their own machine, a reviewer without the
+# raw data -- cannot compute personas live. This snapshot lets the demo run
+# for them anyway, using the exact numbers the corpus actually produced
+# rather than asking them to reprocess 237k messages first.
+PERSONAS_SNAPSHOT_PATH = EXTERNAL_DIR / "personas_snapshot.json"
 
 # The two real, named departments in the vendored employee list. The third
 # value is a residual "Other" bucket of unrelated functions, which is not a
@@ -227,6 +238,48 @@ def derive_personas(
     return personas
 
 
+def freeze_personas(personas: Sequence[Persona], path: Path = PERSONAS_SNAPSHOT_PATH) -> None:
+    """Write derived personas to disk, so they can be loaded without the corpus.
+
+    Regenerate with ``python -m thesis.sim.persona`` whenever the underlying
+    corpus or role data changes -- this is a generated artifact, not a hand
+    edited one, and should be treated the same way as any other frozen report
+    in this project: reproducible from code, not maintained by hand.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = [asdict(persona) for persona in personas]
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def load_frozen_personas(path: Path = PERSONAS_SNAPSHOT_PATH) -> list[Persona]:
+    """Load personas from a snapshot rather than deriving them from the corpus.
+
+    The only path available to someone who has the code but not the ~270MB
+    processed corpus -- see :data:`PERSONAS_SNAPSHOT_PATH`.
+    """
+    if not path.is_file():
+        msg = (
+            f"no persona snapshot at {path}. Either process the corpus and "
+            "call freeze_personas(), or fetch the committed snapshot from "
+            "the repository."
+        )
+        raise FileNotFoundError(msg)
+    records = json.loads(path.read_text(encoding="utf-8"))
+    return [
+        Persona(
+            persona_id=r["persona_id"],
+            seniority_rank=r["seniority_rank"],
+            rank_label=r["rank_label"],
+            department=r["department"],
+            style=PersonaStyle(**r["style"]),
+            n_people=r["n_people"],
+            n_messages=r["n_messages"],
+            derivation=r["derivation"],
+        )
+        for r in records
+    ]
+
+
 def render_persona_block(persona: Persona) -> str:
     """The persona section of the prompt.
 
@@ -278,6 +331,29 @@ def collapsed_ranks(personas: Sequence[Persona]) -> list[int]:
     return sorted(collapsed)
 
 
+def main() -> None:
+    """Derive personas from the real corpus and freeze them to disk.
+
+    Run with ``python -m thesis.sim.persona`` whenever the corpus or role
+    data changes, to keep the committed snapshot in sync with reality.
+    """
+    from thesis.data.identity import resolve_owners
+    from thesis.data.roles import build_role_index, load_employees, load_title_rank_table
+
+    configure_logging()
+    title_ranks = load_title_rank_table()
+    role_index, _match = build_role_index(
+        load_employees(), resolve_owners(MESSAGES_PARQUET_GLOB), title_ranks
+    )
+    personas = derive_personas(
+        {a: (r.seniority_rank, r.department) for a, r in role_index.items()},
+        {rank: label for _, (rank, label) in title_ranks.items()},
+    )
+    freeze_personas(personas)
+    log.info("wrote %d persona(s) to %s", len(personas), PERSONAS_SNAPSHOT_PATH)
+    log.info(json.dumps(coverage_report(personas), indent=2))
+
+
 def coverage_report(personas: Sequence[Persona]) -> dict[str, object]:
     """Summary of how the personas were derived, for honest reporting."""
     pooled = [p.persona_id for p in personas if p.is_pooled]
@@ -298,3 +374,7 @@ def coverage_report(personas: Sequence[Persona]) -> dict[str, object]:
             "risk; excluded by design"
         ),
     }
+
+
+if __name__ == "__main__":
+    main()

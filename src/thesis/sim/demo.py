@@ -31,7 +31,7 @@ from thesis.llm.ollama_client import OllamaClient, OllamaUnavailableError
 from thesis.llm.stub_client import StubClient
 from thesis.paths import MESSAGES_PARQUET_GLOB
 from thesis.sim.grid import GridCell
-from thesis.sim.persona import Persona, derive_personas
+from thesis.sim.persona import FEATURES_PATH, Persona, derive_personas, load_frozen_personas
 from thesis.sim.run import build_request
 from thesis.sim.scenario import DIRECTIONS, STAKES, TASK_TYPES, Scenario, build_scenarios
 from thesis.sim.schemas import validate_response
@@ -39,15 +39,48 @@ from thesis.sim.schemas import validate_response
 console = Console()
 
 
+def _corpus_is_processed() -> bool:
+    """Whether the ~270MB processed corpus this repo does not commit is
+    actually present on this machine.
+
+    Checked rather than assumed, because attempting the live path without it
+    would fail deep inside duckdb with a confusing "no files matched" error
+    rather than the clear message this gives instead.
+    """
+    import glob as glob_module
+
+    # MESSAGES_PARQUET_GLOB is an absolute pattern; pathlib.Path.glob() only
+    # accepts absolute patterns from Python 3.13 (this project targets 3.12),
+    # so the stdlib glob module is used explicitly rather than Path.glob().
+    return (
+        bool(glob_module.glob(MESSAGES_PARQUET_GLOB))  # noqa: PTH207 -- see comment above
+        and FEATURES_PATH.is_file()
+    )
+
+
 def _load_personas() -> list[Persona]:
-    title_ranks = load_title_rank_table()
-    role_index, _ = build_role_index(
-        load_employees(), resolve_owners(MESSAGES_PARQUET_GLOB), title_ranks
+    """Personas from the live corpus if present, else the committed snapshot.
+
+    Anyone with the code but not the processed corpus -- a supervisor testing
+    this on their own machine, a reviewer without the raw data -- still gets
+    the real, corpus-derived numbers, computed once and frozen. See
+    persona.PERSONAS_SNAPSHOT_PATH.
+    """
+    if _corpus_is_processed():
+        title_ranks = load_title_rank_table()
+        role_index, _ = build_role_index(
+            load_employees(), resolve_owners(MESSAGES_PARQUET_GLOB), title_ranks
+        )
+        return derive_personas(
+            {a: (r.seniority_rank, r.department) for a, r in role_index.items()},
+            {rank: label for _, (rank, label) in title_ranks.items()},
+        )
+
+    console.print(
+        "[dim]No processed corpus found locally -- using the committed persona "
+        "snapshot (the same numbers, computed once from the real data).[/dim]"
     )
-    return derive_personas(
-        {a: (r.seniority_rank, r.department) for a, r in role_index.items()},
-        {rank: label for _, (rank, label) in title_ranks.items()},
-    )
+    return load_frozen_personas()
 
 
 def _choose(label: str, options: Sequence[str], describe: Sequence[str] | None = None) -> str:

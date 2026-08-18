@@ -126,3 +126,15 @@ def test_custom_scenario_carries_typed_input(monkeypatch: Any) -> None:
     assert scenario.direction == "up"
     assert scenario.situation == "typed answer"
     assert scenario.incoming_message == "typed answer"
+
+
+def test_falls_back_to_snapshot_when_corpus_is_absent(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """A supervisor without the ~270MB processed corpus must still get real,
+    corpus-derived personas -- not a crash reaching for files that don't exist."""
+    import thesis.sim.demo as demo_module
+
+    monkeypatch.setattr(demo_module, "_corpus_is_processed", lambda: False)
+    monkeypatch.setattr(demo_module, "console", _captured_console())
+
+    personas = demo_module._load_personas()
+    assert len(personas) == 10

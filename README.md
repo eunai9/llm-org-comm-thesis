@@ -12,6 +12,12 @@ Defense: end of March 2027.
 - **Q3 — Evaluator validity.** Can LLM-as-a-judge give consistent, calibrated
   quality scores that agree with human coders?
 
+## Try the simulator (no setup, no key)
+
+Want to see it work without setting up the full thesis environment? See
+[RUNNING_THE_DEMO.md](RUNNING_THE_DEMO.md) -- runs a small AI model locally,
+free, in about 15 minutes of setup.
+
 ## Quick start
 
 ```bash
