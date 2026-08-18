@@ -31,11 +31,15 @@ Then activate it — the command differs by OS:
 | Windows (PowerShell) | `.venv\Scripts\Activate.ps1` |
 | Windows (cmd.exe) | `.venv\Scripts\activate.bat` |
 
-Then install dependencies (a couple of minutes):
+Then install dependencies and the project itself (a couple of minutes):
 
 ```
 pip install -r requirements.txt
+pip install -e .
 ```
+
+(the second line matters — without it, `python -m thesis.sim.demo` fails with
+`No module named thesis.sim.demo`)
 
 ## 3. Install Ollama (runs the AI model locally)
 
@@ -92,6 +96,11 @@ corpus that isn't included in the repository.
 - `python -m thesis.sim.demo` fails immediately mentioning Ollama → the
   server isn't running. Try `ollama serve` in a separate terminal (Linux), or
   check the Ollama app is running (macOS/Windows).
+- `No module named thesis.sim.demo` → step 2's second `pip install` line
+  (`pip install -e .`) was skipped.
+- `ensurepip is not available` when creating the venv (Debian/Ubuntu) → run
+  `sudo apt install python3.12-venv` (adjust the version number to match
+  `python3 --version`), then redo step 2.
 - Installation errors during `pip install` → confirm `python3 --version` is
   3.12 or newer.
 - Anything else → send the exact error text back to the thesis author.
