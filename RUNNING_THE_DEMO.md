@@ -63,12 +63,29 @@ ollama pull llama3.2:3b
 
 ## 4. Run the demo
 
+Two versions of the same thing — pick whichever you prefer.
+
+**Web version** (a page in your browser — easiest to look at, easiest to show
+someone else on the same screen):
+
+```
+python -m thesis.sim.webdemo
+```
+
+Then open **http://localhost:5050** in your browser. Pick a role and a
+scenario with the dropdowns, click "Generate reply". Leave the terminal
+window open while you use it — closing it stops the page from working.
+
+**Terminal version** (same underlying behavior, keyboard-driven):
+
 ```
 python -m thesis.sim.demo
 ```
 
 Follow the prompts: pick "Local model" when asked which backend, then pick a
-role and a scenario. It generates a reply in 15–30 seconds.
+role and a scenario.
+
+Either way, a reply takes about 15–30 seconds to generate.
 
 **What you'll see the first time:**
 ```
@@ -77,7 +94,8 @@ snapshot (the same numbers, computed once from the real data).
 ```
 That's expected and correct — it means you're using real numbers computed
 from the actual dataset, without needing the multi-hundred-megabyte processed
-corpus that isn't included in the repository.
+corpus that isn't included in the repository. (The web version shows this in
+the terminal it was launched from, not on the page itself.)
 
 ## What this is, and isn't
 
@@ -93,9 +111,14 @@ corpus that isn't included in the repository.
 
 ## If something doesn't work
 
-- `python -m thesis.sim.demo` fails immediately mentioning Ollama → the
-  server isn't running. Try `ollama serve` in a separate terminal (Linux), or
-  check the Ollama app is running (macOS/Windows).
+- Either command fails immediately mentioning Ollama → the server isn't
+  running. Try `ollama serve` in a separate terminal (Linux), or check the
+  Ollama app is running (macOS/Windows).
+- The web version's page loads but "Generate reply" shows an error → same
+  cause as above; the page itself doesn't need Ollama to load, only to
+  generate.
+- http://localhost:5050 doesn't load at all → confirm the terminal running
+  `python -m thesis.sim.webdemo` is still open and didn't print an error.
 - `No module named thesis.sim.demo` → step 2's second `pip install` line
   (`pip install -e .`) was skipped.
 - `ensurepip is not available` when creating the venv (Debian/Ubuntu) → run
