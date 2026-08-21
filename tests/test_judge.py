@@ -313,6 +313,26 @@ def test_stub_model_scores_are_not_billed(tmp_path: Path) -> None:
     assert CostLedger(ledger_path).total_usd() == 0.0
 
 
+def test_local_model_scores_are_not_billed(tmp_path: Path) -> None:
+    """A real bug caught running this live: is_stub_model() alone let a
+    'local/...' response fall through to cost_usd(), which has no price for
+    it and raised UnknownModelPriceError -- blocking exactly the free-mode
+    judging this project relies on."""
+    client = _ScriptedClient([_response(_full_payload(), model="local/llama3.2:3b")])
+    ledger_path = tmp_path / "ledger.csv"
+    _, summary = score_items(
+        [_item("i1")],
+        client,
+        variant="neutral",
+        model="local/llama3.2:3b",
+        cache=ResponseCache(tmp_path / "cache"),
+        ledger=CostLedger(ledger_path),
+        run_id="r1",
+    )
+    assert summary.total_cost_usd == 0.0
+    assert CostLedger(ledger_path).total_usd() == 0.0
+
+
 def test_results_preserve_provenance_for_analysis(tmp_path: Path) -> None:
     """The one place is_generated is allowed to surface -- after scoring, for
     the calling analysis code, never inside the prompt itself."""

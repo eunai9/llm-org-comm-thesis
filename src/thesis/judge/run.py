@@ -25,6 +25,7 @@ from thesis.judge.rubric import build_judge_schema, validate_judge_response
 from thesis.llm.base import CompletionRequest, CompletionResponse, Message, Provider
 from thesis.llm.cache import ResponseCache, cache_key
 from thesis.llm.cost import CostLedger, LedgerEntry, cost_usd
+from thesis.llm.ollama_client import is_local_model
 from thesis.llm.stub_client import is_stub_model
 from thesis.logging_setup import get_logger
 
@@ -155,7 +156,16 @@ def score_items(
         )
         summary.n_scored += 1
 
-        billable = not response.from_cache and not is_stub_model(response.model)
+        # A local (Ollama) or stub response never reached a paid provider,
+        # the same distinction sim/run.py's _is_billable() makes -- missing
+        # is_local_model here would crash on an unpriced "local/..." model id
+        # rather than silently mis-billing, but it's still wrong: it would
+        # block exactly the free-mode judging this project relies on.
+        billable = (
+            not response.from_cache
+            and not is_stub_model(response.model)
+            and not is_local_model(response.model)
+        )
         cost = cost_usd(response.model, response.usage) if billable else 0.0
         summary.total_cost_usd += cost
         ledger.record(
@@ -165,7 +175,7 @@ def score_items(
                 model=response.model,
                 call_kind="judge",
                 usage=response.usage,
-                from_cache=response.from_cache or is_stub_model(response.model),
+                from_cache=response.from_cache or not billable,
             )
         )
 
