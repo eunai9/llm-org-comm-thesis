@@ -48,6 +48,7 @@ from thesis.logging_setup import configure_logging, get_logger
 from thesis.paths import CACHE_DIR, COST_LEDGER, MANIFESTS_DIR, RUNS_DIR, ensure_dirs
 from thesis.sim.grid import GridCell, expand, order_for_cache, summarize
 from thesis.sim.memory import MemoryItem
+from thesis.sim.memory_generation import load_frozen_memory
 from thesis.sim.persona import Persona
 from thesis.sim.prompt import assemble, retrieve_for_group
 from thesis.sim.scenario import Scenario
@@ -491,7 +492,15 @@ def main() -> None:
         )
     else:
         client = AnthropicClient()
-    stores: dict[str, Sequence[MemoryItem]] = {}
+
+    try:
+        stores: dict[str, Sequence[MemoryItem]] = load_frozen_memory()  # type: ignore[assignment]
+    except FileNotFoundError:
+        log.warning(
+            "no memory snapshot found; every reply will be generated with no "
+            "remembered context. Run python -m thesis.sim.memory_generation first."
+        )
+        stores = {}
 
     if args.dry_run:
         projection = dry_run(cells, client, stores, config)

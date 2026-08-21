@@ -9,6 +9,7 @@ data/external/*
 !data/external/title_to_rank.csv
 !data/external/alias_overrides.csv
 !data/external/personas_snapshot.json
+!data/external/memory_snapshot.json
 runs/
 outputs/figures/
 outputs/tables/

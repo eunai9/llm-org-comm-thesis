@@ -1,0 +1,1324 @@
+{
+  "r1_legal": [
+    {
+      "hours_ago": 500.0,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Spoke with a colleague from the regulatory department about an upcoming meeting with a government agency."
+    },
+    {
+      "hours_ago": 464.2857142857143,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Notified accounting to investigate a discrepancy in a pipeline project budget."
+    },
+    {
+      "hours_ago": 428.5714285714286,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Signed off on a draft report detailing energy usage patterns for the upcoming quarter."
+    },
+    {
+      "hours_ago": 392.85714285714283,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Received a call from a lawyer's office regarding a potential lawsuit."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Notified project manager that a critical piece of equipment is out of stock."
+    },
+    {
+      "hours_ago": 321.4285714285714,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Spent 30 minutes discussing a contract with a vendor in the supply chain department."
+    },
+    {
+      "hours_ago": 285.7142857142857,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Sent an email to the IT department to request assistance with a system issue."
+    },
+    {
+      "hours_ago": 250.0,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Met with a team to discuss the implementation of a new compliance policy."
+    },
+    {
+      "hours_ago": 214.2857142857143,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Discovered a missing document in our records system that needs to be recreated."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Attended a conference call with a group of senior executives to discuss quarterly performance."
+    },
+    {
+      "hours_ago": 142.85714285714286,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Spoke with a colleague about a potential conflict of interest."
+    },
+    {
+      "hours_ago": 107.14285714285715,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Generated a letter to a supplier regarding a minor issue with their performance."
+    },
+    {
+      "hours_ago": 71.42857142857146,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Discussed a proposed partnership with a foreign energy company."
+    },
+    {
+      "hours_ago": 35.7142857142857,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Received a report that confirmed our suspicions about a potential environmental hazard."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Spoke with a lawyer about a potential case to pursue against one of our competitors."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I tend to proactively seek out information and bring it to the attention of relevant teams."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I strive to maintain a thorough and accurate record of events and developments."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I prioritize open communication and clear messaging to ensure that projects stay on track and expectations are managed effectively."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I tend to resolve issues and problems at the earliest stage possible by addressing them directly with relevant teams and stakeholders."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I prioritize collaboration and clear communication in my work, often involving multiple teams and executives in discussions to ensure a comprehensive approach."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I take a proactive approach to identifying and resolving potential issues, such as missing documents or system glitches, before they impact my work or others."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I tend to be proactive and address potential issues before they escalate, which helps maintain a smooth workflow and minimizes conflicts."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I maintain open and transparent communication with colleagues and external partners, fostering trust and ensuring that all parties are informed and aligned."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I strive to be vigilant and detail-oriented in my work, regularly seeking out information and advice from experts and authorities to ensure I'm making informed decisions."
+    }
+  ],
+  "r1_trading": [
+    {
+      "hours_ago": 500.0,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "A trader called in from Houston with a question about a regional pricing study"
+    },
+    {
+      "hours_ago": 464.2857142857143,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "the trading floor's internet connection was down for 30 minutes during morning trading"
+    },
+    {
+      "hours_ago": 428.5714285714286,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "I had to redo my analysis for the daily energy forecast report because the input data was missing a key value"
+    },
+    {
+      "hours_ago": 392.85714285714283,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "the team's meeting with the energy commodities desk ran 15 minutes long over schedule"
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "I had to contact the IT department to report a software issue with our market data feeds"
+    },
+    {
+      "hours_ago": 321.4285714285714,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "our company's credit line was increased by $10 million for the next quarter"
+    },
+    {
+      "hours_ago": 285.7142857142857,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "a new report was due by the end of the day, but it was only sent in at 3:45 PM"
+    },
+    {
+      "hours_ago": 250.0,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "I had to resolve a discrepancy in our pricing spreadsheet that was causing errors in our daily reports"
+    },
+    {
+      "hours_ago": 214.2857142857143,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "the team was called to a meeting with the executive team at 6:00 AM to discuss quarterly performance"
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "I had to file a tax return for my firm's business income"
+    },
+    {
+      "hours_ago": 142.85714285714286,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "a key piece of equipment was down for maintenance, which was affecting our trading operations"
+    },
+    {
+      "hours_ago": 107.14285714285715,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "I had to contact the company's legal department to discuss the implications of a new regulation on our trading activities"
+    },
+    {
+      "hours_ago": 71.42857142857146,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "a trader reported a potential market manipulation on our internal trading platform"
+    },
+    {
+      "hours_ago": 35.7142857142857,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "I had to reconcile our trading account with the bank's statement, which revealed a discrepancy of $500,000"
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "I had to prepare a presentation for a meeting with potential investors"
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I tend to be proactive in seeking input and clarification on complex questions, as evidenced by the trader's call from Houston."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I strive to be efficient with my work, as shown by the fact that the issues that arose during morning trading and the daily energy forecast report were quickly resolved."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I prioritize communication and teamwork, as demonstrated by the team's meeting with the energy commodities desk and the need to coordinate with the IT department to report a software issue."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "You operate with a proactive approach, anticipating and preparing for potential disruptions or issues before they impact your work."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "You prioritize accuracy and attention to detail, taking the time to thoroughly investigate and resolve discrepancies or irregularities."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "You are well-versed in the inner workings of the company and its various departments, allowing you to effectively communicate and navigate complex issues with colleagues across different teams."
+    }
+  ],
+  "r2_legal": [
+    {
+      "hours_ago": 500.0,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Received a call from the accounting department requesting clarification on a recent audit finding."
+    },
+    {
+      "hours_ago": 464.2857142857143,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Scheduled a meeting with a new business development team to discuss potential partnerships."
+    },
+    {
+      "hours_ago": 428.5714285714286,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Reconciled the company's treasury accounts, but found a discrepancy of $100,000 that needs to be investigated."
+    },
+    {
+      "hours_ago": 392.85714285714283,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Sent a follow-up email to the engineering team regarding the revised project timeline."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Confirmed a meeting with a regulatory representative from the state government."
+    },
+    {
+      "hours_ago": 321.4285714285714,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Reviewed and approved a contract amendment with a major supplier."
+    },
+    {
+      "hours_ago": 285.7142857142857,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Scheduled a conference call with the CEO to discuss quarterly results."
+    },
+    {
+      "hours_ago": 250.0,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Sent a reminder to the sales team regarding the upcoming product launch."
+    },
+    {
+      "hours_ago": 214.2857142857143,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Conducted a review of the company's compliance with industry regulations."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Received a request from the IT department for assistance with a technical issue."
+    },
+    {
+      "hours_ago": 142.85714285714286,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Approved a request for funding for a research and development project."
+    },
+    {
+      "hours_ago": 107.14285714285715,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Scheduled a meeting with the marketing team to discuss the company's brand positioning."
+    },
+    {
+      "hours_ago": 71.42857142857146,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Received a notice from a creditor stating that the company is at risk of default."
+    },
+    {
+      "hours_ago": 35.7142857142857,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Conducted a meeting with the board of directors to discuss the company's strategic direction."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Scheduled a meeting with a potential investor to discuss a new financing opportunity."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I tend to proactively seek clarification and resolution on financial discrepancies, ensuring transparency and accuracy in our accounting processes."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I maintain open lines of communication with various teams and stakeholders to ensure seamless collaboration and informed decision-making."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I diligently follow up on important matters to ensure timely progress and completion of projects, whether they require technical expertise or regulatory compliance."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I tend to prioritize thoroughness and accuracy in my work, often seeking to review and refine documents and requests before moving forward."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I regularly seek to stay connected with key stakeholders and teams, scheduling regular check-ins and calls to ensure everyone is informed and aligned."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I strive to maintain a proactive approach to addressing technical and operational issues, anticipating potential problems and seeking assistance from relevant teams when needed."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "You tend to approach financial decisions with a cautious mindset, considering the potential risks and implications before making a move."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "You often engage in strategic planning and review, taking the time to discuss key issues with relevant teams and stakeholders."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "You are proactive in seeking opportunities for growth and investment, exploring new financing options and discussing them with potential partners."
+    }
+  ],
+  "r2_trading": [
+    {
+      "hours_ago": 500.0,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "The energy commodities price report for this quarter just came in late."
+    },
+    {
+      "hours_ago": 464.2857142857143,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "I had to call the accounting team to review the discrepancy in the quarterly revenue report."
+    },
+    {
+      "hours_ago": 428.5714285714286,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "The team meeting on Monday took longer than expected, and we missed our scheduled lunch break."
+    },
+    {
+      "hours_ago": 392.85714285714283,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "I was required to sign off on a deal for purchasing additional crude oil from a new supplier."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "The market analysis report we requested from our external consultants was only partially delivered."
+    },
+    {
+      "hours_ago": 321.4285714285714,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "I had to rework the schedule for the upcoming market conference to ensure our team was prepared."
+    },
+    {
+      "hours_ago": 285.7142857142857,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "The team's trading floor is experiencing some technical issues with their desktop computers."
+    },
+    {
+      "hours_ago": 250.0,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "The quarterly performance metrics were not accurately reflected in our company's public statements."
+    },
+    {
+      "hours_ago": 214.2857142857143,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "I met with the risk management team to discuss potential exposure to changes in the crude oil market."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "The company's IT department informed us that our trading platform's security patches are not yet complete."
+    },
+    {
+      "hours_ago": 142.85714285714286,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "A new regulation requiring more detailed reporting on our trades is set to take effect in two weeks."
+    },
+    {
+      "hours_ago": 107.14285714285715,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "The team's current trading positions were reviewed by the company's CEO during a surprise visit."
+    },
+    {
+      "hours_ago": 71.42857142857146,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "I had to call the market analyst to confirm their views on the recent oil price drop."
+    },
+    {
+      "hours_ago": 35.7142857142857,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "The internal audit department will be conducting a review of our trading procedures."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Our team's sales figures for the quarter are not accurately reflected in our company's public projections."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I tend to prioritize thoroughness over timeliness, which can lead to delays in meeting deadlines."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "My team meetings often involve extensive discussions, which can extend beyond the scheduled time."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I typically strive for accuracy and attention to detail in my work, which can sometimes lead to additional tasks, such as reviewing reports for discrepancies."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I tend to anticipate and prepare for potential issues before they arise, often proactively addressing technical issues before they impact our operations."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I regularly review and verify the accuracy of our company's public statements to ensure they align with our actual performance metrics."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I prioritize collaboration with cross-functional teams to ensure that everyone is informed and aligned on potential risks and opportunities, such as our risk management team discussion on crude oil market changes."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "We prioritize accuracy and transparency in our reporting, even when faced with complex or sensitive information."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "We proactively seek external expertise to inform our decision-making and stay up-to-date with market trends."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "We maintain a high level of accountability, recognizing that our actions have a direct impact on the company's performance and public image."
+    }
+  ],
+  "r3_legal": [
+    {
+      "hours_ago": 500.0,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Notified the accounting team about a discrepancy in the quarterly revenue report."
+    },
+    {
+      "hours_ago": 464.2857142857143,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Finalized a draft of the merger agreement with our partner company."
+    },
+    {
+      "hours_ago": 428.5714285714286,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Met with the CEO to discuss the upcoming earnings call."
+    },
+    {
+      "hours_ago": 392.85714285714283,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Approved a $500,000 payment to settle a minor lawsuit."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Dealt with a delayed delivery of critical financial documents from our auditors."
+    },
+    {
+      "hours_ago": 321.4285714285714,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Delivered a presentation to the board of directors on regulatory updates."
+    },
+    {
+      "hours_ago": 285.7142857142857,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Received an email from the SEC requesting additional information about our company's financial practices."
+    },
+    {
+      "hours_ago": 250.0,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Implemented a new procedure for managing conflicts of interest among employees."
+    },
+    {
+      "hours_ago": 214.2857142857143,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Convened an emergency meeting with the compliance team to address a potential data breach."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Provided guidance on the proper handling of sensitive corporate information."
+    },
+    {
+      "hours_ago": 142.85714285714286,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Completed a thorough review of the company's anti-money laundering policies."
+    },
+    {
+      "hours_ago": 107.14285714285715,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Scheduled a follow-up meeting with our outside counsel to discuss ongoing litigation."
+    },
+    {
+      "hours_ago": 71.42857142857146,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Assisted the CEO with drafting a letter to the shareholders regarding the company's performance."
+    },
+    {
+      "hours_ago": 35.7142857142857,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Processed a request for a new credit line from a key supplier."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Testified before a legislative committee about the company's practices in the energy sector."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "Maintaining attention to detail is a habit of mine when reviewing financial reports and documents to ensure accuracy and prevent errors."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "Meticulousness is a key aspect of my approach to document management and communication, often leading to prompt and effective responses to stakeholders."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "A thorough and methodical approach to decision-making is often applied in my work, allowing me to carefully consider and weigh options before making recommendations or taking action."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I tend to proactively prepare for meetings and presentations, ensuring I have all necessary information to provide clear and concise updates. I habitually seek out clarification and additional information to address any concerns or questions from stakeholders. I consistently prioritize transparency and openness in my interactions with colleagues and external parties, recognizing the importance of trust and credibility in professional relationships."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I tend to prioritize thoroughness and attention to detail in my work, as evidenced by my rigorous review of anti-money laundering policies."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I strive to maintain open lines of communication with stakeholders, as shown by my follow-up meeting with outside counsel and assistance to the CEO."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I am proactive in ensuring compliance and risk management, as demonstrated by my processing of a request for a new credit line from a key supplier and my testimony before a legislative committee."
+    }
+  ],
+  "r3_trading": [
+    {
+      "hours_ago": 500.0,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Notified the trading team of a potential trading desk vulnerability."
+    },
+    {
+      "hours_ago": 464.2857142857143,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Received a call from a portfolio manager regarding a pending settlement."
+    },
+    {
+      "hours_ago": 428.5714285714286,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Scheduled a meeting with the risk management team to discuss market exposure."
+    },
+    {
+      "hours_ago": 392.85714285714283,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Confirmed the details of a new partnership with an energy trading firm."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Discovered an unbalanced position in a customer's account."
+    },
+    {
+      "hours_ago": 321.4285714285714,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Requested additional information from a supplier regarding a shipment."
+    },
+    {
+      "hours_ago": 285.7142857142857,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Discussed market analysis with a junior trader."
+    },
+    {
+      "hours_ago": 250.0,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Submitted a request for a new trading platform to the IT department."
+    },
+    {
+      "hours_ago": 214.2857142857143,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Notified the accounting team of a discrepancy in a customer's invoice."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Confirmed a trade execution with a counterpart."
+    },
+    {
+      "hours_ago": 142.85714285714286,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Received an update on a trade that was pending confirmation."
+    },
+    {
+      "hours_ago": 107.14285714285715,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Coordinated with a customer to resolve an issue with their account."
+    },
+    {
+      "hours_ago": 71.42857142857146,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Confirmed a deal with a new supplier."
+    },
+    {
+      "hours_ago": 35.7142857142857,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Discussed trading strategy with a senior colleague."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Notified the operations team of a potential outage at a facility."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "Proactive communication is a core part of my workflow, as I often take the initiative to inform teams about potential issues or opportunities."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "A thorough and methodical approach to my work allows me to identify and address discrepancies and unbalances in a timely and effective manner."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I strive to build strong relationships with colleagues and partners through regular communication and collaboration, which enables me to stay informed and address potential issues before they escalate."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I tend to be proactive in seeking additional information to ensure accuracy and completeness in my work."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I often engage in ongoing discussions with colleagues to gather insights and expertise."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I take a systematic approach to requesting and implementing changes, such as submitting formal requests for new platforms or tools."
+    }
+  ],
+  "r4_legal": [
+    {
+      "hours_ago": 500.0,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Spoke with the CFO about the quarterly earnings projections."
+    },
+    {
+      "hours_ago": 464.2857142857143,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Notified the procurement team about a delayed shipment of equipment."
+    },
+    {
+      "hours_ago": 428.5714285714286,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Reviewed and approved the contract for the new pipeline expansion."
+    },
+    {
+      "hours_ago": 392.85714285714283,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Received a call from the CEO requesting an update on the litigation status."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Scheduled a meeting with the legal team to discuss the recent M&A deal."
+    },
+    {
+      "hours_ago": 321.4285714285714,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Notified the risk management team about a potential liability related to the recent refinery accident."
+    },
+    {
+      "hours_ago": 285.7142857142857,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Conducted a review of the company's intellectual property portfolio."
+    },
+    {
+      "hours_ago": 250.0,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Spoke with the compliance team about the upcoming regulatory deadlines."
+    },
+    {
+      "hours_ago": 214.2857142857143,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Approved the payment for the settlement of a minor lawsuit."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Received a report from the accounting team about a discrepancy in the company's accounts."
+    },
+    {
+      "hours_ago": 142.85714285714286,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Met with the business development team to discuss potential new ventures."
+    },
+    {
+      "hours_ago": 107.14285714285715,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Signed off on the draft of the company's annual compliance report."
+    },
+    {
+      "hours_ago": 71.42857142857146,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Spoke with the IT department about the need for an upgrade to the company's data management system."
+    },
+    {
+      "hours_ago": 35.7142857142857,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Notified the company's insurance provider about a potential claim related to the recent drilling accident."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Attended a meeting with the company's board of directors to discuss the company's overall strategy."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I tend to proactively communicate with teams and stakeholders about significant changes or updates, such as delayed shipments or quarterly earnings projections. I often take the initiative to review and approve contracts, suggesting that I'm detail-oriented and willing to take on responsibility for important decisions. I'm open to meeting with various teams to discuss ongoing projects and address questions or concerns, indicating that I value collaboration and transparency."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "My work involves a proactive approach to identifying and addressing potential risks and opportunities, such as updating the data management system and notifying the insurance provider of a potential claim."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I tend to engage in collaborative discussions with various teams to explore new ventures and inform company-wide strategy."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I prioritize thoroughness and accuracy in my work, as evidenced by the signing off on the annual compliance report draft."
+    }
+  ],
+  "r4_trading": [
+    {
+      "hours_ago": 500.0,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Checked the energy futures trading desk for potential market disruptions due to a planned maintenance shutdown."
+    },
+    {
+      "hours_ago": 461.53846153846155,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Notified the sales team that a large contract had been assigned, and provided them with the client details."
+    },
+    {
+      "hours_ago": 423.0769230769231,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Spoke with the accounting team about a discrepancy in the company's cash holdings."
+    },
+    {
+      "hours_ago": 384.6153846153846,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Sent an email to the risk management team requesting an update on their analysis of potential price swings."
+    },
+    {
+      "hours_ago": 346.15384615384613,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Reviewing the day's trading activity with the trading team to discuss lessons learned."
+    },
+    {
+      "hours_ago": 307.69230769230774,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Attended a meeting with the marketing team to discuss energy pricing strategies for the upcoming quarter."
+    },
+    {
+      "hours_ago": 269.2307692307692,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Notified the CEO of a potential conflict of interest between an employee and a client."
+    },
+    {
+      "hours_ago": 230.76923076923077,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Spoke with the IT department about implementing new trading software on the energy futures trading desk."
+    },
+    {
+      "hours_ago": 192.3076923076923,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Conducted a meeting with the senior management team to discuss market outlook and risk management strategies."
+    },
+    {
+      "hours_ago": 153.84615384615387,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Updated the company's energy trading policies and procedures document."
+    },
+    {
+      "hours_ago": 115.38461538461536,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Reconciled the trading desk's position with the accounting department's records."
+    },
+    {
+      "hours_ago": 76.92307692307693,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Notified the regulatory affairs team about an upcoming audit of the company's trading practices."
+    },
+    {
+      "hours_ago": 38.46153846153844,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Spoke with the trading team about strategies to manage exposure to the volatile natural gas market."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Met with the legal team to discuss the implications of a potential trade secret theft on the company's operations."
+    },
+    {
+      "hours_ago": 346.15384615384613,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "Maintaining situational awareness is a habitual aspect of my work, as I regularly monitor market trends and potential disruptions."
+    },
+    {
+      "hours_ago": 346.15384615384613,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "Proactive communication is a core part of my workflow, as I frequently inform teams about key developments and updates."
+    },
+    {
+      "hours_ago": 346.15384615384613,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "Analytical diligence is a consistent aspect of my work, as I continually review and assess data to inform my decision-making."
+    },
+    {
+      "hours_ago": 153.84615384615387,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I tend to identify and address potential conflicts of interest early on to minimize their impact."
+    },
+    {
+      "hours_ago": 153.84615384615387,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I maintain open lines of communication with various departments to ensure seamless integration of new systems and strategies."
+    },
+    {
+      "hours_ago": 153.84615384615387,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I prioritize transparency and collaboration with senior management to inform and align the company's market outlook and risk management strategies."
+    }
+  ],
+  "r5_legal": [
+    {
+      "hours_ago": 500.0,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Review of quarterly reports to ensure accuracy of asset values"
+    },
+    {
+      "hours_ago": 464.2857142857143,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Confrontation with a team member about missed deadline for a contract review"
+    },
+    {
+      "hours_ago": 428.5714285714286,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Discovery of a discrepancy in a subsidiary's accounts payable"
+    },
+    {
+      "hours_ago": 392.85714285714283,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Revised terms for a major partnership agreement sent back to counterparties for approval"
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Interview of a potential candidate for a key legal position"
+    },
+    {
+      "hours_ago": 321.4285714285714,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Report from a recent audit reveals minor issues with internal controls"
+    },
+    {
+      "hours_ago": 285.7142857142857,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Meeting with the CEO to discuss the company's legal strategy for an upcoming acquisition"
+    },
+    {
+      "hours_ago": 250.0,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Follow-up conversation with a vendor about outstanding payments"
+    },
+    {
+      "hours_ago": 214.2857142857143,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Analysis of the potential risks and liabilities associated with a new business venture"
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Delivering a presentation to a board committee on a key regulatory issue"
+    },
+    {
+      "hours_ago": 142.85714285714286,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Review and update of an employee's employment agreement"
+    },
+    {
+      "hours_ago": 107.14285714285715,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Investigation into a potential breach of confidentiality by an employee"
+    },
+    {
+      "hours_ago": 71.42857142857146,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Meeting with a trade association to discuss the company's legal position on a specific industry issue"
+    },
+    {
+      "hours_ago": 35.7142857142857,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Notification that a report is ready for review, but was delayed by a week due to an unexpected issue with the data source"
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Assignment of a new contract review task to a junior attorney"
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I tend to scrutinize details carefully to ensure accuracy in my work."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I am proactive in addressing potential issues or discrepancies before they escalate further."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I prioritize thoroughness and thorough investigation before making decisions or taking action."
+    }
+  ],
+  "r5_trading": [
+    {
+      "hours_ago": 500.0,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Just reviewed the quarterly results for the oil trading desk, and we're slightly under our projections."
+    },
+    {
+      "hours_ago": 464.2857142857143,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Spoke with the commodity desk about an issue with the NYMEX futures contract, need to get it resolved ASAP."
+    },
+    {
+      "hours_ago": 428.5714285714286,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Meetings with the risk management team ran long, need to get our presentation to them done by the end of the week."
+    },
+    {
+      "hours_ago": 392.85714285714283,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Received an email from the settlement desk about an open account with a counterparty, need to review it."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Our market analysis report was late by a day, need to get it to the sales team soon."
+    },
+    {
+      "hours_ago": 321.4285714285714,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Discussed a new trading strategy with the team, need to implement it in the next trading session."
+    },
+    {
+      "hours_ago": 285.7142857142857,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "The accounting team is looking for more info on the mark-to-market accounting for our energy trading positions."
+    },
+    {
+      "hours_ago": 250.0,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Scheduled a call with the credit team to discuss potential changes to our counterparty credit limits."
+    },
+    {
+      "hours_ago": 214.2857142857143,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "The operations team is having trouble with a valve replacement at one of our plants, need to monitor it closely."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Received an update on our pipeline capacity, it looks like we'll be able to meet demand this quarter."
+    },
+    {
+      "hours_ago": 142.85714285714286,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "The risk management team is pushing for more transparency in our positions, need to get that sorted."
+    },
+    {
+      "hours_ago": 107.14285714285715,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "Spoke with the sales team about an issue with one of our largest clients, need to resolve it quickly."
+    },
+    {
+      "hours_ago": 71.42857142857146,
+      "importance": 0.2,
+      "kind": "observation",
+      "text": "Received an email from the regulatory team about a new proposed rule change that affects our industry."
+    },
+    {
+      "hours_ago": 35.7142857142857,
+      "importance": 0.9,
+      "kind": "observation",
+      "text": "The IT department is experiencing some issues with our trading platform, need to get it back online ASAP."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.5,
+      "kind": "observation",
+      "text": "Discussed the upcoming earnings call with the communications team, need to get our messaging right."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I tend to dive into the details of a situation before looking at the bigger picture, which can sometimes lead to a longer-than-expected analysis period."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I often find myself taking on multiple tasks and responsibilities at once, which can cause delays and require me to prioritize effectively."
+    },
+    {
+      "hours_ago": 357.14285714285717,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I have a tendency to get absorbed in meetings and discussions, leading to longer-than-expected engagement times."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "You tend to proactively manage multiple tasks and responsibilities, often juggling competing priorities and deadlines."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "Your work style suggests that you collaborate with various teams, soliciting input and expertise to inform your decision-making."
+    },
+    {
+      "hours_ago": 178.57142857142856,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "You tend to focus on both short-term and long-term goals, regularly monitoring progress and adjusting strategies as needed."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I tend to prioritize tasks based on urgency and impact on the business."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I often engage with cross-functional teams to ensure alignment and effective communication."
+    },
+    {
+      "hours_ago": 0.0,
+      "importance": 0.9,
+      "kind": "reflection",
+      "text": "I regularly seek out updates and information from various departments to stay informed about industry developments and business operations."
+    }
+  ]
+}

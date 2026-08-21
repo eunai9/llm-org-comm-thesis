@@ -28,9 +28,11 @@ from thesis.llm.base import LLMClient
 from thesis.llm.ollama_client import OllamaClient, OllamaUnavailableError
 from thesis.llm.stub_client import StubClient
 from thesis.logging_setup import get_logger
-from thesis.sim.demo import _load_personas
+from thesis.sim.demo import _load_memory, _load_personas
 from thesis.sim.grid import GridCell
+from thesis.sim.memory import MemoryItem
 from thesis.sim.persona import Persona
+from thesis.sim.prompt import retrieve_for_group
 from thesis.sim.run import build_request
 from thesis.sim.scenario import DIRECTIONS, STAKES, TASK_TYPES, Scenario, build_scenarios
 from thesis.sim.schemas import InvalidResponseError, validate_response
@@ -44,11 +46,13 @@ app = Flask(__name__)
 # re-deriving on each page load.
 _PERSONAS: list[Persona] = []
 _SCENARIOS_BY_KEY: dict[tuple[str, str, str], Scenario] = {}
+_MEMORY: dict[str, list[MemoryItem]] = {}
 
 
 def _init_data() -> None:
-    global _PERSONAS, _SCENARIOS_BY_KEY
+    global _PERSONAS, _SCENARIOS_BY_KEY, _MEMORY
     _PERSONAS = _load_personas()
+    _MEMORY = _load_memory()
     _SCENARIOS_BY_KEY = {(s.task_type, s.direction, s.stakes): s for s in build_scenarios()}
 
 
@@ -130,7 +134,8 @@ def generate() -> Any:
         model=getattr(client, "model", getattr(client, "model_label", "unknown")),
         role_label="webdemo",
     )
-    llm_request = build_request(cell, [])
+    memories = retrieve_for_group(persona, scenario.direction, _MEMORY.get(persona.persona_id, []))
+    llm_request = build_request(cell, memories)
 
     try:
         response = client.complete(llm_request)

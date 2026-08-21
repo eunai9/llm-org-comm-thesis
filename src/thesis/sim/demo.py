@@ -31,7 +31,10 @@ from thesis.llm.ollama_client import OllamaClient, OllamaUnavailableError
 from thesis.llm.stub_client import StubClient
 from thesis.paths import MESSAGES_PARQUET_GLOB
 from thesis.sim.grid import GridCell
+from thesis.sim.memory import MemoryItem
+from thesis.sim.memory_generation import load_frozen_memory
 from thesis.sim.persona import FEATURES_PATH, Persona, derive_personas, load_frozen_personas
+from thesis.sim.prompt import retrieve_for_group
 from thesis.sim.run import build_request
 from thesis.sim.scenario import DIRECTIONS, STAKES, TASK_TYPES, Scenario, build_scenarios
 from thesis.sim.schemas import validate_response
@@ -81,6 +84,24 @@ def _load_personas() -> list[Persona]:
         "snapshot (the same numbers, computed once from the real data).[/dim]"
     )
     return load_frozen_personas()
+
+
+def _load_memory() -> dict[str, list[MemoryItem]]:
+    """Every persona's memory store, or none if it was never generated.
+
+    Falls back to empty stores rather than failing -- a demo without
+    memory (the state every reply had before memory_generation.py existed)
+    is a strictly worse but still valid experience, not a broken one.
+    """
+    try:
+        return load_frozen_memory()
+    except FileNotFoundError:
+        console.print(
+            "[dim]No memory snapshot found -- replies will use role and "
+            "scenario only. Run python -m thesis.sim.memory_generation to "
+            "add remembered context.[/dim]"
+        )
+        return {}
 
 
 def _choose(label: str, options: Sequence[str], describe: Sequence[str] | None = None) -> str:
@@ -157,7 +178,12 @@ def _choose_client() -> LLMClient:
     return client
 
 
-def _render(persona: Persona, scenario: Scenario, client: LLMClient) -> None:
+def _render(
+    persona: Persona,
+    scenario: Scenario,
+    client: LLMClient,
+    memory: dict[str, list[MemoryItem]],
+) -> None:
     # Routed through the same GridCell -> build_request path a real run uses,
     # rather than building the request ad hoc, so a demo reply is generated
     # from an identical prompt to the one the study would actually send.
@@ -169,7 +195,8 @@ def _render(persona: Persona, scenario: Scenario, client: LLMClient) -> None:
         model=getattr(client, "model", getattr(client, "model_label", "unknown")),
         role_label="demo",
     )
-    request = build_request(cell, [])
+    memories = retrieve_for_group(persona, scenario.direction, memory.get(persona.persona_id, []))
+    request = build_request(cell, memories)
 
     console.print(
         Panel(
@@ -231,12 +258,13 @@ def main() -> None:
         return
 
     personas = _load_personas()
+    memory = _load_memory()
 
     while True:
         persona = _choose_persona(personas)
         scenario = _choose_scenario()
         try:
-            _render(persona, scenario, client)
+            _render(persona, scenario, client, memory)
         except Exception as exc:  # Keeps the demo alive on any single failure.
             console.print(f"[red]Something went wrong: {exc}[/red]")
 

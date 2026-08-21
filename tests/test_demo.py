@@ -68,7 +68,7 @@ def test_render_shows_a_free_mode_disclaimer(monkeypatch: Any) -> None:
     test_console = _captured_console()
     monkeypatch.setattr(demo_module, "console", test_console)
 
-    _render(make_persona(), build_scenarios()[0], _FixedClient(_valid_response()))
+    _render(make_persona(), build_scenarios()[0], _FixedClient(_valid_response()), {})
 
     output = test_console.export_text()
     assert "NOT thesis data" in output
@@ -86,6 +86,7 @@ def test_render_labels_a_real_model_differently(monkeypatch: Any) -> None:
         make_persona(),
         build_scenarios()[0],
         _FixedClient(_valid_response(model="claude-opus-5")),
+        {},
     )
 
     output = test_console.export_text()
@@ -99,7 +100,7 @@ def test_render_handles_malformed_output_without_raising(monkeypatch: Any) -> No
     monkeypatch.setattr(demo_module, "console", _captured_console())
 
     bad = CompletionResponse(text="not json", usage=Usage(), model="local/llama3.2:3b", parsed=None)
-    _render(make_persona(), build_scenarios()[0], _FixedClient(bad))  # must not raise
+    _render(make_persona(), build_scenarios()[0], _FixedClient(bad), {})  # must not raise
 
     bad_schema = CompletionResponse(
         text="{}",
@@ -113,7 +114,7 @@ def test_render_handles_malformed_output_without_raising(monkeypatch: Any) -> No
             "reasoning_brief": "r",
         },
     )
-    _render(make_persona(), build_scenarios()[0], _FixedClient(bad_schema))  # must not raise
+    _render(make_persona(), build_scenarios()[0], _FixedClient(bad_schema), {})  # must not raise
 
 
 def test_custom_scenario_carries_typed_input(monkeypatch: Any) -> None:
