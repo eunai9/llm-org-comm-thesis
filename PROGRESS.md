@@ -25,8 +25,8 @@ you to read, not for a computer to run. Updated after each work session.
 | Half-price bulk submission (batching) | Done |
 | Give each persona a "memory" of recent context | Done |
 | Two working demos (terminal + browser), runnable by anyone | Done |
+| Build the AI judge (scoring rubric and pipeline) | Started |
 | **Get API keys / decide on budget** | **Waiting on you** |
-| Build the AI judge | Not started |
 
 ---
 
@@ -560,19 +560,66 @@ just a style choice — worth revisiting once a real key exists.
 
 ---
 
+### 14. Starting the AI judge — the part that scores the emails (Aug 21)
+
+You confirmed you're staying on the free path for now — no OpenAI, no paid
+key. So this is what "keep moving without paying" looks like: the judge (the
+part that will later score how good each email is) is now under
+construction, using the exact same approach that worked for the simulator —
+build it fully, test it for free, run it for real later.
+
+**One real limitation, stated plainly rather than glossed over.** The
+research design calls for the judge to always be a *different* AI model
+family than the one that wrote the email — this is what lets the study
+detect whether a model is quietly biased toward favoring its own writing.
+That specific comparison genuinely cannot be done without a second, paid
+model family. Everything else about the judge — the actual scoring
+questions, how a question is asked, how the scoring pipeline runs — does not
+need that comparison to be built and tested.
+
+**What's built:** six scoring questions, in two groups (does this sound like
+the right person for the role, and separately, is it well-written), each
+scored 1–5 with a required short quote justifying the score. Critically, the
+judge is never told whether it's looking at a real email or an AI-written
+one — that blindness is what makes the eventual real-vs-AI comparison
+trustworthy rather than something the judge could shortcut by just
+recognizing which is which. Three different phrasings of the same six
+questions were also built, because how *consistent* the judge is when the
+same question is worded differently is itself something worth measuring,
+not something to paper over.
+
+**Verified live, for free:** ran it against two made-up example emails — one
+professional, one deliberately unprofessional — using the free local model.
+It correctly scored the unprofessional one low across every dimension and
+the professional one reasonably, confirming the mechanism works before any
+money is involved.
+
+**Not built yet, on purpose:** the actual statistics that turn scores into a
+research finding (agreement between AI and human raters, whether AI and real
+scores are statistically equivalent, and so on). Those need real scored
+data to work on, so they come after this piece, the same order the simulator
+itself was built in.
+
+---
+
 ## What's next
 
 **Everything that can be built without paying is now built and demoable.**
 The simulator runs end to end, with memory, for free, today — in a terminal
-or in a browser.
+or in a browser — and the judge's scoring mechanism now works too.
 
-Two things now need you:
+Given you've confirmed no paid key for now, here's the honest state of what
+is and isn't possible on the free path:
 
-1. ⚠️ **API keys / budget** — see the section below. Nothing further can be
-   verified against a real model until this is settled.
-2. ⚠️ **The OpenAI model names in the config are out of date.** They are
-   placeholders from an older generation. A helper (`verify_models`) now checks
-   them against your own account automatically once a key exists.
+- ✅ **Fully possible for free:** more of the judge (the statistics that
+  summarize scores), refining prompts, more testing, more demos.
+- ⚠️ **Not possible without a paid key, by the research design itself:** the
+  actual thesis results, and specifically the judge-vs-simulator comparison
+  described above.
+
+Nothing is urgent here — the free path has no deadline. When you're ready to
+revisit the budget question (including asking your supervisor, which is
+still worth doing), the steps are in the section below.
 
 Still open, but not blocking anything:
 
