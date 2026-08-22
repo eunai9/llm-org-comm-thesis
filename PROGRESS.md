@@ -25,8 +25,9 @@ you to read, not for a computer to run. Updated after each work session.
 | Half-price bulk submission (batching) | Done |
 | Give each persona a "memory" of recent context | Done |
 | Two working demos (terminal + browser), runnable by anyone | Done |
-| Build the AI judge (scoring rubric and pipeline) | Started |
-| **Get API keys / decide on budget** | **Waiting on you** |
+| Build the AI judge (scoring rubric and pipeline) | Done, on the free path |
+| Statistics that compare real vs. AI-written emails | Done, on the free path |
+| Get API keys / decide on budget | **Decided: staying free — see note below** |
 
 ---
 
@@ -562,20 +563,19 @@ just a style choice — worth revisiting once a real key exists.
 
 ### 14. Starting the AI judge — the part that scores the emails (Aug 21)
 
-You confirmed you're staying on the free path for now — no OpenAI, no paid
-key. So this is what "keep moving without paying" looks like: the judge (the
-part that will later score how good each email is) is now under
+The judge (the part that scores how good each email is) is now under
 construction, using the exact same approach that worked for the simulator —
-build it fully, test it for free, run it for real later.
+build it fully, test it for free, run it for real later, if that ever
+happens.
 
 **One real limitation, stated plainly rather than glossed over.** The
 research design calls for the judge to always be a *different* AI model
 family than the one that wrote the email — this is what lets the study
 detect whether a model is quietly biased toward favoring its own writing.
-That specific comparison genuinely cannot be done without a second, paid
-model family. Everything else about the judge — the actual scoring
-questions, how a question is asked, how the scoring pipeline runs — does not
-need that comparison to be built and tested.
+That specific comparison genuinely cannot be done on the free path. Everything
+else about the judge — the actual scoring questions, how a question is
+asked, how the scoring pipeline runs — does not need that comparison to be
+built and tested.
 
 **What's built:** six scoring questions, in two groups (does this sound like
 the right person for the role, and separately, is it well-written), each
@@ -594,46 +594,83 @@ It correctly scored the unprofessional one low across every dimension and
 the professional one reasonably, confirming the mechanism works before any
 money is involved.
 
-**Not built yet, on purpose:** the actual statistics that turn scores into a
-research finding (agreement between AI and human raters, whether AI and real
-scores are statistically equivalent, and so on). Those need real scored
-data to work on, so they come after this piece, the same order the simulator
-itself was built in.
+---
+
+### 15. Can the AI tell a real email from an AI-written one? (Aug 21–22)
+
+Two more pieces, finishing the judge and starting to make sense of its
+output.
+
+**A second, separate way of asking the judge to look at an email:** instead
+of scoring it on the six questions, just ask "does this look real, or
+written for a study?" on a 1–5 scale. This is deliberately a *different*
+request from the six-question scoring, not an extra seventh question bolted
+on — asking the judge to hunt for signs of fakery in the same breath as
+asking it to judge quality risked contaminating the quality scores
+themselves.
+
+**The statistics that actually compare real vs. AI-written emails.** Four of
+them, matching the research plan exactly:
+- Is there a real difference in how the two are scored? (a standard
+  significance test)
+- Can we *positively* say they're similar, rather than just failing to find
+  a difference? (a stricter, more honest framing your own plan specifically
+  called for)
+- Can the judge itself tell them apart, directly?
+- Can a much simpler, non-AI method (just counting which words appear) tell
+  them apart?
+
+⚠️ **Two of the four need a kind of data this project can't produce yet** —
+a real email and an AI-written reply to the *exact same* incoming message,
+so the comparison isn't muddied by comparing different situations. That
+pairing needs a simulator capability (answering a real email directly,
+rather than a made-up scenario) that hasn't been built. Those two statistics
+are built and thoroughly tested on made-up example numbers, ready for when
+that data exists.
+
+**The other two ran on real data already collected:** the judge's own
+guess at telling real from AI-written scored barely better than a coin
+flip (matches what you'd hope to see — it means the AI-written emails are
+hard to spot). The simple word-counting method, by contrast, told them apart
+*perfectly* — but with only 5 real Enron emails and 5 emails about made-up
+scenarios, that's almost certainly because the topics discussed are just
+obviously different, not a real finding about writing quality. Worth
+knowing, not worth reading much into yet.
 
 ---
 
 ## What's next
 
-**Everything that can be built without paying is now built and demoable.**
-The simulator runs end to end, with memory, for free, today — in a terminal
-or in a browser — and the judge's scoring mechanism now works too.
+**Everything currently useful to build for free is built.** The simulator
+runs end to end, with memory, for free, in a terminal or a browser. The
+judge scores emails, guesses which are real, and can compare the two
+statistically — all for free, all tested.
 
-Given you've confirmed no paid key for now, here's the honest state of what
-is and isn't possible on the free path:
+You and your supervisor have decided not to invest money in this project.
+That's a settled decision, not something pending. Given that, here's the
+honest, current state:
 
-- ✅ **Fully possible for free:** more of the judge (the statistics that
-  summarize scores), refining prompts, more testing, more demos.
-- ⚠️ **Not possible without a paid key, by the research design itself:** the
-  actual thesis results, and specifically the judge-vs-simulator comparison
-  described above.
-
-Nothing is urgent here — the free path has no deadline. When you're ready to
-revisit the budget question (including asking your supervisor, which is
-still worth doing), the steps are in the section below.
+- ✅ **Fully possible for free, and worth continuing:** more testing, a
+  larger free trial run connecting real and AI-written replies to the same
+  situations, more demos, refining prompts.
+- ⚠️ **Genuinely out of reach on the free path, by the research design
+  itself:** the actual final thesis results, and specifically the
+  comparison of whether the judge favors its own kind of AI over another.
+  You mentioned exploring a different way to access AI models for that
+  piece later — happy to help once that direction is clearer.
 
 Still open, but not blocking anything:
 
 - The power-score method question — you're reading through the options for a
   more current, LLM-based approach. It only needs deciding before the labelling
   step (`S_label`) actually runs.
-- Once a real key exists, regenerate the memory content (section 13) using
-  the same real model as the main experiment, not the free local one.
 
 ---
 
-## Getting the API keys
+## If a paid option ever becomes relevant again
 
-**The short version:** two accounts, both prepaid, roughly **$150 total** for
+Keeping this for reference only — not the current plan. **The short
+version:** two accounts, both prepaid, roughly **$150 total** for
 the whole thesis. Worth asking your supervisor about a research budget first —
 this is a normal thing for a department to cover.
 
