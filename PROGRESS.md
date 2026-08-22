@@ -27,6 +27,7 @@ you to read, not for a computer to run. Updated after each work session.
 | Two working demos (terminal + browser), runnable by anyone | Done |
 | Build the AI judge (scoring rubric and pipeline) | Done, on the free path |
 | Statistics that compare real vs. AI-written emails | Done, on the free path |
+| AI replies to a real email, compared to the real reply | Done, on the free path |
 | Get API keys / decide on budget | **Decided: staying free — see note below** |
 
 ---
@@ -639,20 +640,63 @@ knowing, not worth reading much into yet.
 
 ---
 
+### 16. Comparing an AI reply to the actual real reply, on the same email (Aug 22)
+
+Until now, the AI simulator only ever answered made-up practice situations.
+This teaches it to answer a **real** email — the exact same one a real
+Enron employee actually replied to — so the AI's reply and the real
+person's reply can be compared head to head, on identical footing. This is
+what the "statistics that compare real vs. AI-written emails" (section 15)
+were actually waiting for: without this, they had nothing genuinely
+matched to compare, only different topics being compared to each other.
+
+Of the 200 real conversations sampled earlier for this purpose, 190 replies
+turned out usable (133 distinct conversations; some conversations had more
+than one real person reply, and each of those is now its own comparison).
+The rest are skipped for the same reason a handful of roles were already
+left out of the simulator entirely — either the real replier's seniority
+was the single most senior tier (deliberately excluded from the start, to
+avoid the AI "recognizing" a real famous person) or their department wasn't
+one of the two modeled (Trading or Legal).
+
+**Two real bugs, caught before they could quietly produce wrong numbers:**
+one conversation with two different real repliers was initially being
+tracked as if it were only one comparison, silently losing the second;
+and an identifier was being shortened in a way that — very rarely, but
+possibly — could make two different comparisons look like the same one.
+Both fixed and checked.
+
+**Ran the whole thing for real, for the first time:** generated 6 AI
+replies to real emails, compared each against the real person's actual
+reply, and ran the statistics. The result is a good, concrete illustration
+of exactly why two different statistical tests are used side by side: the
+simpler test found "no clear difference" on every dimension — which sounds
+like good news — but the stricter test (the one that requires *positive*
+evidence of similarity, not just an absence of detected difference)
+correctly refused to call them equivalent on any dimension. On two of the
+six ("does the reply actually engage with this specific situation" and
+"is disagreement handled well"), the real gap was more than double what
+the stricter test would accept. With only 6 examples and the smallest free
+AI model, this isn't a real finding yet — but it's the pipeline working
+correctly end to end for the first time, and it's already a preview of the
+kind of honest, non-oversold result this project is built to produce.
+
+---
+
 ## What's next
 
-**Everything currently useful to build for free is built.** The simulator
-runs end to end, with memory, for free, in a terminal or a browser. The
-judge scores emails, guesses which are real, and can compare the two
-statistically — all for free, all tested.
+**Everything currently useful to build for free is built, and now connected
+end to end** — sampling real conversations, generating AI replies (to made-up
+situations or to real emails), scoring both with the judge, and comparing them
+statistically, all for free, all tested.
 
 You and your supervisor have decided not to invest money in this project.
 That's a settled decision, not something pending. Given that, here's the
 honest, current state:
 
-- ✅ **Fully possible for free, and worth continuing:** more testing, a
-  larger free trial run connecting real and AI-written replies to the same
-  situations, more demos, refining prompts.
+- ✅ **Fully possible for free, and worth continuing:** running this pipeline
+  on more than 6 examples to get a real (if still not thesis-grade) read on
+  the pattern, more testing, more demos, refining prompts.
 - ⚠️ **Genuinely out of reach on the free path, by the research design
   itself:** the actual final thesis results, and specifically the
   comparison of whether the judge favors its own kind of AI over another.
