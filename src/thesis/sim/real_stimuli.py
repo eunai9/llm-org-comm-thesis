@@ -102,6 +102,14 @@ def build_real_stimulus_pairs(
     ``derive_personas`` takes, reused here to find the real replier's actual
     department (S_real_eval carries seniority_rank directly, but not
     department).
+
+    Returned in a stable order (the query is explicitly ORDER BY'd) rather
+    than whatever order the database happens to produce -- DuckDB does not
+    guarantee row order for a query with no ORDER BY, and was observed to
+    return a genuinely different order across separate calls in the same
+    process. Anyone sampling a subset of the result with a fixed seed (as
+    the fidelity-check scripts do) needs that determinism, or reproducible
+    sampling silently is not.
     """
     con = duckdb.connect()
     roles_table = pd.DataFrame(
@@ -128,6 +136,7 @@ def build_real_stimulus_pairs(
         JOIN read_parquet(?) AS reply_msg ON reply_msg.message_uid = reply.message_uid
         LEFT JOIN roles ON roles.address = reply.from_addr
         WHERE shots.is_root
+        ORDER BY shots.thread_id, reply.message_uid
         """,
         [str(s_shots_path), str(s_real_eval_path), messages_glob, messages_glob],
     ).fetchall()

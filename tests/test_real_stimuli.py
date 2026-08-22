@@ -271,6 +271,40 @@ def test_real_reply_text_does_not_leak_into_the_cells_incoming_message(tmp_path:
     assert "Real reply body t1" in pair.real_reply_text
 
 
+def test_build_real_stimulus_pairs_returns_a_stable_order(tmp_path: Path) -> None:
+    """Caught running this against the real corpus: the underlying query had
+    no ORDER BY, so DuckDB returned a genuinely different row order across
+    separate calls in the same process -- silently breaking any code (like a
+    seeded random.sample) that assumed a reproducible input order."""
+    messages_path, shots_path, real_eval_path = _write_fixture(
+        tmp_path,
+        [
+            ("t1", 2, "junior@enron.com", 2),
+            ("t2", 3, "lawyer@enron.com", 3),
+            ("t3", 4, "senior@enron.com", 4),
+        ],
+    )
+    first = build_real_stimulus_pairs(
+        _PERSONAS,
+        _ROLE_BY_ADDRESS,
+        "claude-opus-5",
+        "sim_test",
+        messages_glob=str(messages_path),
+        s_shots_path=shots_path,
+        s_real_eval_path=real_eval_path,
+    )
+    second = build_real_stimulus_pairs(
+        _PERSONAS,
+        _ROLE_BY_ADDRESS,
+        "claude-opus-5",
+        "sim_test",
+        messages_glob=str(messages_path),
+        s_shots_path=shots_path,
+        s_real_eval_path=real_eval_path,
+    )
+    assert [p.thread_id for p in first] == [p.thread_id for p in second]
+
+
 def test_persona_matches_the_real_repliers_actual_role(tmp_path: Path) -> None:
     messages_path, shots_path, real_eval_path = _write_fixture(
         tmp_path,
