@@ -36,7 +36,7 @@ strict = true
 warn_unreachable = true
 # Third-party libs without stubs; extend as dependencies are added.
 [[tool.mypy.overrides]]
-module = ["duckdb.*", "pandas.*", "pyarrow.*", "yaml.*", "networkx.*", "spacy.*", "sklearn.*", "scipy.*"]
+module = ["duckdb.*", "pandas.*", "pyarrow.*", "yaml.*", "networkx.*", "spacy.*", "sklearn.*", "scipy.*", "statsmodels.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

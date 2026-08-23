@@ -41,6 +41,7 @@ openai==2.53.0
 packaging==26.3
 pandas==3.0.5
 pathspec==1.1.1
+patsy==1.0.2
 platformdirs==4.11.0
 pluggy==1.6.0
 preshed==3.0.13
@@ -68,7 +69,8 @@ spacy==3.8.15
 spacy-legacy==3.0.12
 spacy-loggers==1.0.5
 srsly==2.5.3
--e git+ssh://git@github.com/eunai9/llm-org-comm-thesis.git@a3858394488b26ce22f0f65f0aaf7004d5924fda#egg=thesis
+statsmodels==0.14.6
+-e git+ssh://git@github.com/eunai9/llm-org-comm-thesis.git@dec948b7656f0e7845951d46154d79662b2d7d17#egg=thesis
 thinc==8.3.13
 threadpoolctl==3.6.0
 tqdm==4.70.0
