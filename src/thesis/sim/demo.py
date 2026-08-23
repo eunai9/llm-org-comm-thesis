@@ -36,7 +36,7 @@ from thesis.sim.memory_generation import load_frozen_memory
 from thesis.sim.persona import FEATURES_PATH, Persona, derive_personas, load_frozen_personas
 from thesis.sim.prompt import retrieve_for_group
 from thesis.sim.run import build_request
-from thesis.sim.scenario import DIRECTIONS, STAKES, TASK_TYPES, Scenario, build_scenarios
+from thesis.sim.scenario import DIRECTIONS, STAKES, STYLES, TASK_TYPES, Scenario, build_scenarios
 from thesis.sim.schemas import validate_response
 
 console = Console()
@@ -133,10 +133,14 @@ def _choose_scenario() -> Scenario:
     task_type = _choose("Task type", TASK_TYPES)
     direction = _choose("Writing to someone…", list(DIRECTIONS))
     stakes = _choose("Stakes", list(STAKES))
+    style = _choose("Tone", list(STYLES))
     match = next(
         s
         for s in build_scenarios()
-        if s.task_type == task_type and s.direction == direction and s.stakes == stakes
+        if s.task_type == task_type
+        and s.direction == direction
+        and s.stakes == stakes
+        and s.style == style
     )
     return match
 
@@ -150,6 +154,7 @@ def _custom_scenario() -> Scenario:
         task_type="custom",
         direction=direction,  # type: ignore[arg-type]
         stakes="routine",
+        style="neutral",
         situation=situation,
         incoming_message=incoming,
     )

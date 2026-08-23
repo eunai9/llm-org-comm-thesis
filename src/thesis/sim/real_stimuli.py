@@ -172,6 +172,7 @@ def build_real_stimulus_pairs(
             task_type="real_stimulus",
             direction=direction,
             stakes="routine",
+            style="neutral",
             situation="A real workplace email exchange.",
             incoming_message=stimulus_text,
         )

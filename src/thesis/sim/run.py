@@ -385,7 +385,7 @@ def build_cells(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--replicates", type=int, default=5)
+    parser.add_argument("--replicates", type=int, default=2)
     parser.add_argument("--limit", type=int, default=None, help="Cap cells, for smoke tests.")
     parser.add_argument(
         "--pilot",

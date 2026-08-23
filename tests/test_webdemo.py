@@ -65,7 +65,7 @@ def _seeded_state(monkeypatch: Any) -> None:
     monkeypatch.setattr(
         webdemo_module,
         "_SCENARIOS_BY_KEY",
-        {(s.task_type, s.direction, s.stakes): s for s in build_scenarios()},
+        {(s.task_type, s.direction, s.stakes, s.style): s for s in build_scenarios()},
     )
 
 
@@ -95,6 +95,7 @@ def test_generate_with_builtin_scenario(client: Any, monkeypatch: Any) -> None:
             "task_type": "approve_or_decline",
             "direction": "down",
             "stakes": "high",
+            "style": "neutral",
         },
     )
     assert resp.status_code == 200
@@ -176,6 +177,7 @@ def test_generate_surfaces_ollama_unavailable_as_503(client: Any, monkeypatch: A
             "task_type": "approve_or_decline",
             "direction": "down",
             "stakes": "high",
+            "style": "neutral",
         },
     )
     assert resp.status_code == 503
@@ -205,6 +207,7 @@ def test_generate_surfaces_invalid_response_as_502(client: Any, monkeypatch: Any
             "task_type": "approve_or_decline",
             "direction": "down",
             "stakes": "high",
+            "style": "neutral",
         },
     )
     assert resp.status_code == 502
@@ -225,6 +228,7 @@ def test_generate_marks_a_real_provider_model_as_real(client: Any, monkeypatch: 
             "task_type": "approve_or_decline",
             "direction": "down",
             "stakes": "high",
+            "style": "neutral",
         },
     )
     assert json.loads(resp.data)["is_real"] is True

@@ -27,7 +27,7 @@ from thesis.sim.prompt import (
     build_stable_prefix,
     estimate_prefix_tokens,
 )
-from thesis.sim.scenario import DIRECTIONS, STAKES, TASK_TYPES, build_scenarios
+from thesis.sim.scenario import DIRECTIONS, STAKES, STYLES, TASK_TYPES, build_scenarios
 from thesis.sim.schemas import (
     CONFIDENCE_LEVELS,
     DECISIONS,
@@ -70,8 +70,13 @@ def _persona(persona_id: str = "r3_trading", rank: int = 3, **kwargs: object) ->
 
 def test_scenario_grid_is_fully_crossed() -> None:
     scenarios = build_scenarios()
-    assert len(scenarios) == len(TASK_TYPES) * len(DIRECTIONS) * len(STAKES)
+    assert len(scenarios) == len(TASK_TYPES) * len(DIRECTIONS) * len(STAKES) * len(STYLES)
     assert len({s.scenario_id for s in scenarios}) == len(scenarios)
+
+
+def test_every_style_appears() -> None:
+    styles = {s.style for s in build_scenarios()}
+    assert styles == set(STYLES)
 
 
 def test_every_direction_appears() -> None:

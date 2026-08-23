@@ -34,7 +34,7 @@ from thesis.sim.memory import MemoryItem
 from thesis.sim.persona import Persona
 from thesis.sim.prompt import retrieve_for_group
 from thesis.sim.run import build_request
-from thesis.sim.scenario import DIRECTIONS, STAKES, TASK_TYPES, Scenario, build_scenarios
+from thesis.sim.scenario import DIRECTIONS, STAKES, STYLES, TASK_TYPES, Scenario, build_scenarios
 from thesis.sim.schemas import InvalidResponseError, validate_response
 
 log = get_logger(__name__)
@@ -45,7 +45,7 @@ app = Flask(__name__)
 # snapshot -- see thesis.sim.demo) and reused for every request, rather than
 # re-deriving on each page load.
 _PERSONAS: list[Persona] = []
-_SCENARIOS_BY_KEY: dict[tuple[str, str, str], Scenario] = {}
+_SCENARIOS_BY_KEY: dict[tuple[str, str, str, str], Scenario] = {}
 _MEMORY: dict[str, list[MemoryItem]] = {}
 
 
@@ -53,7 +53,9 @@ def _init_data() -> None:
     global _PERSONAS, _SCENARIOS_BY_KEY, _MEMORY
     _PERSONAS = _load_personas()
     _MEMORY = _load_memory()
-    _SCENARIOS_BY_KEY = {(s.task_type, s.direction, s.stakes): s for s in build_scenarios()}
+    _SCENARIOS_BY_KEY = {
+        (s.task_type, s.direction, s.stakes, s.style): s for s in build_scenarios()
+    }
 
 
 def _client_for(backend: str) -> LLMClient:
@@ -79,6 +81,7 @@ def index() -> str:
         task_types=TASK_TYPES,
         directions=DIRECTIONS,
         stakes=STAKES,
+        styles=STYLES,
     )
 
 
@@ -104,6 +107,7 @@ def generate() -> Any:
             task_type="custom",
             direction=direction,
             stakes="routine",
+            style="neutral",
             situation=situation or "A workplace situation.",
             incoming_message=incoming,
         )
@@ -115,10 +119,11 @@ def generate() -> Any:
             str(payload.get("task_type", "")),
             str(payload.get("direction", "")),
             str(payload.get("stakes", "")),
+            str(payload.get("style", "")),
         )
         found = _SCENARIOS_BY_KEY.get(key)
         if found is None:
-            return jsonify({"error": "Pick a task type, direction, and stakes."}), 400
+            return jsonify({"error": "Pick a task type, direction, stakes, and tone."}), 400
         scenario = found
 
     try:
@@ -184,8 +189,8 @@ _PAGE = """
   select, textarea, button { font-size: 0.95rem; }
   select, textarea { width: 100%; padding: 0.4rem; border: 1px solid #ccc; border-radius: 6px; }
   textarea { min-height: 4.5rem; resize: vertical; }
-  .row { display: flex; gap: 0.8rem; }
-  .row > div { flex: 1; }
+  .row { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+  .row > div { flex: 1 1 45%; }
   .toggle { display: flex; gap: 1rem; margin-bottom: 0.6rem; }
   #generate {
     width: 100%; padding: 0.7rem; margin-top: 1rem; font-weight: 600;
@@ -253,6 +258,12 @@ _PAGE = """
           {% for s in stakes %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
         </select>
       </div>
+      <div>
+        <label>Tone</label>
+        <select id="style">
+          {% for s in styles %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+        </select>
+      </div>
     </div>
   </div>
 
@@ -296,6 +307,7 @@ document.getElementById('generate').addEventListener('click', async () => {
     body.task_type = document.getElementById('task_type').value;
     body.direction = document.getElementById('direction').value;
     body.stakes = document.getElementById('stakes').value;
+    body.style = document.getElementById('style').value;
   }
 
   btn.disabled = true;

@@ -419,10 +419,11 @@ departments fell back to the same broader average, so those two personas differ
 only by their *label*. A "department effect" measured at that level would be
 measuring nothing real. The code detects and flags this automatically.
 
-**The scenarios.** Thirty synthetic workplace situations (five task types ×
-three directions × two stakes levels). They contain no Enron content at all —
-they're written from scratch. Real emails enter the study separately, as the
-`S_shots` stimuli.
+**The scenarios.** 144 synthetic workplace situations (six task types ×
+three directions × two stakes levels × four tones — see entries 17 and 18
+below for the tone dimension and the sixth task type). They contain no Enron
+content at all — they're written from scratch. Real emails enter the study
+separately, as the `S_shots` stimuli.
 
 **Memory.** Each persona carries a small "memory" of recent working life,
 following the standard published method for AI agents. It's retrieved once per
@@ -680,6 +681,51 @@ the stricter test would accept. With only 6 examples and the smallest free
 AI model, this isn't a real finding yet — but it's the pipeline working
 correctly end to end for the first time, and it's already a preview of the
 kind of honest, non-oversold result this project is built to produce.
+
+---
+
+### 17. Adding tone as a fourth dimension of the scenario grid (Aug 23)
+
+The scenario grid gained a fourth factor: **tone** — an explicit instruction
+layered on top of a persona's own, corpus-derived writing style (its
+deference, hedging, directness, etc. — see section 10). Four levels:
+Deferential, Warm, Neutral, Assertive. "Neutral" is the closest match to a
+persona's natural register; the other three deliberately push the AI away
+from it, so the design can ask not just "how does hierarchy shape writing"
+but "does an explicit tone instruction interact with the writer's role, or
+just override it."
+
+**Naming note:** the fourth level was originally going to be "Aggressive."
+Renamed to "Assertive" — real business email in this corpus essentially
+never reaches outright hostility, so an "aggressive" condition would have
+been testing how far the AI can be steered into an unrealistic register
+rather than a genuine organizational behavior. "Assertive" keeps the
+firm/direct contrast without that problem.
+
+**What this cost:** the scenario grid was 30 situations (5 task types × 3
+directions × 2 stakes); crossing in 4 tones makes it 120. To keep the total
+number of AI replies generated from growing 4x along with it, the number of
+repeated draws per situation (needed to tell a real effect apart from the
+AI's own randomness — see the terms section at the top) was cut from 5 to 2,
+the lowest number that still lets that distinction be made at all. Net
+effect: total generations go from 3,000 to 4,800 — a real increase, but far
+short of the 12,000 a straight 4x would have been.
+
+---
+
+### 18. A sixth task type: confirming details (Aug 23)
+
+Added one more situation to the scenario grid: **confirm_details** — someone
+checking that a plan already in motion is still on track ("just confirming
+we're still moving forward with the numbers from last week's call, right?"),
+which only needs a quick yes/no rather than a real decision. This fills a
+gap the other five didn't cover: `approve_or_decline` already carries risk
+and a real choice, `request_information` asks for new data, but nothing
+tested the lightweight, low-effort acknowledgment end of workplace email.
+
+Task types are now 6 instead of 5, so the scenario grid grows from 120 to
+144 situations (6 × 3 directions × 2 stakes × 4 tones), and total AI-reply
+generations from 4,800 to 5,760.
 
 ---
 

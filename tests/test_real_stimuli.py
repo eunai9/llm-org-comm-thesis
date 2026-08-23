@@ -339,6 +339,7 @@ def test_cell_is_ready_to_build_a_request_through_the_normal_path() -> None:
             task_type="real_stimulus",
             direction="up",
             stakes="routine",
+            style="neutral",
             situation="s",
             incoming_message="What's the status?",
         ),

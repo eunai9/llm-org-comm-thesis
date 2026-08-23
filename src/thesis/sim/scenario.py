@@ -12,6 +12,14 @@ rank 1 has no one below and rank 5 no one above -- and pooling by direction
 keeps every persona contributing to every level of the factor, which is what
 makes the eventual mixed model estimable.
 
+``stakes`` and ``style`` are secondary factors layered on top of the same
+task/direction pair, added because hierarchy effects plausibly interact with
+both: does deference toward a superior sharpen when something risky is on the
+line (``stakes``), and does an explicit tone instruction interact with a
+persona's own corpus-derived style rather than simply override it (``style``,
+see :data:`Style`). Each factor is fully crossed with the others, so the grid
+is ``task_type x direction x stakes x style``.
+
 **Scenarios carry no Enron content.** They are synthetic business situations of
 the kind the corpus contains, written from scratch. Real messages appear in the
 study only as the separately-sampled ``S_shots`` stimuli, where they are used
@@ -26,6 +34,7 @@ from typing import Literal
 
 Direction = Literal["up", "lateral", "down"]
 Stakes = Literal["routine", "high"]
+Style = Literal["deferential", "warm", "neutral", "assertive"]
 
 TASK_TYPES: tuple[str, ...] = (
     "request_information",
@@ -33,10 +42,23 @@ TASK_TYPES: tuple[str, ...] = (
     "report_problem",
     "schedule_coordination",
     "resolve_disagreement",
+    "confirm_details",
 )
 
 DIRECTIONS: tuple[Direction, ...] = ("up", "lateral", "down")
 STAKES: tuple[Stakes, ...] = ("routine", "high")
+
+# An explicit tone instruction layered on top of the persona's own,
+# corpus-derived style (its deference_rate, hedge_rate, etc. -- see
+# thesis.sim.persona). This is a deliberate second manipulation, not a
+# restatement of the persona: "neutral" is the closest match to what a
+# persona would produce unprompted, while the other three levels push the
+# model away from that natural register in a specific, named direction.
+# "Assertive" rather than "aggressive" by design -- real business email in
+# this corpus essentially never reaches outright hostility, so an aggressive
+# condition would test model steerability into an out-of-distribution
+# register rather than a realistic organizational behavior.
+STYLES: tuple[Style, ...] = ("deferential", "warm", "neutral", "assertive")
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +69,7 @@ class Scenario:
     task_type: str
     direction: Direction
     stakes: Stakes
+    style: Style
     situation: str
     incoming_message: str
 
@@ -79,6 +102,13 @@ _SITUATIONS: dict[str, tuple[str, str]] = {
         "I don't think the approach in the draft holds up. It seems to me the "
         "numbers were run on the wrong basis. How do you want to handle this?",
     ),
+    "confirm_details": (
+        "Someone wants a quick confirmation that a plan already in motion is "
+        "still on track -- not a new decision from you.",
+        "Just confirming -- we're still moving forward with the numbers from "
+        "last week's call, right? Let me know if anything's changed before I "
+        "send this out.",
+    ),
 }
 
 _STAKES_FRAMING: dict[Stakes, str] = {
@@ -95,18 +125,35 @@ _DIRECTION_FRAMING: dict[Direction, str] = {
     "down": "You are writing to someone who reports into your part of the organization.",
 }
 
+_STYLE_FRAMING: dict[Style, str] = {
+    "deferential": (
+        "Write in a deferential tone: downplay your own authority, soften "
+        "requests, and defer to the other person's judgment."
+    ),
+    "warm": (
+        "Write in a warm, friendly tone: personable and cooperative, while "
+        "still getting the point across."
+    ),
+    "neutral": "Write in a neutral, professional tone -- the standard register for this kind of message.",
+    "assertive": (
+        "Write in an assertive tone: direct and firm, with no hedging, while "
+        "remaining professional."
+    ),
+}
+
 
 def build_scenarios() -> list[Scenario]:
-    """The full scenario set: task type x direction x stakes."""
+    """The full scenario set: task type x direction x stakes x style."""
     scenarios = []
-    for task_type, direction, stakes in product(TASK_TYPES, DIRECTIONS, STAKES):
+    for task_type, direction, stakes, style in product(TASK_TYPES, DIRECTIONS, STAKES, STYLES):
         situation, incoming = _SITUATIONS[task_type]
         scenarios.append(
             Scenario(
-                scenario_id=f"{task_type}__{direction}__{stakes}",
+                scenario_id=f"{task_type}__{direction}__{stakes}__{style}",
                 task_type=task_type,
                 direction=direction,
                 stakes=stakes,
+                style=style,
                 situation=situation,
                 incoming_message=incoming,
             )
@@ -123,6 +170,7 @@ def render_scenario_block(scenario: Scenario) -> str:
             scenario.situation,
             _DIRECTION_FRAMING[scenario.direction],
             _STAKES_FRAMING[scenario.stakes],
+            _STYLE_FRAMING[scenario.style],
             "",
             "## The message you received",
             "",
