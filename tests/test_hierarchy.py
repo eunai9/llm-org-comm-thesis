@@ -18,9 +18,11 @@ import pytest
 from thesis.analysis.hierarchy import (
     AssociationResult,
     InsufficientDataError,
+    InteractionModelResult,
     MixedModelResult,
     direction_decision_association,
     fit_direction_mixed_model,
+    fit_interaction_model,
     summarize_by_direction,
 )
 
@@ -155,6 +157,118 @@ def test_custom_column_names_are_respected() -> None:
     )
     assert result.outcome == "hedge_rate"
     assert result.contrast("up")[0] == pytest.approx(0.3, abs=0.2)
+
+
+def _two_factor_data(
+    cell_effects: dict[tuple[str, str], float],
+    *,
+    factor1_levels: tuple[str, ...] = ("lateral", "up", "down"),
+    factor2_levels: tuple[str, ...] = ("neutral", "deferential", "warm", "assertive"),
+    n_personas: int = 8,
+    n_per_cell: int = 15,
+    seed: int = 5,
+) -> pd.DataFrame:
+    """Synthetic data crossing two factors, with real persona-level
+    clustering and a per-(factor1, factor2)-cell effect. Cells not named in
+    ``cell_effects`` default to 0.0, so an effect placed at a single cell
+    tests the interaction term specifically, not either main effect."""
+    rng = np.random.default_rng(seed)
+    rows = []
+    for i in range(n_personas):
+        persona_id = f"p{i}"
+        persona_offset = rng.normal(0, 0.2)
+        for level1 in factor1_levels:
+            for level2 in factor2_levels:
+                effect = cell_effects.get((level1, level2), 0.0)
+                for _ in range(n_per_cell):
+                    rows.append(
+                        {
+                            "persona_id": persona_id,
+                            "direction": level1,
+                            "tone": level2,
+                            "outcome": 2.0 + effect + persona_offset + rng.normal(0, 0.15),
+                        }
+                    )
+    return pd.DataFrame(rows)
+
+
+# ------------------------------------------------------------ interaction
+
+
+def test_recovers_a_known_injected_interaction_effect() -> None:
+    """A real effect placed at exactly one (direction, tone) cell should
+    show up in the interaction term, not in either main effect -- treatment
+    coding puts a main effect's coefficient at the *other* factor's
+    reference level, which this injected effect never touches."""
+    df = _two_factor_data({("up", "assertive"): 0.6})
+    result = fit_interaction_model(df, "outcome", reference1="lateral", reference2="neutral")
+
+    interaction_coef, interaction_p = result.interaction("up", "assertive")
+    assert interaction_coef == pytest.approx(0.6, abs=0.2)
+    assert interaction_p < 0.01
+
+    up_coef, _ = result.main_effect("direction", "up")
+    assertive_coef, _ = result.main_effect("tone", "assertive")
+    assert up_coef == pytest.approx(0.0, abs=0.2)
+    assert assertive_coef == pytest.approx(0.0, abs=0.2)
+
+
+def test_main_effect_is_recovered_when_uniform_across_the_other_factor() -> None:
+    """A direction effect that holds at every tone level should show up as
+    a main effect, with no real interaction term."""
+    df = _two_factor_data(
+        {("up", level2): 0.4 for level2 in ("neutral", "deferential", "warm", "assertive")}
+    )
+    result = fit_interaction_model(df, "outcome", reference1="lateral", reference2="neutral")
+    up_coef, up_p = result.main_effect("direction", "up")
+    assert up_coef == pytest.approx(0.4, abs=0.2)
+    assert up_p < 0.01
+
+    interaction_coef, _ = result.interaction("up", "assertive")
+    assert interaction_coef == pytest.approx(0.0, abs=0.2)
+
+
+def test_main_effect_raises_a_clear_error_for_an_unobserved_level() -> None:
+    df = _two_factor_data({("up", "assertive"): 0.5})
+    result = fit_interaction_model(df, "outcome")
+    with pytest.raises(KeyError, match="direction"):
+        result.main_effect("direction", "nonexistent")
+
+
+def test_interaction_raises_a_clear_error_for_an_unobserved_combination() -> None:
+    df = _two_factor_data({("up", "assertive"): 0.5})
+    result = fit_interaction_model(df, "outcome")
+    with pytest.raises(KeyError, match="warm"):
+        result.interaction("down", "nonexistent-tone-level")
+
+
+def test_interaction_model_rejects_too_few_groups() -> None:
+    df = _two_factor_data({("up", "assertive"): 0.5}, n_personas=1)
+    with pytest.raises(InsufficientDataError):
+        fit_interaction_model(df, "outcome")
+
+
+def test_interaction_model_result_is_frozen() -> None:
+    df = _two_factor_data({("up", "assertive"): 0.5})
+    result = fit_interaction_model(df, "outcome")
+    assert isinstance(result, InteractionModelResult)
+    with pytest.raises(AttributeError):
+        result.n_observations = 999  # type: ignore[misc]
+
+
+def test_interaction_model_custom_factor_names_are_respected() -> None:
+    df = _two_factor_data({("up", "assertive"): 0.5})
+    df = df.rename(columns={"direction": "dir", "tone": "incoming_tone"})
+    result = fit_interaction_model(
+        df,
+        "outcome",
+        factor1_col="dir",
+        factor2_col="incoming_tone",
+        reference1="lateral",
+        reference2="neutral",
+    )
+    coef, _ = result.interaction("up", "assertive")
+    assert coef == pytest.approx(0.5, abs=0.2)
 
 
 # ------------------------------------------------------------ association

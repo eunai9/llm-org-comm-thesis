@@ -31,11 +31,22 @@ built into the design specifically as the no-power-difference baseline (see
 against it: "writing up vs. a peer" and "writing down vs. a peer" are the
 two contrasts that actually answer Q1, not an arbitrary alphabetical
 reference statsmodels would otherwise pick on its own.
+
+**Direction and tone, fit separately, can each only report a main effect.**
+Two calls to :func:`fit_direction_mixed_model` -- one with ``direction`` as
+the factor, one with ``tone`` -- can show "hierarchy matters" and "incoming
+tone doesn't," but neither can show whether tone's (null) effect is uniform
+across direction, or concentrated in one corner of the grid (e.g. an
+assertive message only changes the reply when writing up, not laterally or
+down). :func:`fit_interaction_model` fits both factors and their product
+in one model, so the interaction term itself -- not just the two main
+effects -- gets a coefficient and a p-value.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import pandas as pd
 from numpy.linalg import LinAlgError
@@ -51,6 +62,26 @@ from statsmodels.regression.mixed_linear_model import MixedLM
 # so they're a robust fallback rather than the primary choice (they're
 # slower and less precise when the optimization surface is well-behaved).
 _OPTIMIZER_FALLBACKS: tuple[str, ...] = ("lbfgs", "powell", "nm")
+
+
+def _fit_with_fallback(model: MixedLM, *, label: str) -> Any:
+    """Try each optimizer in :data:`_OPTIMIZER_FALLBACKS` in turn, keeping
+    the first one that both runs and converges. Shared by every model in
+    this module rather than duplicated per function."""
+    fit = None
+    last_error: Exception | None = None
+    for method in _OPTIMIZER_FALLBACKS:
+        try:
+            fit = model.fit(reml=True, method=method)
+        except (LinAlgError, ValueError) as exc:
+            last_error = exc
+            continue
+        if fit.converged:
+            break
+    if fit is None:
+        msg = f"no optimizer converged for {label}: {last_error}"
+        raise InsufficientDataError(msg)
+    return fit
 
 
 class InsufficientDataError(ValueError):
@@ -121,20 +152,7 @@ def fit_direction_mixed_model(
 
     formula = f"{outcome_col} ~ C({direction_col}, Treatment(reference='{reference}'))"
     model = MixedLM.from_formula(formula, groups=working[cluster_col], data=working)
-
-    fit = None
-    last_error: Exception | None = None
-    for method in _OPTIMIZER_FALLBACKS:
-        try:
-            fit = model.fit(reml=True, method=method)
-        except (LinAlgError, ValueError) as exc:
-            last_error = exc
-            continue
-        if fit.converged:
-            break
-    if fit is None:
-        msg = f"no optimizer converged for {outcome_col} ~ {direction_col}: {last_error}"
-        raise InsufficientDataError(msg)
+    fit = _fit_with_fallback(model, label=f"{outcome_col} ~ {direction_col}")
 
     # statsmodels/patsy names a fixed-effect parameter after the full formula
     # term, e.g. "C(direction, Treatment(reference='lateral'))[T.up]" -- the
@@ -160,6 +178,144 @@ def fit_direction_mixed_model(
     return MixedModelResult(
         outcome=outcome_col,
         reference_level=reference,
+        n_observations=len(working),
+        n_groups=n_groups,
+        coefficients=coefficients,
+        p_values=p_values,
+        group_variance=float(fit.cov_re.iloc[0, 0]),
+        converged=bool(fit.converged),
+    )
+
+
+def _clean_interaction_term(name: str, factor1_col: str, factor2_col: str) -> str:
+    """Turn one raw patsy parameter name into the plain ``factor[T.level]``
+    form :class:`InteractionModelResult` uses, joining both sides with ``:``
+    for an interaction term. Which factor a bare term belongs to is read off
+    which column name appears inside its ``C(...)`` wrapper, since patsy's
+    own spelling gives no shorter way to tell them apart."""
+    parts = []
+    for term in name.split(":"):
+        if f"C({factor1_col}," in term:
+            col = factor1_col
+        elif f"C({factor2_col}," in term:
+            col = factor2_col
+        else:
+            msg = f"unrecognized patsy term {term!r}"
+            raise ValueError(msg)
+        level = term.rsplit("[T.", 1)[1][:-1]
+        parts.append(f"{col}[T.{level}]")
+    return ":".join(parts)
+
+
+@dataclass(frozen=True, slots=True)
+class InteractionModelResult:
+    """One fitted ``outcome ~ factor1 * factor2`` model, random intercept
+    per persona. Unlike two separate :func:`fit_direction_mixed_model` runs,
+    this can show whether one factor's effect depends on the other."""
+
+    outcome: str
+    factor1: str
+    factor2: str
+    reference1: str
+    reference2: str
+    n_observations: int
+    n_groups: int
+    coefficients: dict[str, float]
+    p_values: dict[str, float]
+    group_variance: float
+    converged: bool
+
+    def main_effect(self, factor: str, level: str) -> tuple[float, float]:
+        """Coefficient and p-value for one factor's level vs. its reference,
+        holding the *other* factor at its own reference level -- not an
+        average over the other factor's levels. See :meth:`interaction` for
+        how that level combines with a specific level of the other factor.
+        """
+        key = f"{factor}[T.{level}]"
+        if key not in self.coefficients:
+            available = sorted(
+                k for k in self.coefficients if k.startswith(f"{factor}[") and ":" not in k
+            )
+            msg = f"no main effect for {factor}={level!r}; available: {available}"
+            raise KeyError(msg)
+        return self.coefficients[key], self.p_values[key]
+
+    def interaction(self, level1: str, level2: str) -> tuple[float, float]:
+        """Coefficient and p-value for the ``factor1=level1, factor2=level2``
+        interaction term -- how much that specific combination departs from
+        what the two main effects alone would predict."""
+        key = f"{self.factor1}[T.{level1}]:{self.factor2}[T.{level2}]"
+        if key not in self.coefficients:
+            available = sorted(k for k in self.coefficients if ":" in k)
+            msg = (
+                f"no interaction term for {self.factor1}={level1!r}, "
+                f"{self.factor2}={level2!r}; available: {available}"
+            )
+            raise KeyError(msg)
+        return self.coefficients[key], self.p_values[key]
+
+
+def fit_interaction_model(
+    df: pd.DataFrame,
+    outcome_col: str,
+    *,
+    factor1_col: str = "direction",
+    factor2_col: str = "tone",
+    cluster_col: str = "persona_id",
+    reference1: str = "lateral",
+    reference2: str = "neutral",
+) -> InteractionModelResult:
+    """Fit ``outcome ~ factor1 * factor2`` with a random intercept per
+    ``cluster_col``.
+
+    Two separate calls to :func:`fit_direction_mixed_model` can each only
+    report a main effect; this fits both factors and their interaction in
+    one model, so a coefficient exists for "does factor1's effect change
+    depending on factor2" rather than just "does factor1 matter" and "does
+    factor2 matter" in isolation.
+    """
+    working = df[[outcome_col, factor1_col, factor2_col, cluster_col]].dropna()
+    n_groups = working[cluster_col].nunique()
+    if len(working) < 3 or n_groups < 2:
+        msg = (
+            f"need at least 2 groups and 3 observations to fit a mixed model; "
+            f"got {len(working)} observation(s) across {n_groups} group(s)"
+        )
+        raise InsufficientDataError(msg)
+
+    levels1 = [reference1, *sorted(lv for lv in working[factor1_col].unique() if lv != reference1)]
+    levels2 = [reference2, *sorted(lv for lv in working[factor2_col].unique() if lv != reference2)]
+    working = working.assign(
+        **{
+            factor1_col: pd.Categorical(working[factor1_col], categories=levels1, ordered=False),
+            factor2_col: pd.Categorical(working[factor2_col], categories=levels2, ordered=False),
+        }
+    )
+
+    formula = (
+        f"{outcome_col} ~ C({factor1_col}, Treatment(reference='{reference1}')) "
+        f"* C({factor2_col}, Treatment(reference='{reference2}'))"
+    )
+    model = MixedLM.from_formula(formula, groups=working[cluster_col], data=working)
+    fit = _fit_with_fallback(model, label=f"{outcome_col} ~ {factor1_col} * {factor2_col}")
+
+    coefficients: dict[str, float] = {}
+    p_values: dict[str, float] = {}
+    for name, coef in fit.params.items():
+        if name in ("Intercept", "Group Var"):
+            coefficients[name] = float(coef)
+            p_values[name] = float(fit.pvalues.get(name, float("nan")))
+            continue
+        clean_name = _clean_interaction_term(name, factor1_col, factor2_col)
+        coefficients[clean_name] = float(coef)
+        p_values[clean_name] = float(fit.pvalues.get(name, float("nan")))
+
+    return InteractionModelResult(
+        outcome=outcome_col,
+        factor1=factor1_col,
+        factor2=factor2_col,
+        reference1=reference1,
+        reference2=reference2,
         n_observations=len(working),
         n_groups=n_groups,
         coefficients=coefficients,

@@ -801,6 +801,41 @@ be confused with each other again. No behavior changed.
 
 ---
 
+### 22. A real interaction model: does hierarchy's effect depend on incoming tone? (Aug 24)
+
+Section 20's two marginal models could each only say "direction matters"
+and "tone doesn't" in isolation — neither could say whether tone's null
+effect held everywhere, or hierarchy's effect changed shape depending on
+what tone of message triggered it. Added `fit_interaction_model` to
+`analysis/hierarchy.py`: one mixed model with both factors and their
+product (`outcome ~ direction * tone`), so the interaction itself gets a
+coefficient and a p-value instead of being invisible to two separate
+models. Tested the same way as the rest of this module — synthetic data
+with a known effect planted at exactly one (direction, tone) combination,
+confirming it shows up in the interaction term and not smeared into either
+main effect.
+
+Run against the same 240-reply pilot from section 20 (free — every
+response was already cached, so this needed no new AI calls):
+
+- **Direction's effect on `imperative_ratio` replicates again**, this time
+  measured specifically at neutral incoming tone: writing up +0.35
+  (p=0.010), writing down +0.325 (p=0.016) — closely matching both earlier
+  pilots.
+- **No interaction term reaches significance for `imperative_ratio`**,
+  though two are suggestive (writing up in response to a deferential or an
+  assertive message, both p≈0.07-0.08) — direction's effect looks roughly
+  uniform across incoming tones, not something a bigger run should assume
+  is fully settled.
+- **One interaction term is significant for `hedge_rate`**: replying down
+  to a warm message drops hedging by 0.275 (p=0.043) more than either
+  factor predicts alone. Flagged, not trusted yet — this is 1 significant
+  result out of 12 interaction tests run (6 per outcome × 2 outcomes), so
+  it's within the range multiple comparisons alone would produce by chance
+  and needs to replicate before it's a real finding.
+
+---
+
 ## What's next
 
 **Everything currently useful to build for free is built, and now connected
