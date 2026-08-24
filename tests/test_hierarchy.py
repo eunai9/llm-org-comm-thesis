@@ -100,6 +100,34 @@ def test_group_variance_is_reported() -> None:
     assert result.group_variance >= 0.0
 
 
+def test_fits_when_group_variance_is_at_the_zero_boundary() -> None:
+    """A regression test for a real crash: when persona genuinely explains
+    ~none of an outcome's variance, statsmodels' default L-BFGS optimizer can
+    throw numpy.linalg.LinAlgError deep inside its own score computation,
+    because the true random-intercept variance sits right at the boundary of
+    zero. This is a real, expected result (hedge_rate showed exactly this in
+    the first Q1 pilot on live data), not a data bug, so the fit must
+    succeed via a fallback optimizer rather than propagate the crash."""
+    rng = np.random.default_rng(3)
+    rows = []
+    for i in range(10):
+        persona_id = f"p{i}"
+        for direction in ("up", "lateral", "down"):
+            for _ in range(8):
+                rows.append(
+                    {
+                        "persona_id": persona_id,
+                        "direction": direction,
+                        # No persona_offset term at all -- zero real
+                        # clustering by construction, the boundary case.
+                        "outcome": rng.choice([0.0, 0.5, 1.0]),
+                    }
+                )
+    df = pd.DataFrame(rows)
+    result = fit_direction_mixed_model(df, "outcome", reference="lateral")
+    assert result.group_variance == pytest.approx(0.0, abs=0.05)
+
+
 def test_rejects_too_few_groups() -> None:
     df = _clustered_data({"lateral": 0.0, "up": 0.1}, n_personas=1)
     with pytest.raises(InsufficientDataError):

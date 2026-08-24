@@ -38,8 +38,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pandas as pd
+from numpy.linalg import LinAlgError
 from scipy import stats
 from statsmodels.regression.mixed_linear_model import MixedLM
+
+# statsmodels' default L-BFGS optimizer can throw numpy.linalg.LinAlgError
+# ("Singular matrix") when the true random-intercept variance is at or near
+# the boundary of zero -- i.e. persona genuinely explains ~none of an
+# outcome's variance, which is a real, expected result for some features
+# (hedge_rate showed exactly this in the first Q1 pilot), not a data bug.
+# Powell and Nelder-Mead are derivative-free and don't hit that singularity,
+# so they're a robust fallback rather than the primary choice (they're
+# slower and less precise when the optimization surface is well-behaved).
+_OPTIMIZER_FALLBACKS: tuple[str, ...] = ("lbfgs", "powell", "nm")
 
 
 class InsufficientDataError(ValueError):
@@ -110,7 +121,20 @@ def fit_direction_mixed_model(
 
     formula = f"{outcome_col} ~ C({direction_col}, Treatment(reference='{reference}'))"
     model = MixedLM.from_formula(formula, groups=working[cluster_col], data=working)
-    fit = model.fit(reml=True)
+
+    fit = None
+    last_error: Exception | None = None
+    for method in _OPTIMIZER_FALLBACKS:
+        try:
+            fit = model.fit(reml=True, method=method)
+        except (LinAlgError, ValueError) as exc:
+            last_error = exc
+            continue
+        if fit.converged:
+            break
+    if fit is None:
+        msg = f"no optimizer converged for {outcome_col} ~ {direction_col}: {last_error}"
+        raise InsufficientDataError(msg)
 
     # statsmodels/patsy names a fixed-effect parameter after the full formula
     # term, e.g. "C(direction, Treatment(reference='lateral'))[T.up]" -- the
