@@ -836,6 +836,54 @@ response was already cached, so this needed no new AI calls):
 
 ---
 
+### 23. A free approximation of the judge-swap design (Aug 24)
+
+The plan's Q3 self-preference test — does a judge favor its own kind of AI
+over another? — was flagged as genuinely out of reach on the free path,
+because it assumed "family" meant Claude vs. OpenAI. Tried a substitute:
+two different *local* models as the two families instead of two paid ones
+— **llama3.2:3b** (Meta) and **qwen2.5:3b** (Alibaba), genuinely different
+training lineages, both small enough to run on this machine. Pulled
+qwen2.5:3b (~2 GB, free) and reused the existing judge machinery
+unchanged: 120 replies generated (10 personas × 3 directions × 2 task
+types × both models), each blind-scored by both models acting as judge —
+240 scores total, zero cost.
+
+The self-preference question is exactly the interaction term in a
+`generator × judge` model, so this reused `fit_interaction_model` from
+section 22 rather than needing new statistics: does a judge rate its own
+family's output higher than the other family's, beyond (a) that
+generator's own baseline quality and (b) that judge's own baseline
+generosity?
+
+Two effects turned out to be real and much larger than any self-preference
+signal:
+
+- **qwen writes better replies than llama, by both judges' scoring** —
+  qwen-generated messages score about 1 point higher (on the 1-5 rubric)
+  than llama-generated ones, consistently.
+- **llama is a more generous judge than qwen** — llama-as-judge scores
+  everything roughly 0.6 points higher than qwen-as-judge does, regardless
+  of who wrote it.
+
+After controlling for both of those (the interaction model's whole job),
+a self-preference signal remains: llama-judge rates llama-generated
+replies about **0.42 points higher than the two effects above would
+predict on their own** — but only at p=0.065, just short of conventional
+significance, and weaker still (p=0.20) on the single rubric item closest
+to "does this look authentic" (`corpus_plausibility`). Directionally
+consistent with self-preference; not confirmed at this sample size. One
+real limitation of a 2×2 design worth naming: the single interaction
+number here is symmetric — it can say whether *matching* generator/judge
+pairs score higher than the additive model predicts in aggregate, but not
+separately how much each individual model favors itself.
+
+Standing caveats apply doubly here: two 3B local models are a proxy for
+the plan's actual cross-provider design, not a replacement for it, and
+n=120 items is a pilot, not a powered study.
+
+---
+
 ## What's next
 
 **Everything currently useful to build for free is built, and now connected
