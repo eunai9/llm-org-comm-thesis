@@ -133,7 +133,7 @@ def _choose_scenario() -> Scenario:
     task_type = _choose("Task type", TASK_TYPES)
     direction = _choose("Writing to someone…", list(DIRECTIONS))
     stakes = _choose("Stakes", list(STAKES))
-    style = _choose("Tone", list(STYLES))
+    style = _choose("Tone of the message they received", list(STYLES))
     match = next(
         s
         for s in build_scenarios()

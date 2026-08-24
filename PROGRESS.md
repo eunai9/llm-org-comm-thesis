@@ -684,23 +684,34 @@ kind of honest, non-oversold result this project is built to produce.
 
 ---
 
-### 17. Adding tone as a fourth dimension of the scenario grid (Aug 23)
+### 17. Adding tone as a fourth dimension of the scenario grid (Aug 23, corrected Aug 24)
 
-The scenario grid gained a fourth factor: **tone** — an explicit instruction
-layered on top of a persona's own, corpus-derived writing style (its
-deference, hedging, directness, etc. — see section 10). Four levels:
-Deferential, Warm, Neutral, Assertive. "Neutral" is the closest match to a
-persona's natural register; the other three deliberately push the AI away
-from it, so the design can ask not just "how does hierarchy shape writing"
-but "does an explicit tone instruction interact with the writer's role, or
-just override it."
+The scenario grid gained a fourth factor: **tone** of the message a persona
+receives. Four levels: Deferential, Warm, Neutral, Assertive. Each task type
+now has four hand-written versions of the same underlying request, one per
+tone — same ask, different register. "Neutral" is each task type's plainest
+phrasing; the other three rephrase it in a different voice. The persona is
+never told how to respond — it only ever sees a stimulus already written in
+one of these four registers and replies however it naturally would. This
+tests whether the tone of an incoming message shapes the reply, on top of
+who it's from.
 
-**Naming note:** the fourth level was originally going to be "Aggressive."
-Renamed to "Assertive" — real business email in this corpus essentially
-never reaches outright hostility, so an "aggressive" condition would have
-been testing how far the AI can be steered into an unrealistic register
-rather than a genuine organizational behavior. "Assertive" keeps the
-firm/direct contrast without that problem.
+**This was wrong the first time.** The version built and reported on Aug 23
+instead gave the *persona* an explicit instruction ("Write in a deferential
+tone: downplay your own authority...") layered on top of a fixed, tone-less
+incoming message — testing instruction-following, not whether an incoming
+message's tone shapes a reply. A pilot run under that version even reported
+a real "tone dominates hierarchy" finding, which does not carry over: it was
+answering a different, less interesting question. Caught when re-explaining
+the design and corrected the same day — the fix rewrote every incoming
+message into four tone variants and removed the instruction sentence
+entirely. No pilot has been rerun against the corrected version yet.
+
+**Naming note (unaffected by the correction):** the fourth level was
+originally going to be "Aggressive." Renamed to "Assertive" — real business
+email in this corpus essentially never reaches outright hostility, so an
+"aggressive" condition would have tested how far the AI can be steered into
+an unrealistic register rather than a genuine organizational behavior.
 
 **What this cost:** the scenario grid was 30 situations (5 task types × 3
 directions × 2 stakes); crossing in 4 tones makes it 120. To keep the total
@@ -726,6 +737,24 @@ tested the lightweight, low-effort acknowledgment end of workplace email.
 Task types are now 6 instead of 5, so the scenario grid grows from 120 to
 144 situations (6 × 3 directions × 2 stakes × 4 tones), and total AI-reply
 generations from 4,800 to 5,760.
+
+---
+
+### 19. A mixed-model crash that only shows up when a persona effect is genuinely zero (Aug 24)
+
+While generating the (since-superseded) 240-reply direction × tone pilot,
+the Q1 mixed model crashed partway through with a numerical error
+(`LinAlgError: Singular matrix`), not a Python bug. The cause: for
+`hedge_rate`, persona genuinely explains close to none of the variance —
+the same thing the very first Q1 pilot already found, where its estimated
+persona effect was already ~0. Statistics software fits that "zero"
+by searching for the best value of a number that can't go below zero, and
+right at that lower boundary the default search method's internal math can
+divide by (numerically) zero. Two other search methods that don't rely on
+that math (Powell, Nelder-Mead) handle it fine, so the model now tries the
+default first and automatically falls back to those if it fails — a
+one-line change in practice, verified with a test that reproduces the exact
+zero-effect situation and confirms it no longer crashes.
 
 ---
 

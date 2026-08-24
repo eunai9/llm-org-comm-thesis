@@ -259,7 +259,7 @@ _PAGE = """
         </select>
       </div>
       <div>
-        <label>Tone</label>
+        <label>Tone of the message they received</label>
         <select id="style">
           {% for s in styles %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
         </select>
