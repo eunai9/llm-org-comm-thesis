@@ -34,7 +34,7 @@ from thesis.sim.memory import MemoryItem
 from thesis.sim.persona import Persona
 from thesis.sim.prompt import retrieve_for_group
 from thesis.sim.run import build_request
-from thesis.sim.scenario import DIRECTIONS, STAKES, STYLES, TASK_TYPES, Scenario, build_scenarios
+from thesis.sim.scenario import DIRECTIONS, STAKES, TASK_TYPES, TONES, Scenario, build_scenarios
 from thesis.sim.schemas import InvalidResponseError, validate_response
 
 log = get_logger(__name__)
@@ -53,9 +53,7 @@ def _init_data() -> None:
     global _PERSONAS, _SCENARIOS_BY_KEY, _MEMORY
     _PERSONAS = _load_personas()
     _MEMORY = _load_memory()
-    _SCENARIOS_BY_KEY = {
-        (s.task_type, s.direction, s.stakes, s.style): s for s in build_scenarios()
-    }
+    _SCENARIOS_BY_KEY = {(s.task_type, s.direction, s.stakes, s.tone): s for s in build_scenarios()}
 
 
 def _client_for(backend: str) -> LLMClient:
@@ -81,7 +79,7 @@ def index() -> str:
         task_types=TASK_TYPES,
         directions=DIRECTIONS,
         stakes=STAKES,
-        styles=STYLES,
+        tones=TONES,
     )
 
 
@@ -107,7 +105,7 @@ def generate() -> Any:
             task_type="custom",
             direction=direction,
             stakes="routine",
-            style="neutral",
+            tone="neutral",
             situation=situation or "A workplace situation.",
             incoming_message=incoming,
         )
@@ -119,7 +117,7 @@ def generate() -> Any:
             str(payload.get("task_type", "")),
             str(payload.get("direction", "")),
             str(payload.get("stakes", "")),
-            str(payload.get("style", "")),
+            str(payload.get("tone", "")),
         )
         found = _SCENARIOS_BY_KEY.get(key)
         if found is None:
@@ -260,8 +258,8 @@ _PAGE = """
       </div>
       <div>
         <label>Tone of the message they received</label>
-        <select id="style">
-          {% for s in styles %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+        <select id="tone">
+          {% for t in tones %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
         </select>
       </div>
     </div>
@@ -307,7 +305,7 @@ document.getElementById('generate').addEventListener('click', async () => {
     body.task_type = document.getElementById('task_type').value;
     body.direction = document.getElementById('direction').value;
     body.stakes = document.getElementById('stakes').value;
-    body.style = document.getElementById('style').value;
+    body.tone = document.getElementById('tone').value;
   }
 
   btn.disabled = true;

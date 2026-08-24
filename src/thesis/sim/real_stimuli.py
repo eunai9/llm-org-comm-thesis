@@ -172,11 +172,11 @@ def build_real_stimulus_pairs(
             task_type="real_stimulus",
             direction=direction,
             stakes="routine",
-            # "style" describes the incoming message's actual tone (see
+            # "tone" describes the incoming message's actual tone (see
             # scenario.py) -- real stimuli have a real tone, but nothing
             # here classifies it, so "neutral" is a not-classified
             # placeholder rather than a claim the message is neutral.
-            style="neutral",
+            tone="neutral",
             situation="A real workplace email exchange.",
             incoming_message=stimulus_text,
         )

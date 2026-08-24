@@ -12,15 +12,15 @@ rank 1 has no one below and rank 5 no one above -- and pooling by direction
 keeps every persona contributing to every level of the factor, which is what
 makes the eventual mixed model estimable.
 
-``stakes`` and ``style`` are secondary factors layered on top of the same
+``stakes`` and ``tone`` are secondary factors layered on top of the same
 task/direction pair, added because hierarchy effects plausibly interact with
 both: does deference toward a superior sharpen when something risky is on the
 line (``stakes``), and does the *tone of the message a persona receives*
-shape how they write back, on top of who they're writing to (``style``, see
-:data:`Style`)? Each factor is fully crossed with the others, so the grid is
-``task_type x direction x stakes x style``.
+shape how they write back, on top of who they're writing to (``tone``, see
+:data:`Tone`)? Each factor is fully crossed with the others, so the grid is
+``task_type x direction x stakes x tone``.
 
-**``style`` describes the incoming message, not an instruction to the
+**``tone`` describes the incoming message, not an instruction to the
 persona.** Each task type has four hand-written phrasings of the same
 underlying request -- deferential, warm, neutral, assertive -- so the
 persona is never told how to write; it only ever sees a stimulus that
@@ -28,7 +28,11 @@ happens to be phrased in one of those four registers and replies however it
 naturally would. This is a deliberate correction from an earlier version of
 this module, which instead told the *persona* to write in a given tone --
 that tested instruction-following, not whether an incoming message's tone
-shapes the reply, which is what Q1 actually wants to know.
+shapes the reply, which is what Q1 actually wants to know. (An earlier,
+also-corrected version of this field was named ``style`` -- renamed to
+``tone`` to avoid confusion with :class:`thesis.sim.persona.PersonaStyle`,
+a persona's own corpus-derived writing style, which is an unrelated
+concept.)
 
 **Scenarios carry no Enron content.** They are synthetic business situations of
 the kind the corpus contains, written from scratch. Real messages appear in the
@@ -44,7 +48,7 @@ from typing import Literal
 
 Direction = Literal["up", "lateral", "down"]
 Stakes = Literal["routine", "high"]
-Style = Literal["deferential", "warm", "neutral", "assertive"]
+Tone = Literal["deferential", "warm", "neutral", "assertive"]
 
 TASK_TYPES: tuple[str, ...] = (
     "request_information",
@@ -66,7 +70,7 @@ STAKES: tuple[Stakes, ...] = ("routine", "high")
 # never reaches outright hostility, so an aggressive stimulus would be
 # testing the model's reaction to an out-of-distribution register rather
 # than a realistic organizational one.
-STYLES: tuple[Style, ...] = ("deferential", "warm", "neutral", "assertive")
+TONES: tuple[Tone, ...] = ("deferential", "warm", "neutral", "assertive")
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,7 +81,7 @@ class Scenario:
     task_type: str
     direction: Direction
     stakes: Stakes
-    style: Style
+    tone: Tone
     situation: str
     incoming_message: str
 
@@ -98,10 +102,10 @@ _SITUATIONS: dict[str, str] = {
 }
 
 # Four phrasings of the same request per task type -- same underlying ask,
-# different register. This is the actual style manipulation: the persona
+# different register. This is the actual tone manipulation: the persona
 # never receives a tone instruction, only a stimulus already written in one
 # of these four voices.
-_INCOMING_MESSAGES: dict[tuple[str, Style], str] = {
+_INCOMING_MESSAGES: dict[tuple[str, Tone], str] = {
     ("request_information", "deferential"): (
         "Sorry to bother you with this -- whenever you get a moment, would "
         "you mind sending over last month's volume numbers? I'm putting "
@@ -236,18 +240,18 @@ _DIRECTION_FRAMING: dict[Direction, str] = {
 
 
 def build_scenarios() -> list[Scenario]:
-    """The full scenario set: task type x direction x stakes x style."""
+    """The full scenario set: task type x direction x stakes x tone."""
     scenarios = []
-    for task_type, direction, stakes, style in product(TASK_TYPES, DIRECTIONS, STAKES, STYLES):
+    for task_type, direction, stakes, tone in product(TASK_TYPES, DIRECTIONS, STAKES, TONES):
         scenarios.append(
             Scenario(
-                scenario_id=f"{task_type}__{direction}__{stakes}__{style}",
+                scenario_id=f"{task_type}__{direction}__{stakes}__{tone}",
                 task_type=task_type,
                 direction=direction,
                 stakes=stakes,
-                style=style,
+                tone=tone,
                 situation=_SITUATIONS[task_type],
-                incoming_message=_INCOMING_MESSAGES[(task_type, style)],
+                incoming_message=_INCOMING_MESSAGES[(task_type, tone)],
             )
         )
     return scenarios
