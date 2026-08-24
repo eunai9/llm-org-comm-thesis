@@ -758,6 +758,49 @@ zero-effect situation and confirms it no longer crashes.
 
 ---
 
+### 20. Rerunning the Q1 pilot with the corrected tone design (Aug 24)
+
+With section 17's fix in place, reran the same 240-reply pilot (10
+personas × 3 directions × 4 incoming-message tones × 2 fixed task types).
+Because the incoming messages themselves changed, every reply was freshly
+generated rather than served from cache. The result flips completely from
+the flawed version:
+
+- **Direction still matters, and now replicates the very first Q1 pilot
+  almost exactly:** replying down uses more direct/imperative language
+  than replying to a peer (+0.23, p<0.001), and replying up shows a
+  smaller but still significant bump (+0.14, p=0.046).
+- **The tone of the incoming message has no detectable effect** on either
+  imperative language or hedging (all p > 0.2) — a real persona replies
+  roughly the same way whether the request it received was phrased
+  politely or bluntly.
+
+So the honest reading is the opposite of what the flawed run suggested:
+hierarchy shapes the reply; the tone of what prompted it doesn't, at least
+on these two features. One pattern worth a second look later, not tested
+statistically yet: replies to an assertively-phrased message while writing
+up skewed heavily toward "accept" (12 of 20), while warmly-phrased messages
+while writing down skewed toward "defer"/"decline" — plausible, but at
+n≈20 per cell not something to lean on.
+
+Same standing caveats as every pilot so far: one small local model
+(llama3.2:3b), not the full 144-scenario grid, exploratory rather than
+thesis-grade.
+
+---
+
+### 21. Renaming "style" to "tone" (Aug 24)
+
+The incoming-message factor from sections 17 and 20 was called `style`,
+which turned out to collide in name (though not in meaning) with an
+existing, unrelated concept: each persona already carries its own
+corpus-derived writing style (`PersonaStyle` — how often it hedges, gives
+direct instructions, etc., see section 10). Renamed the scenario factor to
+`tone` throughout the code, tests, and both demos, so the two ideas can't
+be confused with each other again. No behavior changed.
+
+---
+
 ## What's next
 
 **Everything currently useful to build for free is built, and now connected
