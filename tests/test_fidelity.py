@@ -178,6 +178,28 @@ def test_model_free_auc_rejects_too_few_examples_for_cross_validation() -> None:
         model_free_discrimination_auc(["only one real example"], ["gen a", "gen b", "gen c"])
 
 
+def test_model_free_auc_handles_vocabulary_unseen_in_a_training_fold() -> None:
+    """Every document here has tokens that appear in no other document, so
+    each held-out fold necessarily contains vocabulary its training folds
+    never saw. That situation only arises when the vectorizer is fitted
+    *inside* each fold -- fitting it once over the whole corpus first (the
+    leaky arrangement this replaced) makes every token known everywhere, and
+    would quietly hide the case rather than exercise it."""
+    real = [f"alpha{i} beta{i} gamma{i} quarterly" for i in range(8)]
+    generated = [f"delta{i} epsilon{i} zeta{i} synthetic" for i in range(8)]
+    auc = model_free_discrimination_auc(real, generated, n_folds=4)
+    assert 0.0 <= auc <= 1.0
+
+
+def test_model_free_auc_is_chance_level_on_indistinguishable_text() -> None:
+    """The number has to be able to say "these are not separable" -- a
+    fidelity metric that always reports high separation would be useless as
+    evidence of similarity."""
+    shared = ["please review the attached figures before friday"] * 8
+    auc = model_free_discrimination_auc(shared, list(shared), n_folds=4)
+    assert auc == pytest.approx(0.5, abs=0.2)
+
+
 def test_model_free_auc_is_deterministic_given_a_seed() -> None:
     real = [f"real message content {i}" for i in range(6)]
     generated = [f"synthetic generated text {i}" for i in range(6)]

@@ -47,6 +47,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.pipeline import make_pipeline
 
 DEFAULT_TOST_MARGIN = 0.4
 DEFAULT_ALPHA = 0.05
@@ -231,6 +232,15 @@ def model_free_discrimination_auc(
     own guessing. Cross-validated (default 5-fold, per the plan) rather than
     a single train/test split, since a single split's AUC on a small corpus
     is itself a noisy estimate of the thing being measured.
+
+    **The vectorizer is fitted inside each fold, not once over everything.**
+    Fitting TF-IDF on the full corpus first would let each training fold see
+    the held-out fold's vocabulary and document frequencies, which is
+    train/test leakage: the reported AUC would be optimistic by an unknown
+    amount, and this number exists precisely to be the harder-to-argue-with
+    companion to the judge's own rated similarity. Wrapping both steps in a
+    Pipeline makes the split honest, at no cost beyond refitting a small
+    vectorizer per fold.
     """
     texts = list(real_texts) + list(generated_texts)
     labels = [0] * len(real_texts) + [1] * len(generated_texts)
@@ -238,7 +248,6 @@ def model_free_discrimination_auc(
         msg = "need at least one real and one generated text"
         raise DegenerateLabelsError(msg)
 
-    features = TfidfVectorizer(stop_words="english").fit_transform(texts)
     n_per_class = min(len(real_texts), len(generated_texts))
     folds = min(n_folds, n_per_class)
     if folds < 2:
@@ -246,7 +255,8 @@ def model_free_discrimination_auc(
         raise DegenerateLabelsError(msg)
 
     cv = StratifiedKFold(n_splits=folds, shuffle=True, random_state=seed)
-    scores = cross_val_score(
-        LogisticRegression(max_iter=1000), features, labels, cv=cv, scoring="roc_auc"
+    pipeline = make_pipeline(
+        TfidfVectorizer(stop_words="english"), LogisticRegression(max_iter=1000)
     )
+    scores = cross_val_score(pipeline, texts, labels, cv=cv, scoring="roc_auc")
     return float(np.mean(scores))

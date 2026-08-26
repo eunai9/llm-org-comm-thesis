@@ -893,43 +893,105 @@ existed, so they were discarded and the comparison rerun from scratch: the
 same real email threads, an AI reply to each, and both the AI reply and the
 real person's actual reply scored blind by the judge.
 
-**Result on 31 matched pairs:**
+**The first attempt produced a wrong answer, and the reason matters.** That
+run reported a large, statistically significant gap on role consistency —
+real replies 4.65 vs AI 3.81 — and it was an artifact. Real replies were
+being handed to the judge as `Subject: ... / body` while AI replies were
+handed over as body text only. The two sides differed in *format* as well
+as in who wrote them, which also means the judge was never properly blind:
+"has a subject line" was a perfect giveaway. Caught while investigating
+what a separate word-frequency classifier was keying on (section 26).
+
+**Corrected result, both sides formatted identically, 40 matched pairs:**
 
 | Dimension | Real | AI | Gap | Difference detected? | Similarity proven? |
 |---|---:|---:|---:|---|---|
-| Role consistency | 4.65 | 3.81 | +0.84 | **Yes (p=.008)** | No |
-| Conflict management | 4.55 | 4.06 | +0.48 | Borderline (p=.061) | No |
-| Contextual fit | 4.16 | 3.84 | +0.32 | No | No |
-| Clarity | 4.65 | 4.39 | +0.26 | No | No |
-| Politeness | 4.42 | 4.16 | +0.26 | No | No |
-| Corpus plausibility | 4.29 | 4.16 | +0.13 | No | No |
+| Clarity | 4.70 | 4.72 | −0.03 | No | **Yes** |
+| Role consistency | 4.58 | 4.62 | −0.05 | No | **Yes** |
+| Politeness | 4.45 | 4.62 | −0.17 | No | No |
+| Conflict management | 4.50 | 4.67 | −0.17 | No | No |
+| Corpus plausibility | 4.25 | 4.53 | −0.28 | No | No |
+| Contextual fit | 4.12 | 4.62 | −0.50 | Borderline (p=.055) | No |
 
-**Role consistency is a genuine, reportable failure.** It is the only
-dimension with a statistically detectable gap, the gap is more than double
-what the equivalence test would accept as "close enough," and it is exactly
-the thing the simulator exists to do — write like someone at this role and
-seniority would. A 3B model handed a persona description does not
-convincingly become that person.
+The role-consistency failure disappears completely once the comparison is
+fair. Every gap now runs the other way: the AI reply scored at least as
+well as the real one on all six dimensions, similarity is positively
+proven on two, and the one near-significant difference favours the AI.
+**On the judge's own rubric, these replies pass.**
 
-**Similarity could not be proven anywhere**, including where the gap is
-tiny (corpus plausibility differs by 0.13 points). At 31 pairs that is a
-lack of statistical power, not evidence of a difference — and it is
-precisely why both tests are always reported together. Reading only the
-"difference detected?" column would wrongly suggest five of six dimensions
-matched.
-
-One bookkeeping detail: 40 threads produced only 31 pairs because the
-analysis script grouped by conversation, and a few conversations have more
-than one real replier. The underlying pipeline handles those correctly; the
-full run should recover all 40.
+Also fixed here: pairs are now keyed on the individual reply rather than
+the conversation, so conversations with more than one real replier no
+longer collapse. That is why this run has 40 pairs where the first had 31.
 
 ---
 
-### 25. A supervisor checkpoint memo (Aug 24)
+### 26. The judge says they match; a much simpler method says they don't (Aug 24)
+
+Ran the model-free check that has been built but never used on real data:
+no AI involved at all, just word frequencies (TF-IDF) and a standard
+classifier, asked to guess which replies are real. A score of 0.5 means it
+cannot tell; 1.0 means it always can.
+
+| Comparison | Score | What it isolates |
+|---|---:|---|
+| Unmatched format | 0.887 | Contaminated by the subject-line artifact above |
+| Format-matched | 0.719 | The fair comparison |
+| Format-matched, names removed | 0.819 | Real names replaced by placeholders |
+| Body text only, both sides | 0.841 | Prose alone |
+
+**This is arguably the most useful result the project has produced.** On
+the same 40 pairs, an AI judge scoring six rubric dimensions cannot tell
+real from generated — but a simple word-counting classifier separates them
+at 0.72–0.84. Both statements are true simultaneously. The research plan
+already warned that "rated similarity is weak" and recommended pairing it
+with exactly this kind of check; the project now has its own data
+demonstrating the point rather than just citing the worry.
+
+**What gives the AI replies away**, and neither is subtle:
+
+- **Length.** Real replies run 53 words at the median, AI replies 19.5 —
+  nearly three times shorter.
+- **Concreteness.** Real workplace email is thick with names, companies,
+  dates and figures. The AI replies mention almost nothing specific.
+  Counter-intuitively, *removing* real names raised the score rather than
+  lowering it: swapping many rare distinct names for a few repeated
+  placeholders concentrated the signal instead of erasing it. So the tell
+  is not which names appear, but how many.
+
+⚠️ **Important caveat for the thesis:** part of that concreteness gap is
+designed in, not a model failing. The personas are deliberately anonymised
+role archetypes holding no real colleague names or deal names, so they
+*cannot* produce them. The write-up needs to separate "the AI writes
+unconvincingly" from "the design forbids the AI from being specific."
+
+---
+
+### 27. Fixing a subtle statistical leak in the model-free check (Aug 24)
+
+While running the above, found a real flaw in `model_free_discrimination_auc`:
+it built its word list from *all* the text before splitting into
+train/test folds, which lets each training round peek at the vocabulary of
+the very examples it is about to be tested on. That is textbook data
+leakage, and it inflates the score by an unknown amount — bad anywhere,
+but especially here, since this number exists precisely to be the
+harder-to-argue-with companion to the AI judge's opinion.
+
+Fixed by rebuilding the word list separately inside each fold. The
+practical difference on this data turned out to be small (0.872 → 0.887,
+i.e. within noise, and in the opposite direction to the usual leakage
+effect) — but "it happened not to matter this time" is not a defence of a
+method that goes into a thesis. Two tests added, including one whose data
+is constructed so that every held-out fold contains vocabulary its training
+folds have never seen, a situation that can only arise once the fix is in
+place.
+
+---
+
+### 28. A supervisor checkpoint memo (Aug 24)
 
 Wrote up everything above as a single standing document for the supervisor
-meeting — data foundation, the four pilot findings, the tone-design flaw
-and its correction, what these results can and cannot support, and four
+meeting — data foundation, the pilot findings, the two analysis errors
+found and corrected, what these results can and cannot support, and four
 decisions that need your supervisor's input (ethics-approval timing, which
 models produce the final results, how to present the power-score null, and
 who validates the thread-matching sample). Published as a private web page
