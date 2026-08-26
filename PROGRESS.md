@@ -884,6 +884,59 @@ n=120 items is a pilot, not a powered study.
 
 ---
 
+### 24. Re-running the real-vs-AI comparison, and a clear failure to report (Aug 24)
+
+The tone correction in section 17 changed the text every persona receives,
+which correctly invalidated the cached AI replies behind the earlier
+real-vs-AI comparison. Those numbers described a pipeline that no longer
+existed, so they were discarded and the comparison rerun from scratch: the
+same real email threads, an AI reply to each, and both the AI reply and the
+real person's actual reply scored blind by the judge.
+
+**Result on 31 matched pairs:**
+
+| Dimension | Real | AI | Gap | Difference detected? | Similarity proven? |
+|---|---:|---:|---:|---|---|
+| Role consistency | 4.65 | 3.81 | +0.84 | **Yes (p=.008)** | No |
+| Conflict management | 4.55 | 4.06 | +0.48 | Borderline (p=.061) | No |
+| Contextual fit | 4.16 | 3.84 | +0.32 | No | No |
+| Clarity | 4.65 | 4.39 | +0.26 | No | No |
+| Politeness | 4.42 | 4.16 | +0.26 | No | No |
+| Corpus plausibility | 4.29 | 4.16 | +0.13 | No | No |
+
+**Role consistency is a genuine, reportable failure.** It is the only
+dimension with a statistically detectable gap, the gap is more than double
+what the equivalence test would accept as "close enough," and it is exactly
+the thing the simulator exists to do — write like someone at this role and
+seniority would. A 3B model handed a persona description does not
+convincingly become that person.
+
+**Similarity could not be proven anywhere**, including where the gap is
+tiny (corpus plausibility differs by 0.13 points). At 31 pairs that is a
+lack of statistical power, not evidence of a difference — and it is
+precisely why both tests are always reported together. Reading only the
+"difference detected?" column would wrongly suggest five of six dimensions
+matched.
+
+One bookkeeping detail: 40 threads produced only 31 pairs because the
+analysis script grouped by conversation, and a few conversations have more
+than one real replier. The underlying pipeline handles those correctly; the
+full run should recover all 40.
+
+---
+
+### 25. A supervisor checkpoint memo (Aug 24)
+
+Wrote up everything above as a single standing document for the supervisor
+meeting — data foundation, the four pilot findings, the tone-design flaw
+and its correction, what these results can and cannot support, and four
+decisions that need your supervisor's input (ethics-approval timing, which
+models produce the final results, how to present the power-score null, and
+who validates the thread-matching sample). Published as a private web page
+rather than a file, so it can be shared by link.
+
+---
+
 ## What's next
 
 **Everything currently useful to build for free is built, and now connected
