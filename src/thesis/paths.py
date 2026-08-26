@@ -42,6 +42,13 @@ FIGURES_DIR: Path = OUTPUTS_DIR / "figures"
 TABLES_DIR: Path = OUTPUTS_DIR / "tables"
 MANIFESTS_DIR: Path = OUTPUTS_DIR / "manifests"
 
+# Figures embedded in committed documentation (PROGRESS.md), as distinct
+# from FIGURES_DIR, which holds regenerable run outputs and is gitignored.
+# A Markdown file in the repository can only render an image that is also
+# in the repository, so these have to live somewhere tracked.
+DOCS_DIR: Path = REPO_ROOT / "docs"
+DOCS_FIGURES_DIR: Path = DOCS_DIR / "figures"
+
 # Well-known artefacts.
 ENRON_CSV: Path = RAW_DIR / "emails.csv"
 MESSAGES_PARQUET_GLOB: str = str(INTERIM_DIR / "messages" / "part-*.parquet")
@@ -60,6 +67,7 @@ _WRITABLE_DIRS: tuple[Path, ...] = (
     FIGURES_DIR,
     TABLES_DIR,
     MANIFESTS_DIR,
+    DOCS_FIGURES_DIR,
 )
 
 

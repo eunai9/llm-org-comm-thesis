@@ -856,15 +856,25 @@ family's output higher than the other family's, beyond (a) that
 generator's own baseline quality and (b) that judge's own baseline
 generosity?
 
+![Mean score by which model wrote the reply, with one line per judging
+model. Both lines rise from llama-generated to qwen-generated; the llama
+line sits about 0.6 points above the qwen line throughout, and the two are
+not quite parallel.](docs/figures/judge_swap_interaction.png)
+
 Two effects turned out to be real and much larger than any self-preference
-signal:
+signal, and both are visible in the plot above:
 
 - **qwen writes better replies than llama, by both judges' scoring** —
   qwen-generated messages score about 1 point higher (on the 1-5 rubric)
-  than llama-generated ones, consistently.
+  than llama-generated ones, consistently. That is both lines sloping up.
 - **llama is a more generous judge than qwen** — llama-as-judge scores
   everything roughly 0.6 points higher than qwen-as-judge does, regardless
-  of who wrote it.
+  of who wrote it. That is the vertical gap between the two lines.
+
+Self-preference is whatever is left over: the slight *non-parallelism*,
+i.e. llama's line falling less steeply than qwen's as it moves to the
+other family's output. It is visible but small, which is exactly what the
+p=0.065 says numerically.
 
 After controlling for both of those (the interaction model's whole job),
 a self-preference signal remains: llama-judge rates llama-generated
@@ -913,6 +923,11 @@ what a separate word-frequency classifier was keying on (section 26).
 | Corpus plausibility | 4.25 | 4.53 | −0.28 | No | No |
 | Contextual fit | 4.12 | 4.62 | −0.50 | Borderline (p=.055) | No |
 
+![Judge scores for real and AI replies to the same message, by rubric
+dimension. On every dimension the AI dot sits at or to the right of the
+real one; the gap widens going down the chart, from almost nothing on
+clarity to half a point on contextual fit.](docs/figures/judge_paired_fidelity.png)
+
 The role-consistency failure disappears completely once the comparison is
 fair. Every gap now runs the other way: the AI reply scored at least as
 well as the real one on all six dimensions, similarity is positively
@@ -938,6 +953,11 @@ cannot tell; 1.0 means it always can.
 | Format-matched | 0.719 | The fair comparison |
 | Format-matched, names removed | 0.819 | Real names replaced by placeholders |
 | Body text only, both sides | 0.841 | Prose alone |
+
+![Discrimination scores for four versions of the comparison, drawn from
+0.5 (chance) rightward. The unmatched-format version reaches 0.887; the
+fair comparisons sit between 0.719 and 0.841 — all far above
+chance.](docs/figures/judge_discrimination_auc.png)
 
 **This is arguably the most useful result the project has produced.** On
 the same 40 pairs, an AI judge scoring six rubric dimensions cannot tell
@@ -987,7 +1007,25 @@ place.
 
 ---
 
-### 28. A supervisor checkpoint memo (Aug 24)
+### 28. Plots for the judge results (Aug 24)
+
+Judge results in this log were tables only, which makes the reader
+reconstruct the pattern in their head. Each one now carries a figure
+showing how the measured quantity moves across the settings that were
+varied — the real-vs-AI gap by rubric dimension, the generator-by-judge
+interaction, and separability under successively fairer comparisons.
+
+The plotting code lives in `src/thesis/analysis/plots.py` rather than in a
+notebook, so the figures regenerate with a single command
+(`python -m thesis.analysis.plots`) and the numbers behind them sit in one
+place that produces the picture this log shows — they cannot drift apart
+from the text. Nine tests cover the argument-shape mistakes that would
+produce a confidently mislabelled chart. Adds `matplotlib` to
+`requirements.txt`.
+
+---
+
+### 29. A supervisor checkpoint memo (Aug 24)
 
 Wrote up everything above as a single standing document for the supervisor
 meeting — data foundation, the pilot findings, the two analysis errors
