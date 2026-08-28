@@ -1037,6 +1037,73 @@ rather than a file, so it can be shared by link.
 
 ---
 
+### 29. Widening Q2 to all 190 pairs, and what the length gap turns out to be (Aug 28)
+
+Section 24's fair comparison used the first 40 of the 190 real-stimulus
+pairs available. Reran it against all 190 (63 fresh AI replies, 338 fresh
+judge calls, the rest served from cache), which is what the memo's
+proposed-next-steps list called for: enough pairs to actually resolve the
+dimensions the n=40 run left ambiguous.
+
+**Equivalence now holds on every single dimension:**
+
+| Dimension | Real | AI | Gap | Detected? | Equivalent? |
+|---|---:|---:|---:|---|---|
+| Role consistency | 4.45 | 4.36 | +0.09 | No | **Yes** |
+| Contextual fit | 4.15 | 4.09 | +0.06 | No | **Yes** |
+| Corpus plausibility | 4.26 | 4.33 | −0.07 | No | **Yes** |
+| Politeness | 4.15 | 4.24 | −0.09 | No | **Yes** |
+| Conflict management | 4.19 | 4.39 | −0.21 | **Yes (p=.037)** | **Yes** |
+| Clarity | 4.46 | 4.69 | −0.23 | **Yes (p=.015)** | **Yes** |
+
+![Judge scores for real and AI replies to the same message across all 190
+pairs, by rubric dimension. Every gap is small; the two largest, clarity
+and conflict management, still sit well inside the equivalence
+band.](docs/figures/judge_paired_fidelity_n190.png)
+
+Two dimensions cross into "statistically detectable" territory here that
+did not at n=40 — clarity and conflict management — purely because a
+bigger sample has more power to detect a small real difference. Both
+differences stayed small enough (under a quarter of a point) to still pass
+the equivalence test. This is the clearest illustration yet of why both
+tests are reported side by side: "detectable" and "large" are not the same
+claim, and only a large-enough sample lets that distinction actually show
+up instead of just being asserted.
+
+**The length gap is real, and turns out to explain almost the entire
+model-free "tell."** Real replies run 79 words on average, generated ones
+18.5 — a ratio that held steady from the n=40 sample to n=190. Checked
+whether this is a bug: it is not. `MAX_OUTPUT_TOKENS = 2048` is nowhere
+close to binding, and the simulator's own prompt explicitly instructs the
+model toward the persona's real, corpus-derived typical length ("a short
+reply is usually the realistic one; do not pad to seem thorough"). The
+model is undershooting its own target, not hitting an artificial ceiling —
+itself worth a closer look later, since a 4x undershoot from a stated,
+corpus-calibrated target is a bigger miss than "the model tends to be
+concise."
+
+Isolating how much of that length gap accounts for the earlier
+model-free-classifier result (section 25): a classifier given nothing but
+each reply's word count reaches 0.946 AUC on its own; the full-text
+classifier reaches 0.966. Almost all of the "these are separable" signal
+is length; only about 0.02 AUC of extra separability comes from anything
+else — vocabulary, entities, phrasing.
+
+![Two discrimination scores side by side: length alone at 0.946 AUC, full
+text at 0.966. The bars are nearly the same length — length alone explains
+almost everything the fuller classifier
+finds.](docs/figures/judge_discrimination_length_covariate.png)
+
+**Put together, this reconciles section 25's apparent contradiction.** The
+judge said real and generated were indistinguishable; the word-count
+classifier said they were nearly perfectly separable. Both were right, and
+the resolution is length: on content quality, as the judge's own rubric
+scores it, the two are equivalent everywhere. What actually gives an AI
+reply away is almost entirely that it is much shorter — not a deeper
+stylistic or substantive difference the judge is failing to notice.
+
+---
+
 ## What's next
 
 **Everything currently useful to build for free is built, and now connected

@@ -336,6 +336,26 @@ def main() -> None:
         subtitle="Same 40 pairs the judge could not separate. No LLM involved.",
     )
 
+    # The widened run (section 29): all 190 available pairs rather than the
+    # first 40, powering the equivalence test enough to actually resolve
+    # the borderline dimensions from the n=40 pilot.
+    plot_paired_dimensions(
+        rubric,
+        real_scores=(4.46, 4.45, 4.15, 4.19, 4.26, 4.15),
+        generated_scores=(4.69, 4.36, 4.24, 4.39, 4.33, 4.09),
+        path=DOCS_FIGURES_DIR / "judge_paired_fidelity_n190.png",
+        title="Judge scores: real vs generated reply to the same message (n=190)",
+        subtitle="All 190 available pairs. Equivalence now holds on every dimension.",
+    )
+
+    plot_discrimination_auc(
+        ("length alone\n(log word count)", "full text\n(TF-IDF)"),
+        (0.946, 0.966),
+        path=DOCS_FIGURES_DIR / "judge_discrimination_length_covariate.png",
+        title="How much of the separability is just reply length?",
+        subtitle="n=190 pairs. Length alone accounts for almost all of it.",
+    )
+
 
 if __name__ == "__main__":
     main()
