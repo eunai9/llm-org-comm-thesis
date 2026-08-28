@@ -42,6 +42,7 @@ from typing import Literal
 import duckdb
 import pyarrow as pa
 
+from thesis.config import Config, load_config
 from thesis.logging_setup import configure_logging, get_logger
 from thesis.paths import EXTERNAL_DIR, INTERIM_DIR, MESSAGES_PARQUET_GLOB
 
@@ -113,6 +114,16 @@ class Persona:
         return self.derivation == "rank_pooled"
 
 
+# Bounded to the same token range the sampling frame uses (config.data.corpus
+# .min_body_tokens/max_body_tokens, 20-600) -- not the whole unfiltered
+# corpus. Every style statistic here, including mean_tokens (rendered into
+# the prompt as the persona's "typical length"), exists to calibrate the
+# simulator toward the population it will actually be compared against
+# (S_shots/S_real_eval, drawn from that same band). Without this filter,
+# mean_tokens is diluted by the third of the corpus under 20 words -- one-
+# line acknowledgments, forwards -- that could never have been sampled as a
+# stimulus in the first place, understating "typical length" for a task
+# that never includes those messages.
 _AGGREGATE_SQL = """
     SELECT
         r.rank,
@@ -129,6 +140,7 @@ _AGGREGATE_SQL = """
     JOIN roles AS r ON r.address = m.from_addr
     JOIN read_parquet(?) AS f USING (message_uid)
     WHERE r.dept IN ('Trading', 'Legal') AND r.rank BETWEEN 1 AND 5
+      AND m.n_tokens_clean BETWEEN ? AND ?
     GROUP BY r.rank, {group_department}
 """
 
@@ -156,10 +168,12 @@ def _aggregate(
     features_path: str,
     *,
     by_department: bool,
+    min_tokens: int,
+    max_tokens: int,
 ) -> dict[tuple[int, str], dict[str, float]]:
     """Aggregate style statistics, grouped by rank and optionally department."""
     sql = _AGGREGATE_SQL.format(group_department="r.dept" if by_department else "'*'")
-    rows = con.execute(sql, [messages_glob, features_path]).fetchall()
+    rows = con.execute(sql, [messages_glob, features_path, min_tokens, max_tokens]).fetchall()
     columns = (
         "n_msgs",
         "n_people",
@@ -180,17 +194,39 @@ def derive_personas(
     features_path: str = str(FEATURES_PATH),
     *,
     min_people: int = MIN_PEOPLE_PER_PERSONA,
+    config: Config | None = None,
 ) -> list[Persona]:
     """Build one persona per (rank x department) cell.
 
     Cells with fewer than ``min_people`` distinct senders fall back to the
     rank-level aggregate pooled across departments, so that no persona
     describes a single identifiable person.
+
+    Style statistics are computed over the same token-length band
+    (``config.data.corpus.min_body_tokens``/``max_body_tokens``) the
+    sampling frame uses -- see the comment on :data:`_AGGREGATE_SQL`.
     """
+    config = config or load_config()
     con = duckdb.connect()
     con.register("roles", _role_relation(role_by_address))
-    by_cell = _aggregate(con, messages_glob, features_path, by_department=True)
-    by_rank = _aggregate(con, messages_glob, features_path, by_department=False)
+    min_tokens = config.data.corpus.min_body_tokens
+    max_tokens = config.data.corpus.max_body_tokens
+    by_cell = _aggregate(
+        con,
+        messages_glob,
+        features_path,
+        by_department=True,
+        min_tokens=min_tokens,
+        max_tokens=max_tokens,
+    )
+    by_rank = _aggregate(
+        con,
+        messages_glob,
+        features_path,
+        by_department=False,
+        min_tokens=min_tokens,
+        max_tokens=max_tokens,
+    )
     con.close()
 
     personas: list[Persona] = []

@@ -1155,6 +1155,49 @@ downstream numbers without a chance to check the effect first.
 
 ---
 
+### 31. Fixing the measurement-scope mismatch (Aug 28)
+
+Fixed problem 2 from section 30: `mean_tokens`, and every other persona
+style statistic sharing its query, is now computed only over messages in
+the same 20–600-word band the sampling frame (`S_shots`/`S_real_eval`)
+already uses, instead of the whole unfiltered corpus. One line of SQL
+(`AND m.n_tokens_clean BETWEEN ? AND ?`, using the same config values
+`sampling.py` already reads), threaded through as parameters rather than
+hardcoded, so the bound can only ever drift from the sampling frame's own
+if the config itself changes.
+
+This is a bigger change than it looks, so it was not applied without
+checking first: it touches every persona's `personas_snapshot.json` (the
+frozen file the simulator actually reads) and silently outdates every
+cached AI reply behind every pilot run logged in this file so far, since
+"typical length" is part of the rendered prompt text the cache keys on.
+Checked with you before running it, given both of those, rather than
+changing it unilaterally the way a pure bug fix would be.
+
+**The result validates the diagnosis cleanly.** Persona `mean_tokens` now
+ranges 69–102 words, averaging **78.2** — up from 40–90 (avg 53.5), and
+almost exactly matching the 79-word `S_real_eval` real-reply average that
+started this whole thread in section 29. The other style statistics
+shifted too, all upward: excluding one-line acknowledgments and forwards
+raised every persona's average `imperative_ratio` and `hedge_rate`
+slightly, which makes sense — those trivial messages carry almost no
+directive or hedging language to average in.
+
+`personas_snapshot.json` regenerated and committed
+(`python -m thesis.sim.persona`); `memory_snapshot.json` was deliberately
+left untouched, since persona-memory narrative content doesn't reference
+`mean_tokens` directly and regenerating it would mean ~100 new (still
+free, but unnecessary) calls for no expected change. 442 tests pass,
+ruff/black/mypy clean — no existing test exercises `derive_personas`'s SQL
+directly (it needs the full corpus), so nothing broke, but nothing caught
+this either; worth keeping in mind.
+
+**Still open:** whether the model's own undershoot (problem 1) shrinks
+once it is being compared against this corrected, more accurate target —
+that needs a fresh pilot generation, not yet run.
+
+---
+
 ## What's next
 
 **Everything currently useful to build for free is built, and now connected
