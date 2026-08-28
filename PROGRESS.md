@@ -910,7 +910,7 @@ being handed to the judge as `Subject: ... / body` while AI replies were
 handed over as body text only. The two sides differed in *format* as well
 as in who wrote them, which also means the judge was never properly blind:
 "has a subject line" was a perfect giveaway. Caught while investigating
-what a separate word-frequency classifier was keying on (section 26).
+what a separate word-frequency classifier was keying on (section 25).
 
 **Corrected result, both sides formatted identically, 40 matched pairs:**
 
@@ -940,7 +940,7 @@ longer collapse. That is why this run has 40 pairs where the first had 31.
 
 ---
 
-### 26. The judge says they match; a much simpler method says they don't (Aug 24)
+### 25. The judge says they match; a much simpler method says they don't (Aug 24)
 
 Ran the model-free check that has been built but never used on real data:
 no AI involved at all, just word frequencies (TF-IDF) and a standard
@@ -986,7 +986,7 @@ unconvincingly" from "the design forbids the AI from being specific."
 
 ---
 
-### 27. Fixing a subtle statistical leak in the model-free check (Aug 24)
+### 26. Fixing a subtle statistical leak in the model-free check (Aug 24)
 
 While running the above, found a real flaw in `model_free_discrimination_auc`:
 it built its word list from *all* the text before splitting into
@@ -1007,7 +1007,7 @@ place.
 
 ---
 
-### 28. Plots for the judge results (Aug 24)
+### 27. Plots for the judge results (Aug 24)
 
 Judge results in this log were tables only, which makes the reader
 reconstruct the pattern in their head. Each one now carries a figure
@@ -1025,7 +1025,7 @@ produce a confidently mislabelled chart. Adds `matplotlib` to
 
 ---
 
-### 29. A supervisor checkpoint memo (Aug 24)
+### 28. A supervisor checkpoint memo (Aug 24)
 
 Wrote up everything above as a single standing document for the supervisor
 meeting — data foundation, the pilot findings, the two analysis errors
