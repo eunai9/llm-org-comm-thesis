@@ -1078,9 +1078,11 @@ close to binding, and the simulator's own prompt explicitly instructs the
 model toward the persona's real, corpus-derived typical length ("a short
 reply is usually the realistic one; do not pad to seem thorough"). The
 model is undershooting its own target, not hitting an artificial ceiling —
-itself worth a closer look later, since a 4x undershoot from a stated,
+itself worth a closer look later, since a real undershoot from a stated,
 corpus-calibrated target is a bigger miss than "the model tends to be
-concise."
+concise." (Followed up in section 30: the real target the model was given
+turns out to be lower than the 79-word figure above, so the size of the
+undershoot needed correcting too.)
 
 Isolating how much of that length gap accounts for the earlier
 model-free-classifier result (section 25): a classifier given nothing but
@@ -1101,6 +1103,55 @@ the resolution is length: on content quality, as the judge's own rubric
 scores it, the two are equivalent everywhere. What actually gives an AI
 reply away is almost entirely that it is much shorter — not a deeper
 stylistic or substantive difference the judge is failing to notice.
+
+---
+
+### 30. The length gap is real, but "4x" was the wrong comparison (Aug 28)
+
+Section 29 estimated the model's length undershoot by comparing its output
+(18.5 words) against the *real reply* average (79 words) and called that a
+roughly 4x miss. That is not quite the right comparison, because 79 words
+is not what the model was actually told to aim for — followed up to check
+against the number that is: `persona.style.mean_tokens`, the "Typical
+message length: about X words" line the prompt actually renders.
+
+That number, per persona, turns out to be much lower than 79 across the
+board (40 to 90 words, averaging **53.5**) — so the real undershoot is
+closer to **2.9x** (53.5 vs 18.5), not 4x. A real gap, just a smaller one
+than first estimated, and the earlier figure is corrected here rather than
+silently fixed in place.
+
+**Chasing that number down found a second, separate problem worth fixing
+on its own.** `mean_tokens` is computed by averaging every message a
+role/department sends, with no length filter at all — including the 34.5%
+of the whole corpus that runs under 20 words (one-line acknowledgments,
+forwarded messages, and the like). Those messages could never have been
+sampled as an `S_shots`/`S_real_eval` stimulus in the first place, since
+that sampling frame requires 20–600 words. Restricting to that same
+eligible band, the corpus averages **108.9 words** (median 67) — more
+than twice the 53.5-word figure actually fed to personas as their "typical
+length."
+
+So there are two distinct problems, not one, and they should stay
+separate rather than being folded into a single "the model writes too
+short" story:
+
+1. **An instruction-following gap** — the model undershoots the length
+   it is explicitly told to aim for, by roughly 2.9x. This is a real
+   model-behavior finding.
+2. **A measurement-scope mismatch** — the "typical length" instruction
+   itself is diluted by messages that were never eligible to be an
+   `S_real_eval` stimulus to begin with, so even a model that followed
+   its instruction perfectly would still tend to undershoot what a real
+   `S_real_eval` reply looks like. This is a data-pipeline issue:
+   `mean_tokens` should probably be computed over the same 20–600-word
+   band the sampling frame already uses, so the number a persona is
+   calibrated toward actually matches the population it gets compared
+   against.
+
+Not yet fixed — flagging both, precisely, rather than fixing the second
+one under time pressure and potentially changing every persona's
+downstream numbers without a chance to check the effect first.
 
 ---
 
