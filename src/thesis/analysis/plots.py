@@ -356,6 +356,33 @@ def main() -> None:
         subtitle="n=190 pairs. Length alone accounts for almost all of it.",
     )
 
+    # Section 32: the same n=190 comparison re-run against the corrected
+    # personas, whose style statistics are computed over the sampling
+    # frame's own token band. Kept as its own figure rather than
+    # overwriting the one above, since section 29's text describes that run.
+    plot_paired_dimensions(
+        rubric,
+        real_scores=(4.57, 4.51, 4.17, 4.24, 4.25, 4.12),
+        generated_scores=(4.66, 4.33, 4.33, 4.23, 4.29, 4.02),
+        path=DOCS_FIGURES_DIR / "judge_paired_fidelity_corrected.png",
+        title="Judge scores after the persona correction (n=190)",
+        subtitle="Equivalence on all six dimensions, and now no detectable difference on any.",
+    )
+
+    # The accidental-but-controlled length manipulation: the instructed
+    # target rose 46% between the two runs and output barely moved. An
+    # interaction plot because the finding *is* the non-parallelism --
+    # a flat response line against a steeply rising instruction line.
+    plot_factor_interaction(
+        ("original personas", "corrected personas"),
+        {"instructed target": (53.5, 78.2), "actual output": (18.5, 19.9)},
+        path=DOCS_FIGURES_DIR / "length_instruction_response.png",
+        title="Does the model follow its instructed reply length?",
+        subtitle="Raising the stated target by 46% moved actual output by ~7%.",
+        x_label="persona style statistics used",
+        y_label="words per reply",
+    )
+
 
 if __name__ == "__main__":
     main()

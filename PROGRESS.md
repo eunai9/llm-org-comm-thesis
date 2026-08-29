@@ -1198,6 +1198,78 @@ that needs a fresh pilot generation, not yet run.
 
 ---
 
+### 32. Re-running everything against corrected personas — and an accidental experiment (Aug 29)
+
+Correcting the persona statistics (section 31) changed the prompt text
+every persona is built from, and since the response cache keys on rendered
+prompt text, that silently outdated **every** cached AI reply behind every
+pilot in this log. The results were never wrong for the setup they ran
+under, but they stopped describing the current pipeline. Re-ran the Q2
+fidelity comparison first, as the headline claim and the one most exposed
+to a change in `mean_tokens`: all 190 pairs, 151 fresh generations, 380
+judge calls.
+
+**The headline survives, and gets cleaner.** Equivalence still holds on
+all six dimensions — and unlike the previous run, *no* dimension now shows
+even a statistically detectable difference (previously clarity at p=.015
+and conflict management at p=.037 did). The two largest gaps from before
+shrank: conflict management went from −0.21 to +0.01.
+
+| Dimension | Real | AI | Gap | Detected? | Equivalent? |
+|---|---:|---:|---:|---|---|
+| Role consistency | 4.51 | 4.33 | +0.18 | No (p=.084) | **Yes** |
+| Politeness | 4.17 | 4.33 | −0.16 | No | **Yes** |
+| Contextual fit | 4.12 | 4.02 | +0.11 | No | **Yes** |
+| Clarity | 4.57 | 4.66 | −0.08 | No | **Yes** |
+| Corpus plausibility | 4.25 | 4.29 | −0.04 | No | **Yes** |
+| Conflict management | 4.24 | 4.23 | +0.01 | No | **Yes** |
+
+![Judge scores after the persona correction, across all 190 pairs. Every
+gap is small and centred near zero, with no dimension showing a detectable
+difference.](docs/figures/judge_paired_fidelity_corrected.png)
+
+**The length question got a much more interesting answer than expected.**
+The prediction was that the undershoot would shrink once the model was
+given an accurate target. It did the opposite — the *ratio* got worse,
+from 2.9x to 3.93x. But that is the wrong way to read it, because the
+reason is that the target moved and the output did not:
+
+| | Original personas | Corrected personas | Change |
+|---|---:|---:|---:|
+| Instructed target | 53.5 words | 78.2 words | **+46%** |
+| Actual output | 18.5 words | 19.9 words | **+7%** |
+
+![The instructed target rises steeply between the two runs while actual
+output stays almost flat — the model barely responds to the change in its
+stated target.](docs/figures/length_instruction_response.png)
+
+This was an accidental but genuinely controlled manipulation: the same 190
+stimuli, the same model, the same everything except the stated typical
+length, which rose by nearly half. Output moved by an amount that is
+plausibly just generation noise. **So this is not the model "trying and
+undershooting" — it is the model essentially ignoring the length
+instruction altogether.** That is a cleaner and more reportable finding
+than a mis-sized target would have been, and it reframes the length gap
+from a calibration problem into an instruction-following one.
+
+Worth stating the limitation plainly: this is two conditions, not a
+designed dose-response experiment, so it establishes very low sensitivity
+rather than measuring a precise slope. The obvious follow-up is cheap and
+free — hold everything else fixed and state several target lengths (say
+20, 50, 100, 200 words), then measure the response curve properly.
+
+**Discrimination is unchanged**, as expected given output length barely
+moved: full-text AUC 0.976 (was 0.966), length alone 0.931 (was 0.946).
+Real and generated replies remain nearly perfectly separable, still almost
+entirely on length.
+
+**Not yet re-run against corrected personas:** the Q1 direction pilots and
+the judge-swap. Q1 matters more of the two, since `imperative_ratio` is
+both a persona statistic that changed and the outcome the direction effect
+is measured on.
+
+---
+
 ## What's next
 
 **Everything currently useful to build for free is built, and now connected
