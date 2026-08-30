@@ -278,6 +278,56 @@ def extract_features(message_uid: str, doc: Doc) -> MessageFeatures:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class SentenceFeatures:
+    """One sentence's markers, unaggregated.
+
+    ``extract_features`` divides by ``n_sentences`` to get a per-message
+    rate, which is the right unit for a normal multi-sentence email but
+    breaks down for very short replies: a rate computed over one or two
+    sentences can only take a handful of values (0, 0.5, 1 for two
+    sentences), coarse enough to swamp a real effect the size this project
+    is looking for. This function exists for exactly that case -- when the
+    question is about the sentence itself, not a ratio derived from it, use
+    these rows directly (one binary observation per sentence) in a logistic
+    model instead of a linear one over the collapsed rate. See
+    :func:`thesis.analysis.hierarchy.fit_sentence_level_model`.
+    """
+
+    message_uid: str
+    sentence_index: int
+    is_imperative: bool
+    is_question: bool
+    has_hedge: bool
+    has_deference: bool
+    has_commitment: bool
+
+
+def extract_sentence_features(message_uid: str, doc: Doc) -> list[SentenceFeatures]:
+    """One row per sentence, using the exact same classification rules
+    ``extract_features`` aggregates -- so a sentence-level analysis and the
+    corpus-wide per-message rates it started from can never quietly
+    disagree about what counts as imperative, hedged, or deferential.
+    """
+    rows = []
+    for i, sent in enumerate(doc.sents):
+        text_lower = sent.text.lower()
+        hedge_hits = _count_phrase_hits(text_lower, _HEDGE_PHRASES)
+        hedge_hits += sum(1 for token in sent if token.lower_ in _HEDGE_TOKENS)
+        rows.append(
+            SentenceFeatures(
+                message_uid=message_uid,
+                sentence_index=i,
+                is_imperative=_is_imperative(sent) or _has_obligation_modal(sent),
+                is_question=sent.text.rstrip().endswith("?"),
+                has_hedge=hedge_hits > 0,
+                has_deference=_count_phrase_hits(text_lower, _DEFERENCE_PHRASES) > 0,
+                has_commitment=_count_phrase_hits(text_lower, _COMMITMENT_PHRASES) > 0,
+            )
+        )
+    return rows
+
+
 FEATURES_SCHEMA = pa.schema(
     [
         pa.field("message_uid", pa.string(), nullable=False),

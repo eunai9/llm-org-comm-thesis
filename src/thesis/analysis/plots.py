@@ -589,6 +589,27 @@ def main() -> None:
         legend_loc="lower right",
     )
 
+    # Section 36: two independent measurement approaches -- a per-reply
+    # linear ratio and a per-sentence logistic model -- converge on the
+    # same small monotonic shape, even though neither reaches significance.
+    # An interaction plot for the same reason as the pair above: agreement
+    # in shape between two different methods is a claim about parallel
+    # lines, which a coefficient table states but a reader has to take on
+    # faith without seeing it.
+    plot_factor_interaction(
+        ("writing down", "writing to a peer", "writing up"),
+        {
+            "reply-level ratio (linear)": (0.323, 0.375, 0.431),
+            "sentence-level probability (logistic)": (0.319, 0.347, 0.393),
+        },
+        path=DOCS_FIGURES_DIR / "q1_sentence_vs_reply_level.png",
+        title="Two measurement grains, the same shape, neither significant",
+        subtitle="Fixing the resolution problem does not rescue significance -- but it does not change the pattern either.",
+        x_label="who the persona is writing to",
+        y_label="imperative rate / probability",
+        legend_loc="lower right",
+    )
+
 
 if __name__ == "__main__":
     main()

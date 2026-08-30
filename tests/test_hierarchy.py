@@ -20,9 +20,11 @@ from thesis.analysis.hierarchy import (
     InsufficientDataError,
     InteractionModelResult,
     MixedModelResult,
+    SentenceModelResult,
     direction_decision_association,
     fit_direction_mixed_model,
     fit_interaction_model,
+    fit_sentence_level_model,
     summarize_by_direction,
 )
 
@@ -157,6 +159,110 @@ def test_custom_column_names_are_respected() -> None:
     )
     assert result.outcome == "hedge_rate"
     assert result.contrast("up")[0] == pytest.approx(0.3, abs=0.2)
+
+
+# --------------------------------------------------------- sentence-level
+
+
+def _sentence_data(
+    effects: dict[str, float], *, n_personas: int = 8, n_per_cell: int = 40, seed: int = 7
+) -> pd.DataFrame:
+    """Synthetic one-row-per-sentence binary data. ``effects`` are on the
+    logit scale, added to a per-persona random offset before drawing a
+    Bernoulli outcome -- the sentence-level analogue of ``_clustered_data``."""
+    rng = np.random.default_rng(seed)
+    rows = []
+    for i in range(n_personas):
+        persona_id = f"p{i}"
+        persona_offset = rng.normal(0, 0.4)
+        for direction, effect in effects.items():
+            prob = 1.0 / (1.0 + np.exp(-(persona_offset + effect)))
+            for _ in range(n_per_cell):
+                rows.append(
+                    {
+                        "persona_id": persona_id,
+                        "direction": direction,
+                        "is_imperative": int(rng.random() < prob),
+                    }
+                )
+    return pd.DataFrame(rows)
+
+
+def test_sentence_model_recovers_a_known_injected_effect() -> None:
+    """The sentence-level analogue of the module's core regression test: a
+    large, known logit-scale effect must come back close to its true value
+    and clearly distinguishable from a near-null one, not lost in the
+    approximation VB fitting makes."""
+    df = _sentence_data({"lateral": -0.3, "up": 1.5, "down": 0.0})
+    result = fit_sentence_level_model(df, "is_imperative", reference="lateral")
+
+    up_coef, up_p = result.contrast("up")
+    down_coef, _down_p = result.contrast("down")
+
+    assert up_coef == pytest.approx(1.5, abs=0.6)
+    assert up_p < 0.01
+    assert down_coef == pytest.approx(0.0, abs=0.6)
+
+
+def test_sentence_model_accepts_boolean_outcome() -> None:
+    df = _sentence_data({"lateral": -0.3, "up": 1.5})
+    df["is_imperative"] = df["is_imperative"].astype(bool)
+    result = fit_sentence_level_model(df, "is_imperative", reference="lateral")
+    assert result.contrast("up")[0] == pytest.approx(1.5, abs=0.6)
+
+
+def test_sentence_model_rejects_a_non_binary_outcome() -> None:
+    df = _sentence_data({"lateral": 0.0, "up": 0.5})
+    df["is_imperative"] = df["is_imperative"] + 1  # now {1, 2}, not {0, 1}
+    with pytest.raises(ValueError, match="binary"):
+        fit_sentence_level_model(df, "is_imperative")
+
+
+def test_sentence_model_reference_level_has_no_contrast_of_its_own() -> None:
+    df = _sentence_data({"lateral": 0.0, "up": 0.8, "down": 0.3})
+    result = fit_sentence_level_model(df, "is_imperative", reference="lateral")
+    assert "direction[T.lateral]" not in result.coefficients
+
+
+def test_sentence_model_contrast_raises_a_clear_error_for_an_unobserved_level() -> None:
+    df = _sentence_data({"lateral": 0.0, "up": 0.5})
+    result = fit_sentence_level_model(df, "is_imperative", reference="lateral")
+    with pytest.raises(KeyError, match="down"):
+        result.contrast("down")
+
+
+def test_sentence_model_reference_level_is_configurable() -> None:
+    df = _sentence_data({"lateral": 0.0, "up": 0.6, "down": 0.2})
+    result = fit_sentence_level_model(df, "is_imperative", reference="up")
+    assert result.reference_level == "up"
+    assert "direction[T.lateral]" in result.coefficients
+    assert "direction[T.up]" not in result.coefficients
+
+
+def test_sentence_model_group_sd_is_reported() -> None:
+    df = _sentence_data({"lateral": 0.0, "up": 0.4})
+    result = fit_sentence_level_model(df, "is_imperative")
+    assert result.group_sd >= 0.0
+
+
+def test_sentence_model_rejects_too_few_groups() -> None:
+    df = _sentence_data({"lateral": 0.0, "up": 0.5}, n_personas=1)
+    with pytest.raises(InsufficientDataError):
+        fit_sentence_level_model(df, "is_imperative")
+
+
+def test_sentence_model_rejects_empty_data() -> None:
+    empty = pd.DataFrame({"is_imperative": [], "direction": [], "persona_id": []})
+    with pytest.raises(InsufficientDataError):
+        fit_sentence_level_model(empty, "is_imperative")
+
+
+def test_sentence_model_result_is_frozen() -> None:
+    df = _sentence_data({"lateral": 0.0, "up": 0.5})
+    result = fit_sentence_level_model(df, "is_imperative")
+    assert isinstance(result, SentenceModelResult)
+    with pytest.raises(AttributeError):
+        result.n_observations = 999  # type: ignore[misc]
 
 
 def _two_factor_data(

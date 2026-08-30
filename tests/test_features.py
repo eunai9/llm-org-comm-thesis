@@ -8,13 +8,17 @@ from __future__ import annotations
 
 import pytest
 
-from thesis.data.features import _load_nlp, extract_features
+from thesis.data.features import _load_nlp, extract_features, extract_sentence_features
 
 nlp = _load_nlp()
 
 
 def features(text: str, uid: str = "t"):  # type: ignore[no-untyped-def]
     return extract_features(uid, nlp(text))
+
+
+def sentence_features(text: str, uid: str = "t"):  # type: ignore[no-untyped-def]
+    return extract_sentence_features(uid, nlp(text))
 
 
 def test_empty_text_yields_zeroed_features() -> None:
@@ -187,3 +191,43 @@ def test_oversized_message_is_excluded_not_crashed(tmp_path):  # type: ignore[no
 
     uids = [uid for uid, _ in iter_message_texts(glob)]
     assert uids == ["short"]
+
+
+# ---------------------------------------------------------- sentence-level
+
+
+def test_sentence_features_returns_one_row_per_sentence() -> None:
+    rows = sentence_features("Send the report. Let me know if you have questions.")
+    assert len(rows) == 2
+    assert [r.sentence_index for r in rows] == [0, 1]
+
+
+def test_sentence_features_agrees_with_the_aggregate_ratio() -> None:
+    """The whole point of extract_sentence_features is to never quietly
+    disagree with extract_features about what counts as imperative -- both
+    are exercised against the same text and cross-checked directly."""
+    text = "Send the report. He sends the report every Friday. Could you check this?"
+    agg = features(text)
+    rows = sentence_features(text)
+    assert len(rows) == agg.n_sentences
+    assert sum(r.is_imperative for r in rows) / len(rows) == pytest.approx(agg.imperative_ratio)
+    assert sum(r.is_question for r in rows) / len(rows) == pytest.approx(agg.question_ratio)
+
+
+def test_sentence_features_empty_text_returns_no_rows() -> None:
+    assert sentence_features("") == []
+
+
+def test_sentence_features_marks_the_imperative_sentence_only() -> None:
+    rows = sentence_features("Send the report. He sends the report every Friday.")
+    assert rows[0].is_imperative
+    assert not rows[1].is_imperative
+
+
+def test_sentence_features_detects_hedge_deference_and_commitment() -> None:
+    rows = sentence_features(
+        "Perhaps we could revisit this. Would you mind checking? I will follow up."
+    )
+    assert rows[0].has_hedge
+    assert rows[1].has_deference
+    assert rows[2].has_commitment

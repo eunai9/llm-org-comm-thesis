@@ -29,7 +29,7 @@ you to read, not for a computer to run. Updated after each work session.
 | Statistics that compare real vs. AI-written emails | Done, on the free path |
 | AI replies to a real email, compared to the real reply | Done — 190 pairs |
 | Does the judge favour its own kind of AI? (Q3) | Done, free workaround — two local model families |
-| Does hierarchy shape what gets written? (Q1) | **Blocked on measurement** — the outcome measure cannot resolve an effect at current reply length |
+| Does hierarchy shape what gets written? (Q1) | Measurement fixed and re-tested — still no significant effect, at either grain |
 | Validation pass: embedding map, 100 replies read by hand | Done — see section 35 |
 | Quoted text left inside "cleaned" message bodies | **Fixed in code; the derived data has not been rebuilt** |
 | Get API keys / decide on budget | **Decided: staying free — see note below** |
@@ -1613,6 +1613,77 @@ average within thread before testing) and needs no new generation.
 
 ---
 
+### 36. Fixing the measurement problem doesn't rescue Q1 — but it doesn't have to be wasted either (Aug 30)
+
+Section 34's recommended next step, done: refit the Q1 grid at the grain it
+actually has, one binary observation per **sentence** rather than a rate
+divided across a reply that is usually one sentence long. New machinery —
+`extract_sentence_features` (features.py) and `fit_sentence_level_model`
+(hierarchy.py, a logistic mixed model via `statsmodels`' variational-Bayes
+GLMM, since a linear model has no business fitting a 0/1 outcome) — rebuilt
+against the same 240 cached replies from section 33, so this needed no new
+generation and is unaffected by the quote-stripping bug (that lives in the
+corpus cleaner; generated text is never quoted).
+
+**The direction effect is still not significant, at 347 sentences instead
+of 240 coarse ratios:**
+
+| | Writing up | Writing down |
+|---|---|---|
+| Reply-level ratio (linear, section 33) | +0.056 (p=.401) | −0.052 (p=.437) |
+| Sentence-level (logistic, this section) | +0.195 logit (p≈.310) | −0.126 logit (p≈.534) |
+
+So the honest update is not "the effect was hiding after all" — it wasn't.
+It's narrower and more useful than that: **the measurement problem in
+section 34 was real and worth fixing, and fixing it produced a more
+trustworthy null, not a hidden effect.** Two things back that reading up:
+
+- **Both methods land on the same shape.** Converting the sentence model's
+  logit coefficients to predicted probabilities gives 0.319 (down) / 0.347
+  (lateral) / 0.393 (up) — visually indistinguishable from the linear
+  model's 0.323 / 0.375 / 0.431. Two structurally different models, fit on
+  differently-shaped data, agree almost exactly on the pattern's shape.
+  That is real information: whatever weak signal exists in this data
+  points the same way regardless of how it's measured, even though neither
+  method can call it significant at this sample size.
+
+  ![Reply-level (linear) and sentence-level (logistic) models plotted
+  together. Both rise from writing down to writing up, in close
+  agreement.](docs/figures/q1_sentence_vs_reply_level.png)
+
+- **The random-intercept variance stopped being suspiciously exact.** The
+  linear model's persona variance was `0.0000` to four decimal places,
+  every time it was run — itself a symptom of an outcome too coarse to
+  express between-persona differences at all. The logistic model recovers
+  a real, nonzero persona standard deviation (0.211 on the logit scale),
+  which is what should happen once the outcome can actually vary within a
+  persona's own replies.
+
+**What this does and doesn't mean for Q1.** It doesn't resurrect the
+retracted finding — no version of this analysis supports "hierarchy
+significantly shapes directive language" right now. It does mean the null
+can be trusted rather than blamed on instrumentation, and it leaves a
+small, consistently-shaped, likely genuinely underpowered pattern (n=10
+personas is not much to estimate a random intercept from) that a bigger
+run — or the mirroring fix from section 35, which may be a more direct
+lever on reply length and content than direction ever was — could still
+resolve either way.
+
+`SentenceModelResult`'s coefficients are posterior means from variational
+Bayes, not maximum-likelihood estimates, and its p-values are an
+approximate Wald test from the posterior mean/SD, not the same calibrated
+quantity `MixedModelResult` reports — documented in the function's own
+docstring so a reader of the code hits the caveat before trusting the
+number, not only here.
+
+Two tests recover a known injected effect on the logit scale (mirroring
+this module's standing practice of testing recovery, not just that the
+function runs); ten more cover the reference-level and error-handling
+behavior already expected of every model in this module. 487 tests pass,
+ruff/black/mypy clean.
+
+---
+
 ## What's next
 
 *(Rewritten Aug 29 — the previous version had gone stale, still describing
@@ -1673,14 +1744,12 @@ none blocking other work):
   (section 35), which is the cheapest large improvement visible anywhere in
   this project right now — and probably the reason replies are one sentence
   long, which is what section 34 shows is breaking Q1's outcome measure.
-- **Re-analyse Q1 at the sentence level** (section 34, option 1). The
-  current null is a measurement artifact, not a result, and this is the
-  cheapest way to find out whether a real effect is hiding underneath it:
-  no new generations, just a logistic mixed model over sentences instead
-  of a linear one over per-reply ratios. **This is the single highest-value
-  thing outstanding.**
-- **Decide how Q1 proceeds if that still finds nothing.** Its evidence
-  would then rest on the empirical Enron subset rather than the simulator.
+- **Decide how Q1 proceeds.** Both the reply-level and (now, section 36)
+  sentence-level models agree on a small, non-significant hierarchy
+  pattern. That could mean a real effect this design is underpowered to
+  detect (n=10 personas), or no effect at all — this data can't tell the
+  two apart, and Q1's evidence currently rests as much on the empirical
+  Enron subset as on the simulator.
   The research plan anticipated needing a fallback here, though in the
   opposite direction — it expected the simulated hierarchy to be the
   *stronger* arm. Worth raising with your supervisor.
