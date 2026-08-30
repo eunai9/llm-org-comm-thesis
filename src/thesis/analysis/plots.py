@@ -35,6 +35,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Literal
 
 import matplotlib
 
@@ -57,6 +58,10 @@ GRIDLINE = "#e1e0d9"
 BASELINE = "#c3c2b7"
 
 _FONT = ["DejaVu Sans", "sans-serif"]
+
+# The subset of matplotlib's legend positions these charts use; typed as a
+# Literal so a typo is a type error rather than a silently ignored string.
+LegendLoc = Literal["upper left", "upper right", "lower left", "lower right"]
 
 
 def _style_axes(ax: Axes) -> None:
@@ -168,12 +173,17 @@ def plot_factor_interaction(
     subtitle: str = "",
     x_label: str = "",
     y_label: str = "mean rubric score (1-5)",
+    legend_loc: LegendLoc = "upper left",
 ) -> Path:
     """Interaction plot: one line per series across the levels of one factor.
 
     Non-parallel lines are the interaction. Capped at two series, which is
     what the judge-swap design produces and what keeps the parallelism
     readable.
+
+    ``legend_loc`` exists because which corner is empty depends on the data:
+    the default suits series that rise left-to-right, but a series that
+    starts high collides with it, so the caller picks.
     """
     if not 1 <= len(series) <= 2:
         msg = f"expected 1 or 2 series for an interaction plot, got {len(series)}"
@@ -219,7 +229,7 @@ def plot_factor_interaction(
     ax.set_ylabel(y_label, color=INK_SECONDARY, fontsize=9.5)
     # Upper left: the direct labels already occupy the right-hand margin, and
     # both series rise left-to-right, so this corner is the empty one.
-    legend = ax.legend(frameon=False, fontsize=9, loc="upper left")
+    legend = ax.legend(frameon=False, fontsize=9, loc=legend_loc)
     for text in legend.get_texts():
         text.set_color(INK_SECONDARY)
     return _finish(fig, ax, title, subtitle, path)
@@ -381,6 +391,22 @@ def main() -> None:
         subtitle="Raising the stated target by 46% moved actual output by ~7%.",
         x_label="persona style statistics used",
         y_label="words per reply",
+    )
+
+    # Section 33: the Q1 direction effect before and after the persona fix.
+    # Plotted as two lines over the same x-axis because the finding is that
+    # the *shape* changed -- a V with lateral lowest became a monotonic
+    # gradient -- which a table of coefficients states but does not show.
+    plot_factor_interaction(
+        ("writing down", "writing to a peer", "writing up"),
+        {"original personas": (0.475, 0.244, 0.379), "corrected personas": (0.323, 0.375, 0.431)},
+        path=DOCS_FIGURES_DIR / "q1_direction_before_after.png",
+        title="The Q1 direction effect did not survive the persona fix",
+        subtitle="Same design, same model, corrected persona statistics. The pattern changes shape.",
+        x_label="who the persona is writing to",
+        y_label="mean imperative ratio",
+        # The original-personas series starts high, in the default corner.
+        legend_loc="lower right",
     )
 
 

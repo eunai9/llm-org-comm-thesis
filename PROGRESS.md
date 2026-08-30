@@ -29,7 +29,7 @@ you to read, not for a computer to run. Updated after each work session.
 | Statistics that compare real vs. AI-written emails | Done, on the free path |
 | AI replies to a real email, compared to the real reply | Done — 190 pairs |
 | Does the judge favour its own kind of AI? (Q3) | Done, free workaround — two local model families |
-| Does hierarchy shape what gets written? (Q1) | Pilots done; need re-running after the persona fix |
+| Does hierarchy shape what gets written? (Q1) | Re-run after the persona fix — **effect did not survive** |
 | Get API keys / decide on budget | **Decided: staying free — see note below** |
 
 ---
@@ -1300,6 +1300,64 @@ is measured on.
 
 ---
 
+### 33. The Q1 direction effect did not survive the persona fix (Aug 29)
+
+Re-ran the 240-reply direction × tone pilot against the corrected
+personas. **The project's most-replicated finding collapsed.**
+
+| `imperative_ratio ~ direction` | Before the fix | After the fix |
+|---|---|---|
+| Writing up vs. a peer | +0.135 (**p=.046**) | +0.056 (p=.401) |
+| Writing down vs. a peer | +0.231 (**p=.001**) | −0.052 (p=.437) |
+
+Not only did significance disappear — the "writing down" effect **reversed
+sign**. The underlying pattern changed shape entirely:
+
+| Mean imperative ratio | Writing down | To a peer | Writing up |
+|---|---:|---:|---:|
+| Original personas | 0.475 | 0.244 | 0.379 |
+| Corrected personas | 0.323 | 0.375 | 0.431 |
+
+![The direction pattern before and after the persona fix. The original
+personas produce a V shape with writing-to-a-peer lowest; the corrected
+personas produce a steady rise from writing down to writing
+up.](docs/figures/q1_direction_before_after.png)
+
+The old result was a V — writing to a peer produced the *least* directive
+language, with both up and down elevated, which was flagged at the time as
+counter-intuitive. The new pattern is a straight gradient: most directive
+writing up, least writing down. That is arguably more sensible, but **it
+is not statistically significant, so it should not be read as a finding
+either.** The honest summary is that there is currently no detectable
+direction effect on directive language.
+
+**Why this matters more than one lost result: those three "replications"
+were not independent.** Sections 7, 20 and 22 each reported this effect and
+each was treated as strengthening the case. But all three ran against the
+same personas carrying the same undetected bug — so they were three
+measurements of one flawed configuration, not three independent
+confirmations. Repeating a measurement under a shared systematic error
+reproduces the error faithfully. That is a genuine methods-chapter lesson,
+and it is worth more to the thesis than the finding it cost.
+
+Everything else in this run is null too, consistent with the above:
+
+- **`hedge_rate` by direction:** nothing (up p=.925, down p=.672).
+- **Decision by direction:** χ²=5.02, p=.756 — no association.
+- **Tone:** one main effect (deferential incoming message → more hedging,
+  p=.044) and one interaction (up × deferential) cross p<.05, out of
+  roughly a dozen tests. Consistent with chance; not treated as findings.
+- **Persona clustering:** `group_var = 0.0000` on both outcomes — personas
+  explain essentially none of the variance, the same degenerate case
+  section 19's optimizer fallback was built for.
+
+**What this does not touch:** Q2. That comparison was re-run against the
+same corrected personas in section 32 and its equivalence result held (and
+improved), so the two are not in tension — one claim survived correction
+and the other did not.
+
+---
+
 ## What's next
 
 *(Rewritten Aug 29 — the previous version had gone stale, still describing
@@ -1333,11 +1391,15 @@ none blocking other work):
 
 **Ready to do now, none of it requiring an answer to the above:**
 
-- **Re-run Q1 and the judge-swap against corrected personas.** Both still
-  use the superseded persona statistics (see the note above on why
-  re-running is necessary). Q1 matters more: `imperative_ratio` is both a
-  persona statistic that changed and the outcome its direction effect is
-  measured on, so its most-replicated finding needs re-confirming.
+- **Re-run the judge-swap against corrected personas.** It is the last
+  result still computed on superseded persona statistics. (Q1 has been
+  re-run — see section 33; the effect did not survive.)
+- **Decide how to handle the Q1 null.** With no detectable direction
+  effect on the simulated side, Q1's evidence now rests on the empirical
+  Enron subset rather than the simulator. The research plan anticipated
+  needing a fallback here, though in the opposite direction — it expected
+  the simulated hierarchy to be the *stronger* arm. Worth raising with
+  your supervisor alongside the four questions below.
 - **A proper dose-response test of the length instruction** (section 32).
   State several target lengths, hold everything else fixed, measure the
   response curve. Turns a two-point observation into a real result about
