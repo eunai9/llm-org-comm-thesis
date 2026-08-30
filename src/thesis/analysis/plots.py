@@ -317,6 +317,7 @@ def plot_value_spread(
     subtitle: str = "",
     x_label: str = "",
     bins: int = 24,
+    annotate_distinct: bool = True,
 ) -> Path:
     """Two groups' value distributions, drawn as side-by-side histograms.
 
@@ -326,6 +327,11 @@ def plot_value_spread(
     onto a handful of spikes, and that is visible here in a way no summary
     statistic conveys -- a mean and standard deviation look perfectly
     healthy for a variable that only ever takes three values.
+
+    ``annotate_distinct`` turns off the distinct-value count for the other use
+    of this chart, comparing two continuous distributions: there, every value
+    is distinct by construction, so the count says nothing and the mean is what
+    the reader wants marked instead.
     """
     if len(groups) != 2:
         msg = f"expected exactly 2 groups to compare, got {len(groups)}"
@@ -340,21 +346,140 @@ def plot_value_spread(
         ax.yaxis.grid(True, color=GRIDLINE, linewidth=1)
         ax.set_axisbelow(True)
         ax.hist(list(values), bins=edges, color=color, zorder=2)
-        n_distinct = len(set(values))
+        if annotate_distinct:
+            n_distinct = len(set(values))
+            label = f"{name} — {n_distinct} distinct value{'s' if n_distinct != 1 else ''}"
+        else:
+            mean = float(np.mean(list(values)))
+            label = f"{name} — mean {mean:.2f}"
+            ax.axvline(mean, color=INK_SECONDARY, linewidth=1.2, linestyle="--", zorder=3)
         ax.annotate(
-            f"{name} — {n_distinct} distinct value{'s' if n_distinct != 1 else ''}",
-            (0.99, 0.88),
+            label,
+            (0.99, 0.86),
             xycoords="axes fraction",
             ha="right",
             color=color,
             fontsize=9.5,
             fontweight="600",
         )
+        ax.set_ylim(top=ax.get_ylim()[1] * 1.28)
         ax.set_ylabel("replies", color=INK_SECONDARY, fontsize=9)
 
     axes[1].set_xlabel(x_label, color=INK_SECONDARY, fontsize=9.5)
     fig.subplots_adjust(hspace=0.18)
     return _finish(fig, axes[0], title, subtitle, path)
+
+
+def plot_category_counts(
+    labels: Sequence[str],
+    counts: Sequence[int],
+    path: Path,
+    *,
+    title: str,
+    subtitle: str = "",
+    x_label: str = "",
+    highlight: Sequence[str] = (),
+) -> Path:
+    """Counts across mutually exclusive categories, as horizontal bars.
+
+    Horizontal because category names are words, not numbers, and rotating
+    them under a vertical axis costs the reader a head-tilt for nothing.
+    Sorted by the caller, not here: the order is usually part of the argument
+    being made (largest first, or the "everything fine" category first), and
+    re-sorting would quietly overrule it.
+
+    ``highlight`` names the categories drawn in the second series colour --
+    for a chart whose point is that one category dominates, colour carries
+    that rather than a caption asking the reader to find it.
+    """
+    if len(labels) != len(counts):
+        msg = f"labels and counts must be the same length; got {len(labels)}, {len(counts)}"
+        raise ValueError(msg)
+
+    y = list(range(len(labels)))[::-1]
+    colors = [SERIES_2 if label in set(highlight) else SERIES_1 for label in labels]
+
+    fig, ax = plt.subplots(figsize=(7.4, 0.46 * len(labels) + 1.8))
+    _style_axes(ax)
+    ax.xaxis.grid(True, color=GRIDLINE, linewidth=1)
+    ax.set_axisbelow(True)
+    ax.barh(y, list(counts), height=0.62, color=colors, zorder=2)
+
+    for yi, value in zip(y, counts, strict=True):
+        ax.annotate(
+            str(value),
+            (value, yi),
+            textcoords="offset points",
+            xytext=(6, 0),
+            va="center",
+            color=INK_SECONDARY,
+            fontsize=9.5,
+        )
+
+    ax.set_yticks(y, list(labels))
+    ax.set_xlim(0, max(counts) * 1.12)
+    ax.set_xlabel(x_label, color=INK_SECONDARY, fontsize=9.5)
+    return _finish(fig, ax, title, subtitle, path)
+
+
+def plot_embedding_map(
+    coords: np.ndarray,
+    labels: Sequence[str],
+    path: Path,
+    *,
+    title: str,
+    subtitle: str = "",
+    axis_label: str = "t-SNE dimension",
+) -> Path:
+    """Two labelled groups of messages in a 2-D projection of embedding space.
+
+    **The axes carry no units and are deliberately left untick-ed.** A t-SNE
+    coordinate is not a quantity: distances between well-separated clusters are
+    not meaningful and the scale is arbitrary, so drawing ticks would invite
+    exactly the over-reading the projection cannot support. What the picture
+    *can* show is whether two groups occupy the same region -- the only claim
+    made from it here, and one whose numeric counterpart is the classifier AUC
+    reported alongside it.
+
+    Points are semi-transparent because the interesting outcome is overlap:
+    with opaque marks, whichever group is drawn second looks larger merely for
+    being on top.
+    """
+    if len(coords) != len(labels):
+        msg = f"coords and labels must be the same length; got {len(coords)}, {len(labels)}"
+        raise ValueError(msg)
+    names = list(dict.fromkeys(labels))
+    if len(names) != 2:
+        msg = f"expected exactly 2 groups to compare, got {len(names)}"
+        raise ValueError(msg)
+
+    fig, ax = plt.subplots(figsize=(6.6, 5.4))
+    _style_axes(ax)
+    ax.grid(True, color=GRIDLINE, linewidth=1)
+    ax.set_axisbelow(True)
+
+    labels_array = np.asarray(labels)
+    for name, color in zip(names, (SERIES_1, SERIES_2), strict=True):
+        mask = labels_array == name
+        ax.scatter(
+            coords[mask, 0],
+            coords[mask, 1],
+            s=26,
+            color=color,
+            alpha=0.62,
+            linewidths=0,
+            label=f"{name} (n={int(mask.sum())})",
+            zorder=2,
+        )
+
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_xlabel(f"{axis_label} 1", color=INK_SECONDARY, fontsize=9.5)
+    ax.set_ylabel(f"{axis_label} 2", color=INK_SECONDARY, fontsize=9.5)
+    legend = ax.legend(loc="upper left", frameon=False, fontsize=9.5)
+    for text in legend.get_texts():
+        text.set_color(INK_SECONDARY)
+    return _finish(fig, ax, title, subtitle, path)
 
 
 def main() -> None:

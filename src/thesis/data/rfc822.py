@@ -34,9 +34,12 @@ from typing import Final
 
 # Each pattern marks the start of quoted material. We cut at the earliest
 # match, so a reply that quotes several ancestors loses all of them at once.
+# The leading ``[ \t]*`` is not cosmetic: Outlook indents the banner by one
+# space often enough that anchoring it hard to column zero left the quoted
+# chain in place on a quarter of the replies in the evaluation sample.
 _QUOTE_CUT_PATTERNS: Final[tuple[re.Pattern[str], ...]] = (
-    re.compile(r"^-+\s*Original Message\s*-+", re.IGNORECASE | re.MULTILINE),
-    re.compile(r"^-+\s*Forwarded by\b.*$", re.IGNORECASE | re.MULTILINE),
+    re.compile(r"^[ \t]*-+\s*Original Message\s*-+", re.IGNORECASE | re.MULTILINE),
+    re.compile(r"^[ \t]*-+\s*Forwarded by\b.*$", re.IGNORECASE | re.MULTILINE),
     re.compile(r"^\s*_{10,}\s*$", re.MULTILINE),
     re.compile(r"^\s*-{10,}\s*$", re.MULTILINE),
     re.compile(r"^On\b.{0,160}\bwrote:\s*$", re.MULTILINE),
@@ -49,6 +52,28 @@ _INLINE_FROM = re.compile(r"^\s*From:\s+\S.*$", re.MULTILINE)
 _INLINE_CONFIRM = re.compile(r"^\s*(?:Sent|To|Date|Subject):\s+\S", re.MULTILINE)
 _INLINE_CONFIRM_WINDOW: Final[int] = 4
 
+# Lotus Notes -- the client most of this corpus was written in -- quotes with
+# no banner at all: an indented attribution line ("Marie Heard@ENRON"), an
+# indented timestamp, then indented To:/cc:/Subject: lines. None of the
+# patterns above sees any of that, which is why it survived into ``body_clean``
+# and inflated every length statistic computed from real replies.
+#
+# The header line is required to be indented *and* confirmed by a second header
+# line nearby, for the same reason ``_INLINE_FROM`` is confirmed: an
+# unindented "Subject: ..." appears in ordinary prose, and cutting on it alone
+# would delete real writing.
+_NOTES_HEADER = re.compile(r"^[ \t]+(?:To|cc|Subject|Sent|From|Date):\s*\S", re.MULTILINE)
+_NOTES_CONFIRM = re.compile(r"^[ \t]+(?:To|cc|Subject|Sent|From|Date):", re.MULTILINE)
+
+# The attribution and timestamp lines sit *above* the header block, so cutting
+# at the header alone would leave them behind as stray text -- a bare sender
+# name and a timestamp, which then read as if the author had written them.
+# Walk back over at most this many preceding lines, and only over lines that
+# are indented like the rest of the block: the author's own prose starts at
+# column zero, so indentation is what separates the quote from the writing.
+_NOTES_INDENT = re.compile(r"^\t| {4,}")
+_NOTES_BACKTRACK_LINES: Final[int] = 3
+
 _QUOTED_LINE = re.compile(r"^\s*>")
 
 # A line of exactly "--" is the conventional signature delimiter.
@@ -56,16 +81,52 @@ _SIG_DELIMITER = re.compile(r"^--\s*$", re.MULTILINE)
 
 # Contact-detail lines: phone/fax numbers, labelled contact fields, or a bare
 # email address. Used only to trim the tail of a message.
+#
+# A contact *label* only counts when something contact-shaped follows it -- a
+# digit, a "+", or an address. Matching the bare word instead deleted ordinary
+# closing sentences: "I received an email from Chris" and "Can you email me
+# your form?" were both being discarded as signatures, taking the last thing
+# the author actually said with them.
 _CONTACT_LINE = re.compile(
     r"(?:\(\d{3}\)\s*\d{3}[-.\s]?\d{4}"
     r"|\b\d{3}[-.]\d{3}[-.]\d{4}\b"
-    r"|\b(?:tel|telephone|fax|phone|mobile|cell|e-?mail|ext)\b\s*[:.]?"
+    r"|\b(?:tel|telephone|fax|phone|mobile|cell|e-?mail|ext)\b\s*[:.]?\s*"
+    r"(?:\+?\d|\(\d|[\w.+-]+@)"
     r"|[\w.+-]+@[\w.-]+\.\w{2,})",
     re.IGNORECASE,
 )
 _SIG_SCAN_LINES: Final[int] = 6
 
 _WHITESPACE = re.compile(r"\s+")
+
+
+def _notes_block_start(body: str) -> int:
+    """Offset where a Lotus Notes quoted block begins, or ``len(body)`` if none.
+
+    Finds the first confirmed indented header block, then walks back over the
+    attribution and timestamp lines printed above it so the whole block goes,
+    not just its headers.
+    """
+    match = _NOTES_HEADER.search(body)
+    if match is None:
+        return len(body)
+    window = body[match.end() : match.end() + 400].split("\n")[1 : _INLINE_CONFIRM_WINDOW + 1]
+    if _NOTES_CONFIRM.search("\n".join(window)) is None:
+        return len(body)
+
+    lines = body[: match.start()].split("\n")
+    end = len(lines)
+    walked = 0
+    while end > 0 and walked < _NOTES_BACKTRACK_LINES:
+        candidate = lines[end - 1]
+        if not candidate.strip():
+            end -= 1
+            continue
+        if _NOTES_INDENT.match(candidate) is None:
+            break
+        end -= 1
+        walked += 1
+    return len("\n".join(lines[:end]))
 
 
 def strip_quoted_text(body: str) -> str:
@@ -81,6 +142,8 @@ def strip_quoted_text(body: str) -> str:
         if _INLINE_CONFIRM.search("\n".join(window)) is not None:
             cut = min(cut, match.start())
             break
+
+    cut = min(cut, _notes_block_start(body))
 
     head = body[:cut]
     kept = [line for line in head.split("\n") if not _QUOTED_LINE.match(line)]

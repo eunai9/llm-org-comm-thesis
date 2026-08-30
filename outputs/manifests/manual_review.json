@@ -1,0 +1,33 @@
+{
+  "failure_modes": {
+    "fabricated_detail": 8,
+    "format": 1,
+    "generic": 6,
+    "ignores_request": 2,
+    "incoherent": 3,
+    "mirrors_request": 25,
+    "ok": 47,
+    "wrong_register": 7,
+    "wrong_role": 1
+  },
+  "mirrored_rate_by_direction": {
+    "down": {
+      "n": 21,
+      "rate": 0.381
+    },
+    "lateral": {
+      "n": 55,
+      "rate": 0.164
+    },
+    "up": {
+      "n": 24,
+      "rate": 0.333
+    }
+  },
+  "n_distinct_generated_replies": 81,
+  "n_items": 100,
+  "share_addresses_request": 0.59,
+  "share_fabricates_detail": 0.1,
+  "share_ok": 0.47,
+  "share_plausible": 0.57
+}

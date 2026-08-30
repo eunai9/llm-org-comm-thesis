@@ -174,6 +174,32 @@ def test_item_block_contains_no_id_or_source() -> None:
     assert "msg_42" not in block
 
 
+def test_item_block_is_unchanged_when_no_context_is_supplied() -> None:
+    """Byte-identical to the original design, or every previously cached score misses."""
+    assert render_item_block(_item(text="Body text here.")) == "## The message\n\nBody text here."
+
+
+def test_item_block_shows_the_message_being_replied_to_when_given() -> None:
+    item = JudgeItem(
+        item_id="i1",
+        text="Can you send me the draft?",
+        is_generated=True,
+        source_id="msg_42",
+        context="Please review the attached draft and let me know.",
+    )
+    block = render_item_block(item)
+    assert "Please review the attached draft" in block
+    assert block.index("Please review the attached draft") < block.index("Can you send me")
+
+
+def test_context_does_not_break_blinding() -> None:
+    """The incoming message is real in both arms, so it cannot reveal authorship."""
+    context = "Please review the attached draft."
+    generated = JudgeItem("i1", "Will do.", True, "msg_42", context)
+    real = JudgeItem("i1", "Will do.", False, "msg_42", context)
+    assert render_item_block(generated) == render_item_block(real)
+
+
 def test_reordered_variant_actually_reorders_items() -> None:
     from thesis.judge.prompt import _ITEM_ORDER
 

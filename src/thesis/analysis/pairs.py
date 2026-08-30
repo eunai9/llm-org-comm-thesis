@@ -1,22 +1,21 @@
 """Materialise the matched real-vs-generated reply corpus as one tidy table.
 
-Every validation check in this package -- the embedding map, the manual
-review packet, the fidelity statistics -- needs the *same* set of paired
-replies, identified the same way. Until now that pairing was rebuilt inside
-each analysis, which is how two checks quietly end up describing slightly
-different samples. This module builds it once and writes it down.
+Every validation check in this package -- the embedding map, the manual review
+packet, the fidelity statistics -- needs the *same* set of paired replies,
+identified the same way. Until now that pairing was rebuilt inside each
+analysis, which is how two checks quietly end up describing slightly different
+samples. This module builds it once and writes it down.
 
-A row is one usable thread from S_shots: the real incoming message, the
+A row is one usable thread from ``S_shots``: the real incoming message, the
 real human reply to it, and the reply the simulated persona wrote when given
-that same incoming message. Threads whose real replier has no matching
-persona are skipped upstream by :mod: and counted
-here, not silently dropped.
+that same incoming message. Threads whose real replier has no matching persona
+are skipped upstream by :mod:`thesis.sim.real_stimuli` and counted here, not
+silently dropped.
 
-Generation goes through :func: rather than a
-private loop, so these rows are produced by exactly the code path the
-experimental grid uses -- same prompt assembly, same cache, same validation.
-Run it with --cache-only to rebuild the table for free from responses
-already archived.
+Generation goes through :func:`thesis.sim.run.run_grid` rather than a private
+loop, so these rows are produced by exactly the code path the experimental grid
+uses -- same prompt assembly, same cache, same validation. Run it without
+``--local`` to rebuild the table for free from responses already archived.
 """
 
 from __future__ import annotations
@@ -31,6 +30,7 @@ from typing import Any
 import pandas as pd
 
 from thesis.config import load_config
+from thesis.data.rfc822 import clean_body
 from thesis.llm.base import LLMClient
 from thesis.llm.cache import ResponseCache
 from thesis.llm.cost import CostLedger
@@ -126,6 +126,17 @@ def build_pair_table(
                 "model": row["response_model"],
                 "stimulus_text": pair.stimulus_text,
                 "real_reply": pair.real_reply_text,
+                "real_reply_subject": pair.real_reply_subject,
+                "real_reply_body": pair.real_reply_body,
+                # The stored corpus body re-cleaned by the *current* cleaner.
+                # data/interim was built before the Lotus Notes quoting fix
+                # (see thesis.data.rfc822), so 60% of these bodies still carry
+                # a quoted ancestor; comparing that against a generated body
+                # measures the corpus's quoting conventions, not authorship.
+                # Recomputing here repairs the comparison without waiting on a
+                # full re-ingest, and keeps the unrepaired column beside it so
+                # the difference stays visible rather than being assumed away.
+                "real_reply_body_recleaned": clean_body(pair.real_reply_body),
                 "generated_subject": row["subject"],
                 "generated_reply": row["body"],
                 "decision": row["decision"],
@@ -163,17 +174,18 @@ def main() -> None:
     if args.local:
         from thesis.llm.ollama_client import OllamaClient, OllamaUnavailableError
 
-        client: LLMClient = OllamaClient(args.local)
-        if not client.is_available():
+        ollama = OllamaClient(args.local)
+        if not ollama.is_available():
             msg = "no Ollama server reachable; start it with 'ollama serve'."
             raise OllamaUnavailableError(msg)
+        client: LLMClient = ollama
         model, role_label, cache_only = args.local, "sim_local", False
     else:
         from thesis.llm.anthropic_client import AnthropicClient
 
+        simulator = load_config().models.simulator[0]
         client = AnthropicClient()
-        model = load_config().models.simulator[0].model_id
-        role_label, cache_only = load_config().models.simulator[0].role_label, True
+        model, role_label, cache_only = simulator.model_id, simulator.role_label, True
 
     table = build_pair_table(
         client, model=model, role_label=role_label, cache_only=cache_only, limit=args.limit

@@ -64,11 +64,21 @@ class RealStimulusPair:
     for the calling code's later comparison (judging, fidelity statistics);
     neither is part of the request the persona is asked to answer beyond
     what stimulus_text already contributes as the incoming message.
+
+    The real reply is carried both as one formatted block (``real_reply_text``,
+    what the judge is shown) and as its two parts. The parts matter because a
+    generated reply's subject and body are separate fields: comparing the
+    generated *body* against a real reply that still has "Subject: ..." glued
+    to the front measures a formatting difference the design never intended to
+    introduce, which is exactly the subject-line artifact the discrimination
+    analysis already had to control for once.
     """
 
     thread_id: str
     cell: GridCell
     real_reply_text: str
+    real_reply_subject: str
+    real_reply_body: str
     stimulus_text: str
 
 
@@ -201,6 +211,8 @@ def build_real_stimulus_pairs(
                 thread_id=row["thread_id"],
                 cell=cell,
                 real_reply_text=f"Subject: {row['reply_subject']}\n\n{row['reply_body']}",
+                real_reply_subject=row["reply_subject"],
+                real_reply_body=row["reply_body"],
                 stimulus_text=stimulus_text,
             )
         )

@@ -30,6 +30,8 @@ you to read, not for a computer to run. Updated after each work session.
 | AI replies to a real email, compared to the real reply | Done — 190 pairs |
 | Does the judge favour its own kind of AI? (Q3) | Done, free workaround — two local model families |
 | Does hierarchy shape what gets written? (Q1) | **Blocked on measurement** — the outcome measure cannot resolve an effect at current reply length |
+| Validation pass: embedding map, 100 replies read by hand | Done — see section 35 |
+| Quoted text left inside "cleaned" message bodies | **Fixed in code; the derived data has not been rebuilt** |
 | Get API keys / decide on budget | **Decided: staying free — see note below** |
 
 ---
@@ -1427,6 +1429,190 @@ generations, and is the obvious next move.
 
 ---
 
+### 35. Sanity checks on the simulations, and 100 replies read by hand (Aug 30)
+
+Your supervisor asked for initial insights from some simulations, together
+with "some form of validation or basic sanity checks — like t-SNE plot, some
+qualitative inspection (what works and what doesn't), maybe manually review
+100 messages". This section is that exercise, and it is the first time the
+generated text has been looked at directly rather than through a score.
+
+**Nothing new was generated.** All 190 matched real-vs-AI pairs were rebuilt
+from the response cache — 190 of 190 cache hits, no model calls, no cost —
+and everything below is analysis of exactly the replies section 32 already
+reported on. The pairing now lives in one reusable place
+(`python -m thesis.analysis.pairs`) instead of being rebuilt ad hoc inside
+each analysis, which is what let three different checks below run on
+provably the same rows.
+
+**The short version.** The machinery works and the replies are on-topic. But
+reading a hundred of them turns up a specific, common failure that the LLM
+judge is *structurally* unable to see, and three numbers this log has been
+quoting turn out to have been measured on text that still contained someone
+else's writing. Both problems are fixable; both are worth more than the
+results they revise.
+
+#### The map, and why it needs a number next to it
+
+Every reply — real and generated — was embedded with a local sentence
+embedding model (`nomic-embed-text`, run through the same Ollama instance,
+free) and projected to two dimensions with t-SNE. The picture is the one your
+supervisor asked for, and on its own it looks reassuring: the two clouds
+overlap heavily, with real replies concentrated slightly more centrally.
+
+![Real and generated replies to the same 190 messages, embedded and projected
+with t-SNE. The clouds overlap substantially.](docs/figures/embedding_map_quotes_removed.png)
+
+**A t-SNE plot cannot answer the question it appears to answer.** Overlap in
+two dimensions does not mean the groups are inseparable in the original 768,
+and here they demonstrably are not: a plain linear classifier fitted on the
+same vectors, cross-validated with each real/generated pair kept inside one
+fold, separates them at **AUC 0.844** — nowhere near the 0.5 the picture
+suggests. So the map is reported *with* the classifier number beside it, and
+the honest reading is "the model writes email that lives in the same
+neighbourhood, in a recognisably different dialect."
+
+That number is also the fairest of three, and the sequence is itself the
+finding:
+
+| Comparison | AUC | Mean real-reply length |
+|---|---:|---:|
+| Real reply as the corpus stores it | 0.963 | 79.3 words |
+| Quoted ancestors removed | 0.844 | 54.4 words |
+| Quotes removed **and** length matched | 0.812 | 17.9 words |
+
+![Separability under three successively fairer comparisons.](docs/figures/embedding_separability_auc.png)
+
+The same recomputation on the *model-free* TF-IDF classifier this log has
+quoted before moves it from **0.969 to 0.906**, and length alone from
+0.931 to **0.809**. The earlier conclusion — real and generated replies are
+highly separable, largely on length — survives. Its magnitude was
+overstated, and section 32's "nearly perfectly separable" should be read as
+0.91, not 0.98.
+
+#### The replies really are answering their own stimulus
+
+A cheap check with a real chance of failing: is a generated reply closer, in
+embedding space, to the real reply it was matched with than to a real reply
+from a different thread? Mean cosine similarity **0.57 against its own pair
+versus 0.46 against another's**, and **81% of replies are closer to their
+own**. Not a formality — a simulator emitting plausible but generic office
+email would score near-identically on both, and this one does not.
+
+![Cosine similarity of each generated reply to its own matched real reply
+versus one from another thread.](docs/figures/embedding_topical_tracking.png)
+
+#### Reading 100 of them
+
+A stratified sample of 100 pairs (fixed seed, proportional across writing up,
+down and sideways) was written out as a review packet — incoming message,
+real reply, generated reply, side by side — and every item was read and given
+one primary code. The packet and the coding sheet are in `outputs/tables/`,
+and the codes are a **first pass, by me, that you should re-code yourself**:
+one coder's judgements are an input to a reliability check, not a result.
+
+![What 100 generated replies get wrong.](docs/figures/review_failure_modes.png)
+
+**47 of 100 are fine** — a colleague could have sent them. What the other 53
+do is more interesting than the headline number:
+
+- **25 mirror the request.** This is the dominant failure and it was not
+  anticipated by any category invented in advance. Asked to approve two
+  vacation days, the persona replies "Can you confirm that these dates are
+  acceptable?" Asked to send a list to Richard, it replies "Can you send the
+  list to Richard?" Told "could you get the latest form from Tana and check
+  it against ours", it answers "Can you get the most current swap form from
+  Tana and check it against the EEI form?" The reply is fluent, correctly
+  addressed, on-topic — and hands the sender's own task straight back.
+- **10 assert something they cannot know.** A reply claims to have checked
+  with the compliance team and reports no company under investigation (the
+  real replier names one that is); another answers a question about money
+  owed with an invented figure; another invents a sponsorship cost and a
+  streaming offer that appear nowhere in the thread.
+- **7 answer social messages in business register.** Banter about who has
+  signed more contracts gets a project-management reply; an out-of-office
+  joke gets a contract query. The model has no register other than
+  work-earnest.
+- 6 are generic, 3 incoherent, and 3 get the role or format wrong.
+
+Two mechanical facts from the same sample: **89% open with no greeting and
+100% close with no sign-off**, and the median generated reply is 21 words
+against 35 for the real one it is paired with. The formatting gap is trivially
+fixable in the prompt; the mirroring is not.
+
+**Mirroring and the one-sentence problem are probably the same problem.**
+Section 34 found that generated replies have a median of one sentence, which
+destroys the resolution of every per-sentence outcome Q1 depends on. Reading
+the replies suggests why they are one sentence: a reply that hands the request
+back has nothing else to say, and 25 of them do exactly that. That makes reply
+length less a formatting quirk than a symptom, and worth attacking at the
+prompt level — the persona is never told it is the person who has to act.
+
+**Mirroring is not evenly spread.** It occurs in 38% of replies written
+downward and 33% written upward, against 16% written to a peer. That is a
+small-n observation (21, 24 and 55 items) and should be treated as something
+to test rather than a finding — but it is the first hint in this project that
+the direction manipulation touches behaviour at all, after section 33's null.
+
+![Mirroring rate by writing direction.](docs/figures/review_mirroring_by_direction.png)
+
+#### Half the "real" replies contained someone else's writing
+
+Reading the packet made an ingest bug obvious that no test had caught. The
+cleaner that strips quoted ancestors from a message missed two of the most
+common cases in this corpus:
+
+1. `-----Original Message-----` **indented by a single space**, because the
+   pattern was anchored hard to column zero;
+2. **Lotus Notes quoting**, which has no banner at all — just an indented
+   sender line, a timestamp, and indented `To:`/`cc:`/`Subject:` lines. Notes
+   was the client most of Enron used, so this is not an edge case.
+
+A third bug came with them: the signature stripper treated any trailing line
+containing the word "email", "phone" or "fax" as contact details, deleting
+real closing sentences ("I received an email from Chris about the schedule").
+
+**Effect on the evaluation set:** 48% of the 190 real replies shrink once
+this is fixed, mean length **79.3 → 54.4 words** (median 56.5 → 37), and
+**25 of 190 fall below the 20-word floor** the sampling frame requires — they
+were never eligible to be evaluation items in the first place. **Effect on
+the corpus as a whole:** milder, 17.7% of messages shortened in a 20,000-
+message sample, 2.4% dropping out of the 20–600 word band. The bias is
+concentrated exactly where the evaluation happens, because replies quote and
+first messages do not.
+
+All three patterns are fixed in `thesis/data/rfc822.py` with tests. **The
+derived data has not been rebuilt** — that means re-running ingest (~47
+minutes) and every step below it, which regenerates persona statistics, which
+invalidates every cached reply again, exactly the cascade section 32
+describes. That is your call, not a fix to make quietly under time pressure.
+Until then the analysis re-cleans the stored text in memory, and both the
+repaired and unrepaired columns sit side by side in the pairs table so the
+difference stays visible.
+
+**What it costs the existing numbers.** The 79-word real-reply average is the
+anchor the whole length discussion rests on (sections 29–32), and the
+corrected figure is ~54. Persona `mean_tokens` — corrected in section 31 to
+78.2 words specifically to match that anchor — is computed from the same
+contaminated field, so it is too high as well. Section 32's conclusion that
+the model *ignores* its length instruction is not overturned (19.9 words
+against any of these targets is still a large shortfall), but the size of the
+gap it reports is not right, and the dose-response experiment already planned
+should wait for clean data rather than re-measure against a moving target.
+
+#### 190 pairs are not 190 independent observations
+
+The 190 pairs come from **133 distinct threads** and contain only **151
+distinct generated replies**. One thread contributes 11 pairs — one incoming
+message with eleven different real repliers, each matched to a persona, and
+where two of those repliers share a persona the generated reply is the same
+text repeated. The paired Wilcoxon and TOST results in section 32 treat all
+190 as independent, which they are not, so their p-values and equivalence
+bounds are optimistic. The fix is standard and cheap (cluster by thread, or
+average within thread before testing) and needs no new generation.
+
+---
+
 ## What's next
 
 *(Rewritten Aug 29 — the previous version had gone stale, still describing
@@ -1458,11 +1644,35 @@ none blocking other work):
 4. Who validates the 50-thread reconstruction sample — self-review, or a
    second reader for defensibility?
 
+**One decision that is yours, not your supervisor's, and blocks a rebuild:**
+
+- **Whether to rebuild the derived data now that the quote stripper is
+  fixed** (section 35). It is free but slow — ingest is ~47 minutes, and
+  everything downstream of it (threads, features, samples, personas)
+  follows, which invalidates every cached reply and means regenerating
+  them. The argument for doing it soon is that persona statistics, the
+  real-reply length baseline, and the sampling frame are all computed from
+  the contaminated field, so every week of new analysis built on them is a
+  week that has to be redone anyway.
+
 **Ready to do now, none of it requiring an answer to the above:**
 
 - **Re-run the judge-swap against corrected personas.** It is the last
   result still computed on superseded persona statistics. (Q1 has been
   re-run — see section 33; the effect did not survive.)
+- **Re-code the 100-item review packet yourself** (section 35). The codes
+  currently in `outputs/tables/manual_review_coded_first_pass.csv` are one
+  reader's; two independent codings give an agreement statistic, which is
+  what makes the qualitative half of this defensible — and it is a dry run
+  for the November human-coding round with none of its ethics overhead.
+- **Re-analyse Q2 with the pairs clustered by thread** (section 35). The
+  190 pairs come from 133 threads, so the current paired tests overstate
+  their own precision. No new generations; a different variance estimator.
+- **Give the persona an explicit instruction that it is the one who must
+  act.** A quarter of replies hand the request back to the sender
+  (section 35), which is the cheapest large improvement visible anywhere in
+  this project right now — and probably the reason replies are one sentence
+  long, which is what section 34 shows is breaking Q1's outcome measure.
 - **Re-analyse Q1 at the sentence level** (section 34, option 1). The
   current null is a measurement artifact, not a result, and this is the
   cheapest way to find out whether a real effect is hiding underneath it:

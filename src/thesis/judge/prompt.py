@@ -37,12 +37,22 @@ class JudgeItem:
     ``is_generated`` and ``source_id`` are read only by the calling code that
     tracks results -- never rendered into the prompt text itself, which is
     what keeps scoring genuinely blind.
+
+    ``context`` is the message being replied to. It is optional because the
+    original design showed the judge the reply alone, and every score produced
+    under that design has to stay reproducible. But two rubric dimensions ask
+    about fit to "the specific message it is responding to", which a judge
+    shown only the reply cannot possibly assess -- so this exists to run that
+    comparison rather than to argue it. Context is *not* provenance: the
+    incoming message is real in both arms of the comparison, so including it
+    reveals nothing about who wrote the reply and blinding is untouched.
     """
 
     item_id: str
     text: str
     is_generated: bool
     source_id: str
+    context: str | None = None
 
 
 _TASK_FRAMING: dict[Variant, str] = {
@@ -149,5 +159,16 @@ def render_item_block(item: JudgeItem) -> str:
 
     No item id, no source id, no provenance -- anything here is visible to
     the judge and must therefore contain nothing that would break blinding.
+
+    When the item carries the message it replies to, that is shown first and
+    labelled as context. Omitting it leaves the rendered text byte-identical
+    to the original design, so cached scores from earlier runs still hit.
     """
-    return f"## The message\n\n{item.text}"
+    if item.context is None:
+        return f"## The message\n\n{item.text}"
+    return (
+        "## The message being replied to\n\n"
+        f"{item.context}\n\n"
+        "## The message to score\n\n"
+        f"{item.text}"
+    )

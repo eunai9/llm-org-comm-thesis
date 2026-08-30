@@ -204,6 +204,39 @@ Should we proceed?
     assert clean_body(body) == "Yes, proceed."
 
 
+def test_indented_original_message_banner_is_removed() -> None:
+    """Outlook indents the banner by a space often enough to matter."""
+    body = "I think that would be great.\n -----Original Message-----\nFrom: a@enron.com\n"
+    assert strip_quoted_text(body).strip() == "I think that would be great."
+
+
+def test_lotus_notes_quoted_block_is_removed() -> None:
+    """The corpus's dominant quoting style has no banner at all, only indentation."""
+    body = (
+        "Can you email me your form?\n\n"
+        "\tMarie Heard@ENRON COMMUNICATIONS\n"
+        "\t11/14/2000 09:31 AM\n"
+        "\t\t\n"
+        "\t\t To: Tana Jones/HOU/ECT@ECT\n"
+        "\t\t cc:\n"
+        "\t\t Subject: Exodus NDA\n\n"
+        "Tana, it appears the NDA was done out of the Portland office.\n"
+    )
+    assert strip_quoted_text(body).strip() == "Can you email me your form?"
+
+
+def test_unindented_subject_line_in_prose_is_not_treated_as_a_quote() -> None:
+    """Only an indented, confirmed header block counts, or prose gets truncated."""
+    body = "Subject: is the wrong word for this contract, we should say scope.\n"
+    assert "wrong word" in strip_quoted_text(body)
+
+
+def test_closing_sentence_mentioning_email_is_not_stripped_as_a_signature() -> None:
+    """A contact label only counts when something contact-shaped follows it."""
+    body = "Thanks for the update.\nI received an email from Chris about the schedule.\n"
+    assert "email from Chris" in strip_signature(body)
+
+
 def test_forward_only_message_cleans_to_empty() -> None:
     """Bare forwards become empty and are excluded downstream."""
     raw = (
