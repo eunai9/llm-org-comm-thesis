@@ -21,13 +21,15 @@ you to read, not for a computer to run. Updated after each work session.
 | Measure "power" expressed in each email's writing style | Done (see note below) |
 | Draw the samples the simulator and judge will use | Done |
 | Plumbing for talking to the AI models (cost, caching) | Done |
-| Build the AI agent simulator | Done, except the second AI provider |
+| Build the AI agent simulator | Done, except a second *paid* provider |
 | Half-price bulk submission (batching) | Done |
 | Give each persona a "memory" of recent context | Done |
 | Two working demos (terminal + browser), runnable by anyone | Done |
 | Build the AI judge (scoring rubric and pipeline) | Done, on the free path |
 | Statistics that compare real vs. AI-written emails | Done, on the free path |
-| AI replies to a real email, compared to the real reply | Done, on the free path |
+| AI replies to a real email, compared to the real reply | Done — 190 pairs |
+| Does the judge favour its own kind of AI? (Q3) | Done, free workaround — two local model families |
+| Does hierarchy shape what gets written? (Q1) | Pilots done; need re-running after the persona fix |
 | Get API keys / decide on budget | **Decided: staying free — see note below** |
 
 ---
@@ -51,6 +53,34 @@ you to read, not for a computer to run. Updated after each work session.
   it claims to. For the power score, the check is: do people in more senior
   roles actually score higher? If not, the measurement isn't capturing what
   it was designed to capture, whatever else it might be picking up.
+
+---
+
+## Why results in this log sometimes get re-run
+
+Several entries below report re-running a pilot and replacing its numbers.
+That is by design, and it is worth understanding once rather than being
+surprised by it each time.
+
+Every AI reply is saved in a cache so it never has to be paid for or
+regenerated twice. The cache is keyed on **the exact prompt text sent to
+the model** — which is the right choice, because it means a genuine change
+to the prompt can never silently serve a stale reply written under the old
+one.
+
+The consequence is that anything feeding into that prompt text invalidates
+every cached reply when it changes. Persona statistics do (a persona's
+"typical length" and writing habits are written into its prompt), so does
+scenario wording. So a fix to how a *corpus statistic* is computed —
+seemingly a data-layer change, far from the simulator — correctly forces
+every affected reply to be regenerated. This has happened twice: the tone
+redesign (section 17) and the persona-statistics fix (section 31).
+
+Re-running is free, since everything runs on the local model. The cost is
+that results computed before such a change describe a pipeline that no
+longer exists, and have to be regenerated before they can be quoted. When
+that happens it is stated explicitly rather than the numbers being quietly
+swapped.
 
 ---
 
@@ -1272,29 +1302,57 @@ is measured on.
 
 ## What's next
 
-**Everything currently useful to build for free is built, and now connected
-end to end** — sampling real conversations, generating AI replies (to made-up
-situations or to real emails), scoring both with the judge, and comparing them
-statistically, all for free, all tested.
+*(Rewritten Aug 29 — the previous version had gone stale, still describing
+the pipeline as running on "more than 6 examples" and calling the
+judge-swap comparison impossible for free. Both were overtaken by events.)*
 
-You and your supervisor have decided not to invest money in this project.
-That's a settled decision, not something pending. Given that, here's the
-honest, current state:
+**The pipeline is complete and has produced real results at a meaningful
+scale** — 190 matched real-vs-AI comparisons, 240-reply hierarchy pilots,
+a 120-reply judge-swap — all free, all reproducible from cache.
 
-- ✅ **Fully possible for free, and worth continuing:** running this pipeline
-  on more than 6 examples to get a real (if still not thesis-grade) read on
-  the pattern, more testing, more demos, refining prompts.
-- ⚠️ **Genuinely out of reach on the free path, by the research design
-  itself:** the actual final thesis results, and specifically the
-  comparison of whether the judge favors its own kind of AI over another.
-  You mentioned exploring a different way to access AI models for that
-  piece later — happy to help once that direction is clearer.
+You and your supervisor decided not to spend money on this project. That
+remains settled. What has changed since that decision is that **less turned
+out to be blocked by it than expected**: the judge self-preference question
+(Q3), previously written off here as impossible without two paid model
+families, was answered for free by using two different *local* model
+families instead (section 23). Directionally suggestive, underpowered, but
+real, and a legitimate result rather than a gap.
 
-Still open, but not blocking anything:
+**Waiting on your supervisor** (four questions, all in the checkpoint memo,
+none blocking other work):
 
-- The power-score method question — you're reading through the options for a
-  more current, LLM-based approach. It only needs deciding before the labelling
-  step (`S_label`) actually runs.
+1. Ethics approval for the November human-coding round — what is needed,
+   and what is the lead time?
+2. Which models produce the final results — is departmental compute or
+   research credit available, or does the thesis get reframed around
+   open-weights models as the object of study?
+3. How to present the power-score null — report as-is, or decompose into
+   linguistic and network parts first?
+4. Who validates the 50-thread reconstruction sample — self-review, or a
+   second reader for defensibility?
+
+**Ready to do now, none of it requiring an answer to the above:**
+
+- **Re-run Q1 and the judge-swap against corrected personas.** Both still
+  use the superseded persona statistics (see the note above on why
+  re-running is necessary). Q1 matters more: `imperative_ratio` is both a
+  persona statistic that changed and the outcome its direction effect is
+  measured on, so its most-replicated finding needs re-confirming.
+- **A proper dose-response test of the length instruction** (section 32).
+  State several target lengths, hold everything else fixed, measure the
+  response curve. Turns a two-point observation into a real result about
+  instruction-following.
+- **Decompose the power score** into its linguistic and network halves.
+  Cheap, needs no AI calls, and would make decision 3 above easier to
+  answer by putting the actual numbers in front of it.
+- **Build the contamination probe and anonymised-stimulus arm.** Named in
+  the research plan and still the strongest objection an examiner can
+  raise; both are cheap and turn an unanswerable question into a table.
+
+**Known limitation running through everything:** all results so far come
+from 3-billion-parameter local models. They demonstrate the machinery
+works and have caught several real bugs, but cannot appear in a results
+table as-is. Decision 2 above is what settles that.
 
 ---
 
