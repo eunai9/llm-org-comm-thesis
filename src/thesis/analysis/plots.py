@@ -29,6 +29,12 @@ background this code does not control, and a transparent ground would put
 dark ink on a dark page for any reader using a dark theme.
 
 Regenerate everything with ``python -m thesis.analysis.plots``.
+
+**One exception to that.** :func:`plot_value_spread` needs the raw
+per-reply values rather than a handful of summary numbers, so its figure is
+produced by the analysis that holds the data instead of by :func:`main`.
+Hardcoding a distribution here would mean inventing values that were never
+measured, which is worse than the figure living slightly out of the way.
 """
 
 from __future__ import annotations
@@ -42,6 +48,7 @@ import matplotlib
 matplotlib.use("Agg")  # No display in WSL; must be set before pyplot is imported.
 
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
@@ -300,6 +307,54 @@ def plot_discrimination_auc(
     ax.set_ylim(-0.6, max(y) + 0.9)
     ax.set_xlabel("AUC", color=INK_SECONDARY, fontsize=9.5)
     return _finish(fig, ax, title, subtitle, path)
+
+
+def plot_value_spread(
+    groups: dict[str, Sequence[float]],
+    path: Path,
+    *,
+    title: str,
+    subtitle: str = "",
+    x_label: str = "",
+    bins: int = 24,
+) -> Path:
+    """Two groups' value distributions, drawn as side-by-side histograms.
+
+    Built for a measurement question rather than an outcome one: whether a
+    variable takes enough distinct values to resolve the effect being
+    looked for. A per-sentence rate computed over one-sentence text piles
+    onto a handful of spikes, and that is visible here in a way no summary
+    statistic conveys -- a mean and standard deviation look perfectly
+    healthy for a variable that only ever takes three values.
+    """
+    if len(groups) != 2:
+        msg = f"expected exactly 2 groups to compare, got {len(groups)}"
+        raise ValueError(msg)
+
+    fig, axes = plt.subplots(2, 1, figsize=(7.0, 4.6), sharex=True)
+    all_values = [v for values in groups.values() for v in values]
+    edges = np.linspace(min(all_values), max(all_values), bins + 1)
+
+    for ax, color, (name, values) in zip(axes, (SERIES_1, SERIES_2), groups.items(), strict=True):
+        _style_axes(ax)
+        ax.yaxis.grid(True, color=GRIDLINE, linewidth=1)
+        ax.set_axisbelow(True)
+        ax.hist(list(values), bins=edges, color=color, zorder=2)
+        n_distinct = len(set(values))
+        ax.annotate(
+            f"{name} — {n_distinct} distinct value{'s' if n_distinct != 1 else ''}",
+            (0.99, 0.88),
+            xycoords="axes fraction",
+            ha="right",
+            color=color,
+            fontsize=9.5,
+            fontweight="600",
+        )
+        ax.set_ylabel("replies", color=INK_SECONDARY, fontsize=9)
+
+    axes[1].set_xlabel(x_label, color=INK_SECONDARY, fontsize=9.5)
+    fig.subplots_adjust(hspace=0.18)
+    return _finish(fig, axes[0], title, subtitle, path)
 
 
 def main() -> None:

@@ -29,7 +29,7 @@ you to read, not for a computer to run. Updated after each work session.
 | Statistics that compare real vs. AI-written emails | Done, on the free path |
 | AI replies to a real email, compared to the real reply | Done — 190 pairs |
 | Does the judge favour its own kind of AI? (Q3) | Done, free workaround — two local model families |
-| Does hierarchy shape what gets written? (Q1) | Re-run after the persona fix — **effect did not survive** |
+| Does hierarchy shape what gets written? (Q1) | **Blocked on measurement** — the outcome measure cannot resolve an effect at current reply length |
 | Get API keys / decide on budget | **Decided: staying free — see note below** |
 
 ---
@@ -1358,6 +1358,75 @@ and the other did not.
 
 ---
 
+### 34. The Q1 null is a measurement failure, not a finding (Aug 29)
+
+Before accepting "hierarchy has no effect on directive language" as a
+result, checked whether the outcome measure can detect an effect at all at
+this reply length. It cannot.
+
+`imperative_ratio` is a **per-sentence rate** — imperative sentences
+divided by total sentences. That is a reasonable measure for a normal
+email. It is close to meaningless for a one-sentence one, where it can
+only be 0 or 1.
+
+| | Generated replies | Real replies |
+|---|---:|---:|
+| Median sentences per reply | **1.0** | 4.0 |
+| Replies that are a single sentence | **57.5%** | 2.6% |
+| Distinct values `imperative_ratio` takes | **4** | 26 |
+| Smallest step between adjacent values | **0.167** | 0.005 |
+
+![Distribution of imperative ratio for generated and real replies. The
+generated values collapse onto three spikes at 0, 0.5 and 1; the real ones
+spread across the range.](docs/figures/q1_measure_resolution.png)
+
+**The instrument's smallest step (0.167) is the same size as the effect
+being looked for (0.05–0.23).** Ninety-eight percent of generated replies
+score exactly 0.0, 0.5, or 1.0. Fitting a mixed model to that is close to
+fitting noise, and no amount of extra replies fixes it — the resolution
+limit is per-reply, so more replies at one sentence each just add more
+coarse observations.
+
+This explains three separate oddities that had been recorded as unrelated:
+
+- **`deference_rate` was exactly zero everywhere** (section 12). Earlier
+  this was checked against the corpus and attributed to the lexicon simply
+  being rare (2.8% of real messages). That was half the story: at one
+  sentence per reply, the lexicon has almost no opportunity to fire at
+  all. It takes **1 distinct value** across all 240 generated replies.
+- **Persona variance was exactly 0.0000** on both outcomes, repeatedly.
+  A three-valued outcome cannot express between-persona differences.
+- **The original, pre-fix "effect" looked strong.** A coarse outcome with
+  few discrete levels makes spurious structure easy to find — which is
+  consistent with a result that vanished the moment an unrelated bug was
+  corrected.
+
+**So the honest statement is not "no direction effect exists" but "this
+design cannot currently measure one."** That is a weaker claim about the
+world and a much stronger claim about the method, and it is the one the
+evidence supports.
+
+**It also makes the length problem causally upstream of everything.** The
+model ignoring its length instruction (section 32) is not a cosmetic
+fidelity issue — it is what destroys the resolution of every per-sentence
+outcome Q1 depends on. Fixing Q1 means fixing reply length, or changing
+the outcome measure. Three options, in rough order of preference:
+
+1. **Model the sentence, not the reply.** Each sentence becomes one binary
+   observation (imperative or not) in a logistic mixed model with random
+   intercepts for persona and reply. This uses the data as it actually is,
+   rather than dividing small integers by smaller ones.
+2. **Get longer replies**, which the prompt currently cannot do — the
+   model disregards the stated target (section 32). Would need a different
+   mechanism than an instruction.
+3. **Use outcomes that do not depend on sentence counts** — per-token
+   rates, or counts per reply.
+
+None of these has been done yet. Option 1 is cheap, needs no new
+generations, and is the obvious next move.
+
+---
+
 ## What's next
 
 *(Rewritten Aug 29 — the previous version had gone stale, still describing
@@ -1394,12 +1463,17 @@ none blocking other work):
 - **Re-run the judge-swap against corrected personas.** It is the last
   result still computed on superseded persona statistics. (Q1 has been
   re-run — see section 33; the effect did not survive.)
-- **Decide how to handle the Q1 null.** With no detectable direction
-  effect on the simulated side, Q1's evidence now rests on the empirical
-  Enron subset rather than the simulator. The research plan anticipated
-  needing a fallback here, though in the opposite direction — it expected
-  the simulated hierarchy to be the *stronger* arm. Worth raising with
-  your supervisor alongside the four questions below.
+- **Re-analyse Q1 at the sentence level** (section 34, option 1). The
+  current null is a measurement artifact, not a result, and this is the
+  cheapest way to find out whether a real effect is hiding underneath it:
+  no new generations, just a logistic mixed model over sentences instead
+  of a linear one over per-reply ratios. **This is the single highest-value
+  thing outstanding.**
+- **Decide how Q1 proceeds if that still finds nothing.** Its evidence
+  would then rest on the empirical Enron subset rather than the simulator.
+  The research plan anticipated needing a fallback here, though in the
+  opposite direction — it expected the simulated hierarchy to be the
+  *stronger* arm. Worth raising with your supervisor.
 - **A proper dose-response test of the length instruction** (section 32).
   State several target lengths, hold everything else fixed, measure the
   response curve. Turns a two-point observation into a real result about

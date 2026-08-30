@@ -18,6 +18,7 @@ from thesis.analysis.plots import (
     plot_discrimination_auc,
     plot_factor_interaction,
     plot_paired_dimensions,
+    plot_value_spread,
 )
 
 
@@ -105,3 +106,29 @@ def test_discrimination_auc_rejects_values_below_chance(tmp_path: Path) -> None:
 def test_discrimination_auc_rejects_mismatched_lengths(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="same length"):
         plot_discrimination_auc(("a", "b"), (0.7,), path=tmp_path / "bad.png")
+
+
+def test_value_spread_writes_a_png(tmp_path: Path) -> None:
+    out = plot_value_spread(
+        {"coarse": [0.0, 0.5, 1.0] * 8, "fine": [i / 40 for i in range(24)]},
+        tmp_path / "spread.png",
+        title="t",
+    )
+    assert out.exists()
+
+
+def test_value_spread_handles_a_single_valued_group(tmp_path: Path) -> None:
+    """The degenerate case this exists to expose: a feature that never
+    varies at all (deference_rate on short replies) must still draw, not
+    divide by an empty range."""
+    out = plot_value_spread(
+        {"all zero": [0.0] * 10, "varied": [0.0, 0.25, 0.5, 0.75, 1.0]},
+        tmp_path / "degenerate.png",
+        title="t",
+    )
+    assert out.exists()
+
+
+def test_value_spread_requires_exactly_two_groups(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="exactly 2 groups"):
+        plot_value_spread({"only": [1.0, 2.0]}, tmp_path / "bad.png", title="t")
