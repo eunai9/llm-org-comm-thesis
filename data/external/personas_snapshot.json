@@ -2,75 +2,75 @@
   {
     "department": "Trading",
     "derivation": "rank_pooled",
-    "n_messages": 10109,
+    "n_messages": 9338,
     "n_people": 10,
     "persona_id": "r1_trading",
     "rank_label": "Employee",
     "seniority_rank": 1,
     "style": {
       "deference_rate": 0.008,
-      "hedge_rate": 0.025,
-      "imperative_ratio": 0.177,
-      "mean_recipients": 2.99,
-      "mean_tokens": 72.3,
-      "question_ratio": 0.09
+      "hedge_rate": 0.026,
+      "imperative_ratio": 0.183,
+      "mean_recipients": 3.13,
+      "mean_tokens": 63.2,
+      "question_ratio": 0.087
     }
   },
   {
     "department": "Legal",
     "derivation": "cell",
-    "n_messages": 9114,
+    "n_messages": 8344,
     "n_people": 8,
     "persona_id": "r1_legal",
     "rank_label": "Employee",
     "seniority_rank": 1,
     "style": {
-      "deference_rate": 0.009,
-      "hedge_rate": 0.023,
-      "imperative_ratio": 0.177,
-      "mean_recipients": 3.07,
-      "mean_tokens": 72.2,
-      "question_ratio": 0.083
+      "deference_rate": 0.008,
+      "hedge_rate": 0.024,
+      "imperative_ratio": 0.184,
+      "mean_recipients": 3.23,
+      "mean_tokens": 62.1,
+      "question_ratio": 0.079
     }
   },
   {
     "department": "Trading",
     "derivation": "cell",
-    "n_messages": 4888,
+    "n_messages": 4857,
     "n_people": 24,
     "persona_id": "r2_trading",
     "rank_label": "Manager",
     "seniority_rank": 2,
     "style": {
       "deference_rate": 0.008,
-      "hedge_rate": 0.041,
-      "imperative_ratio": 0.17,
+      "hedge_rate": 0.043,
+      "imperative_ratio": 0.174,
       "mean_recipients": 2.64,
-      "mean_tokens": 70.1,
-      "question_ratio": 0.089
+      "mean_tokens": 70.2,
+      "question_ratio": 0.092
     }
   },
   {
     "department": "Legal",
     "derivation": "rank_pooled",
-    "n_messages": 6184,
+    "n_messages": 6066,
     "n_people": 25,
     "persona_id": "r2_legal",
     "rank_label": "Manager",
     "seniority_rank": 2,
     "style": {
-      "deference_rate": 0.008,
-      "hedge_rate": 0.038,
-      "imperative_ratio": 0.181,
-      "mean_recipients": 2.59,
-      "mean_tokens": 72.6,
-      "question_ratio": 0.082
+      "deference_rate": 0.009,
+      "hedge_rate": 0.04,
+      "imperative_ratio": 0.185,
+      "mean_recipients": 2.61,
+      "mean_tokens": 70.2,
+      "question_ratio": 0.083
     }
   },
   {
     "department": "Trading",
     "derivation": "cell",
-    "n_messages": 1977,
+    "n_messages": 1939,
     "n_people": 25,
     "persona_id": "r3_trading",
     "rank_label": "Director",
@@ -78,16 +78,16 @@
     "style": {
       "deference_rate": 0.007,
       "hedge_rate": 0.036,
-      "imperative_ratio": 0.187,
-      "mean_recipients": 1.89,
-      "mean_tokens": 76.7,
-      "question_ratio": 0.067
+      "imperative_ratio": 0.194,
+      "mean_recipients": 1.9,
+      "mean_tokens": 77.4,
+      "question_ratio": 0.069
     }
   },
   {
     "department": "Legal",
     "derivation": "cell",
-    "n_messages": 6012,
+    "n_messages": 5540,
     "n_people": 4,
     "persona_id": "r3_legal",
     "rank_label": "Director",
@@ -95,78 +95,78 @@
     "style": {
       "deference_rate": 0.006,
       "hedge_rate": 0.039,
-      "imperative_ratio": 0.144,
-      "mean_recipients": 4.69,
-      "mean_tokens": 102.1,
-      "question_ratio": 0.092
+      "imperative_ratio": 0.146,
+      "mean_recipients": 4.87,
+      "mean_tokens": 93.2,
+      "question_ratio": 0.086
     }
   },
   {
     "department": "Trading",
     "derivation": "cell",
-    "n_messages": 2927,
+    "n_messages": 2859,
     "n_people": 16,
     "persona_id": "r4_trading",
     "rank_label": "Vice President",
     "seniority_rank": 4,
     "style": {
       "deference_rate": 0.006,
-      "hedge_rate": 0.041,
-      "imperative_ratio": 0.183,
-      "mean_recipients": 2.16,
-      "mean_tokens": 69.4,
-      "question_ratio": 0.071
+      "hedge_rate": 0.043,
+      "imperative_ratio": 0.191,
+      "mean_recipients": 2.13,
+      "mean_tokens": 69.5,
+      "question_ratio": 0.074
     }
   },
   {
     "department": "Legal",
     "derivation": "cell",
-    "n_messages": 3185,
+    "n_messages": 2793,
     "n_people": 7,
     "persona_id": "r4_legal",
     "rank_label": "Vice President",
     "seniority_rank": 4,
     "style": {
-      "deference_rate": 0.006,
-      "hedge_rate": 0.047,
-      "imperative_ratio": 0.168,
-      "mean_recipients": 4.19,
-      "mean_tokens": 88.7,
-      "question_ratio": 0.09
+      "deference_rate": 0.005,
+      "hedge_rate": 0.051,
+      "imperative_ratio": 0.174,
+      "mean_recipients": 4.47,
+      "mean_tokens": 80.2,
+      "question_ratio": 0.085
     }
   },
   {
     "department": "Trading",
     "derivation": "rank_pooled",
-    "n_messages": 489,
+    "n_messages": 481,
     "n_people": 3,
     "persona_id": "r5_trading",
     "rank_label": "Managing Director",
     "seniority_rank": 5,
     "style": {
       "deference_rate": 0.004,
-      "hedge_rate": 0.027,
-      "imperative_ratio": 0.17,
-      "mean_recipients": 2.95,
-      "mean_tokens": 79.0,
-      "question_ratio": 0.088
+      "hedge_rate": 0.028,
+      "imperative_ratio": 0.172,
+      "mean_recipients": 2.97,
+      "mean_tokens": 79.5,
+      "question_ratio": 0.089
     }
   },
   {
     "department": "Legal",
     "derivation": "rank_pooled",
-    "n_messages": 489,
+    "n_messages": 481,
     "n_people": 3,
     "persona_id": "r5_legal",
     "rank_label": "Managing Director",
     "seniority_rank": 5,
     "style": {
       "deference_rate": 0.004,
-      "hedge_rate": 0.027,
-      "imperative_ratio": 0.17,
-      "mean_recipients": 2.95,
-      "mean_tokens": 79.0,
-      "question_ratio": 0.088
+      "hedge_rate": 0.028,
+      "imperative_ratio": 0.172,
+      "mean_recipients": 2.97,
+      "mean_tokens": 79.5,
+      "question_ratio": 0.089
     }
   }
 ]

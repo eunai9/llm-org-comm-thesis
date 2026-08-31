@@ -27,11 +27,11 @@ you to read, not for a computer to run. Updated after each work session.
 | Two working demos (terminal + browser), runnable by anyone | Done |
 | Build the AI judge (scoring rubric and pipeline) | Done, on the free path |
 | Statistics that compare real vs. AI-written emails | Done, on the free path |
-| AI replies to a real email, compared to the real reply | Done — 190 pairs |
-| Does the judge favour its own kind of AI? (Q3) | Done, free workaround — two local model families |
-| Does hierarchy shape what gets written? (Q1) | Measurement fixed and re-tested — still no significant effect, at either grain |
+| AI replies to a real email, compared to the real reply | Done — 190 pairs, **now stale, see below** |
+| Does the judge favour its own kind of AI? (Q3) | Done, free workaround — two local model families, **now stale** |
+| Does hierarchy shape what gets written? (Q1) | Measurement fixed and re-tested — still no significant effect, **now stale** |
 | Validation pass: embedding map, 100 replies read by hand | Done — see section 35 |
-| Quoted text left inside "cleaned" message bodies | **Fixed in code; the derived data has not been rebuilt** |
+| Quoted text left inside "cleaned" message bodies | **Fixed in code and rebuilt — see section 37** |
 | Get API keys / decide on budget | **Decided: staying free — see note below** |
 
 ---
@@ -285,7 +285,9 @@ projects, combining two kinds of signal that were built and frozen
   hedges ("maybe", "perhaps"), defers ("if it's not too much trouble"), or
   makes personal commitments ("I'll take care of it"). Measured with a
   natural-language-processing tool (spaCy) run over every one of the
-  237,627 usable emails.
+  237,627 usable emails. ⚠️ **Superseded — see section 37:** a corpus
+  cleaning bug meant this undercounted how many messages were actually
+  empty; the corrected figure is 233,282.
 - **Behavioral signal** — how central someone is in the email network, how
   often they start conversations vs. get the last word, and whether people
   reply to them faster than they reply to others.
@@ -1735,26 +1737,101 @@ ruff/black/mypy clean.
 
 ---
 
+### 37. Rebuilding the corpus from scratch with the quote-stripping fix (Aug 31)
+
+Section 35's quote-stripping fix (`rfc822.py`) was committed on Aug 30 but
+never applied to the actual derived data — every downstream artifact
+(ingest → threads → features → network → power → sampling → personas)
+still reflected the old, quote-contaminated cleaning. Rebuilt the entire
+chain from the raw corpus.
+
+**Two WSL crashes on the way, and a real environment lesson.** The
+`features` stage (the spaCy pass over 233k+ messages) crashed the whole
+WSL VM twice — not a Python exception, an actual filesystem
+unmount/remount with journal corruption, knocking out the local Ollama
+server both times. Reducing the script's own parallelism (4 → 2 → 1
+process) made no difference, which ruled out the script as the cause: this
+machine has 16GB of physical RAM total, WSL is already capped at 8GB of
+it, and Docker Desktop was quietly holding a further ~2GB in background
+processes the whole time, with no visible tray icon or window to notice
+it by. Closing Docker Desktop (confirmed by checking process *paths*, not
+names — an early guess that a cluster of "whale"-named processes was
+Docker turned out to be a mixup with an unrelated browser, Naver Whale,
+sharing part of the name) freed enough headroom for the same script,
+unchanged, to complete cleanly in the same run that had twice taken down
+the VM. Worth remembering for any future large local-model or corpus-scale
+job on this machine: check actual free system memory first, not just
+WSL's own internal usage.
+
+**The rebuild's own numbers, cross-checked against what was already in
+this log:**
+
+- **Threading and conversation counts are exactly unchanged** — 254,359
+  unique messages, 18,467 conversations, 8,959 with 3+ messages, all
+  identical to section 5's original figures. Expected: threading runs on
+  headers and participants, not on the cleaned body text the quote fix
+  touches.
+- **The corpus's own "usable messages" headline number drops.** Messages
+  classified as empty after cleaning rose from 16,686 to **21,031** —
+  correctly stripping quoted content revealed that 4,345 more messages
+  (+26%) had nothing of the sender's own left once the quote was properly
+  removed; the old, buggy stripper had been counting quoted text as
+  content. **Usable messages for feature extraction is now 233,282, not
+  237,627** — a real correction to a number already cited earlier in this
+  log, not a rounding difference.
+- **The power score's construct-validity failure is unchanged and now
+  doubly confirmed.** Spearman(rank, power_score) = **−0.0695**, against
+  −0.065 before the rebuild — the same null, to two decimal places, on a
+  fully independent recomputation from cleaner text. Whatever is wrong
+  with this measure, it is not an artifact of the quote-contamination bug.
+- **`S_real_eval` now draws 313 of 400 requested pairs**, up from 302 —
+  more real replies clear the 20-word eligibility floor once they are not
+  artificially inflated by quoted ancestors.
+- **Persona `mean_tokens` moved again**, as expected: 74.5 words average
+  (range 62–93), down from section 31's 78.2. The corpus-wide contamination
+  was milder than the S_real_eval-specific 48% figure (matching section
+  35's own prediction of a smaller, ~18% corpus-wide effect), so this is a
+  second, smaller correction in the same direction, not a contradiction of
+  the first one.
+
+**Every cached AI reply is invalidated a fourth time** — the same cascade
+sections 17 and 31 already went through, and the same reason: persona
+statistics are rendered into the prompt text the cache keys on. This
+includes the sentence-level Q1 result from section 36 and the n=190 Q2
+equivalence result from section 32, both computed against the previous
+(section 31) persona correction, not this one. Deliberately not re-running
+either yet — that is a real decision about how much of the last several
+sections to redo a second time, not something to do automatically under
+time pressure.
+
+---
+
 ## What's next
 
-*(Rewritten Aug 29 — the previous version had gone stale, still describing
-the pipeline as running on "more than 6 examples" and calling the
-judge-swap comparison impossible for free. Both were overtaken by events.)*
+*(Rewritten Aug 31 — the previous version was written before the corpus
+rebuild in section 37 and had gone stale in the specific way every version
+of this section keeps going stale: describing pending analysis as current
+after the data underneath it changed. Read section 37 before trusting any
+number elsewhere in this log dated before Aug 31.)*
 
-**The pipeline is complete and has produced real results at a meaningful
-scale** — 190 matched real-vs-AI comparisons, 240-reply hierarchy pilots,
-a 120-reply judge-swap — all free, all reproducible from cache.
+**The corpus is now rebuilt on the corrected text, but nothing has been
+re-analysed against it yet.** Section 37 fixed a real bug (quoted text
+inflating message lengths) and reconfirmed one real null (the power score
+still doesn't track seniority, now on independently cleaned data), but
+every pilot result in sections 17–36 — the Q1 direction/sentence-level
+models, the n=190 Q2 equivalence result, the judge-swap, the mirroring
+review — was computed against a corpus or persona statistics this rebuild
+has since superseded. None of it is wrong for what it measured; all of it
+now needs a decision about whether it's worth re-measuring.
 
 You and your supervisor decided not to spend money on this project. That
-remains settled. What has changed since that decision is that **less turned
-out to be blocked by it than expected**: the judge self-preference question
-(Q3), previously written off here as impossible without two paid model
-families, was answered for free by using two different *local* model
-families instead (section 23). Directionally suggestive, underpowered, but
-real, and a legitimate result rather than a gap.
+remains settled, and remains less limiting than it first looked — the
+judge self-preference question (Q3), once written off here as impossible
+without two paid model families, was answered for free with two local
+families instead (section 23).
 
-**Waiting on your supervisor** (four questions, all in the checkpoint memo,
-none blocking other work):
+**Waiting on your supervisor** (four questions, all in the checkpoint
+memo, none blocking other work):
 
 1. Ethics approval for the November human-coding round — what is needed,
    and what is the lead time?
@@ -1766,42 +1843,44 @@ none blocking other work):
 4. Who validates the 50-thread reconstruction sample — self-review, or a
    second reader for defensibility?
 
-**One decision that is yours, not your supervisor's, and blocks a rebuild:**
+**The one decision that's actually yours, and shapes almost everything
+else below:** how much of sections 17–36 to re-run against the rebuilt
+corpus. Doing all of it is another several hours of local generation and
+judging (free, but the `features` stage alone just cost two WSL crashes —
+see section 37's environment note before running anything else heavy on
+this machine without checking free memory first). Doing none of it means
+every number in this log carries a dated asterisk. A middle path — re-run
+whichever of Q1/Q2/Q3 you actually plan to quote to your supervisor next —
+is probably the right default absent a stronger reason either way.
 
-- **Whether to rebuild the derived data now that the quote stripper is
-  fixed** (section 35). It is free but slow — ingest is ~47 minutes, and
-  everything downstream of it (threads, features, samples, personas)
-  follows, which invalidates every cached reply and means regenerating
-  them. The argument for doing it soon is that persona statistics, the
-  real-reply length baseline, and the sampling frame are all computed from
-  the contaminated field, so every week of new analysis built on them is a
-  week that has to be redone anyway.
+**Ready to do once that's decided:**
 
-**Ready to do now, none of it requiring an answer to the above:**
-
-- **Re-run the judge-swap against corrected personas.** It is the last
-  result still computed on superseded persona statistics. (Q1 has been
-  re-run — see section 33; the effect did not survive.)
+- **Re-run the judge-swap, Q1, and Q2 against the rebuilt corpus.** All
+  three are now stale for the same reason (section 37). Q2 is the obvious
+  first pick if only one gets redone — it's this project's strongest
+  result so far and the one most exposed to the length-baseline shift.
 - **Re-code the 100-item review packet yourself** (section 35). The codes
   currently in `outputs/tables/manual_review_coded_first_pass.csv` are one
   reader's; two independent codings give an agreement statistic, which is
   what makes the qualitative half of this defensible — and it is a dry run
   for the November human-coding round with none of its ethics overhead.
 - **Build a targeted mirroring check.** Section 35 shows the rubric judge
-  cannot detect the project's most common failure in either condition, and
-  that giving it more context only makes it more generous. A direct measure —
-  how much of a reply's content is lexically or semantically returned from its
-  own stimulus — needs no model call and would turn the hand-coded 25% into a
-  number computable over every reply the project ever generates.
+  cannot detect the project's most common failure in either condition
+  (section 35's follow-up), and that giving it more context only makes it
+  more generous. A direct measure — how much of a reply's content is
+  lexically or semantically returned from its own stimulus — needs no
+  model call and would turn the hand-coded 25% into a number computable
+  over every reply the project ever generates.
 - **Re-analyse Q2 with the pairs clustered by thread** (section 35). The
   190 pairs come from 133 threads, so the current paired tests overstate
   their own precision. No new generations; a different variance estimator.
+  Do this at the same time as the Q2 re-run above, not as a separate pass.
 - **Give the persona an explicit instruction that it is the one who must
   act.** A quarter of replies hand the request back to the sender
   (section 35), which is the cheapest large improvement visible anywhere in
   this project right now — and probably the reason replies are one sentence
   long, which is what section 34 shows is breaking Q1's outcome measure.
-- **Decide how Q1 proceeds.** Both the reply-level and (now, section 36)
+- **Decide how Q1 proceeds.** Both the reply-level and (section 36)
   sentence-level models agree on a small, non-significant hierarchy
   pattern. That could mean a real effect this design is underpowered to
   detect (n=10 personas), or no effect at all — this data can't tell the

@@ -2,37 +2,37 @@
   "is_monotonic_nondecreasing": false,
   "mean_power_score_by_rank": {
     "1": {
-      "mean": 0.088,
-      "n": 27467,
-      "std": 0.3576
+      "mean": 0.0912,
+      "n": 26575,
+      "std": 0.3622
     },
     "2": {
-      "mean": -0.0437,
-      "n": 10906,
-      "std": 0.2421
+      "mean": -0.042,
+      "n": 10472,
+      "std": 0.2476
     },
     "3": {
-      "mean": -0.025,
-      "n": 17729,
+      "mean": -0.0209,
+      "n": 17353,
       "std": 0.2381
     },
     "4": {
-      "mean": 0.0033,
-      "n": 18092,
-      "std": 0.2527
+      "mean": 0.007,
+      "n": 17569,
+      "std": 0.2594
     },
     "5": {
-      "mean": -0.0096,
-      "n": 6703,
-      "std": 0.2033
+      "mean": -0.0074,
+      "n": 6080,
+      "std": 0.2127
     },
     "6": {
-      "mean": 0.0157,
-      "n": 3796,
-      "std": 0.3047
+      "mean": 0.0165,
+      "n": 3730,
+      "std": 0.3055
     }
   },
-  "n_scored_messages": 237627,
-  "n_with_known_rank": 84693,
-  "spearman_rank_vs_score": -0.0649
+  "n_scored_messages": 233282,
+  "n_with_known_rank": 81779,
+  "spearman_rank_vs_score": -0.0695
 }
