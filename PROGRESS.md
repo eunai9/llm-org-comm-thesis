@@ -1556,6 +1556,57 @@ the direction manipulation touches behaviour at all, after section 33's null.
 
 ![Mirroring rate by writing direction.](docs/figures/review_mirroring_by_direction.png)
 
+#### The judge cannot see the failure, and showing it more does not help
+
+The judge scores real and generated replies as equivalent on all six rubric
+dimensions. A reader finds a quarter of them handing the request back. The
+reason the two disagree is structural rather than a matter of taste: **the
+judge prompt contains the reply and nothing else**, while two of its six
+dimensions ask about fit to "the specific message it is responding to" and to
+"the stated role and seniority level". Neither the incoming message nor the
+role is in the prompt. A mirrored reply, read on its own, is a perfectly good
+email.
+
+The obvious fix is to show the judge the incoming message — which cannot
+break blinding, since that message is real in both arms and says nothing about
+who wrote the reply. So all 100 reviewed replies were scored twice by
+`qwen2.5:3b`, once each way, and the scores compared against the manual codes.
+
+**The fix does not work, and the way it fails is informative.**
+
+| Mean `contextual_fit` | Reply only | With the incoming message |
+|---|---:|---:|
+| Coded sound by a reader | 3.05 | 3.56 |
+| Coded as mirroring the request | 2.72 | **3.72** |
+| Gap | +0.33 (p=.32) | −0.16 (p=.38) |
+
+![Both lines rise when the judge is shown the incoming message, and the
+mirrored replies rise further — but neither gap is distinguishable from
+noise.](docs/figures/judge_context_contextual_fit.png)
+
+**Neither gap is distinguishable from noise**, so the honest headline is that
+the judge does not detect mirroring in either condition — not that context
+makes it worse. The sign flip is suggestive of a mechanism worth naming (a
+mirrored reply reuses the incoming message's own vocabulary, so with that
+message in front of it, lexical overlap can read *as* contextual fit) but 25
+mirrored replies cannot establish it.
+
+What the run does establish, paired and clearly, is a **leniency shift**: with
+context added, every dimension rises — clarity +0.70, politeness +0.66,
+contextual fit +0.63, corpus plausibility +0.59, conflict management +0.48,
+role consistency +0.40, all p<.05 and most p<.001 on a Wilcoxon signed-rank
+over the same items. **More context makes this judge more generous without
+making it more discriminating**, which is a warning about LLM-as-judge
+calibration worth carrying into the methods chapter: a rubric change that
+raises every score can look like an improvement and contain no new
+information.
+
+Practical consequence: the judge's equivalence result (section 32) should be
+read as "the judge cannot separate real from generated replies *on what it was
+shown*", not as "the replies are equivalent". Detecting mirroring needs an
+outcome built for it — a targeted check for whether a reply restates its
+stimulus — not a better rubric prompt.
+
 #### Half the "real" replies contained someone else's writing
 
 Reading the packet made an ingest bug obvious that no test had caught. The
@@ -1736,6 +1787,12 @@ none blocking other work):
   reader's; two independent codings give an agreement statistic, which is
   what makes the qualitative half of this defensible — and it is a dry run
   for the November human-coding round with none of its ethics overhead.
+- **Build a targeted mirroring check.** Section 35 shows the rubric judge
+  cannot detect the project's most common failure in either condition, and
+  that giving it more context only makes it more generous. A direct measure —
+  how much of a reply's content is lexically or semantically returned from its
+  own stimulus — needs no model call and would turn the hand-coded 25% into a
+  number computable over every reply the project ever generates.
 - **Re-analyse Q2 with the pairs clustered by thread** (section 35). The
   190 pairs come from 133 threads, so the current paired tests overstate
   their own precision. No new generations; a different variance estimator.

@@ -1,0 +1,62 @@
+{
+  "context_effect": {
+    "clarity": {
+      "p_value": 0.0,
+      "shift": 0.7
+    },
+    "conflict_management": {
+      "p_value": 0.0,
+      "shift": 0.48
+    },
+    "contextual_fit": {
+      "p_value": 0.0023,
+      "shift": 0.63
+    },
+    "corpus_plausibility": {
+      "p_value": 0.0,
+      "shift": 0.59
+    },
+    "politeness_appropriateness": {
+      "p_value": 0.0,
+      "shift": 0.66
+    },
+    "role_consistency": {
+      "p_value": 0.0312,
+      "shift": 0.4
+    }
+  },
+  "reply only": {
+    "gap": 0.33,
+    "mann_whitney_u": 1055.5,
+    "mean_all_dimensions": {
+      "clarity": 3.78,
+      "conflict_management": 3.32,
+      "contextual_fit": 2.97,
+      "corpus_plausibility": 3.46,
+      "politeness_appropriateness": 3.3,
+      "role_consistency": 2.8
+    },
+    "mean_contextual_fit_mirrored": 2.72,
+    "mean_contextual_fit_sound": 3.05,
+    "n": 100,
+    "n_mirrored": 25,
+    "p_value": 0.322
+  },
+  "with context": {
+    "gap": -0.16,
+    "mann_whitney_u": 833.5,
+    "mean_all_dimensions": {
+      "clarity": 4.48,
+      "conflict_management": 3.8,
+      "contextual_fit": 3.6,
+      "corpus_plausibility": 4.05,
+      "politeness_appropriateness": 3.96,
+      "role_consistency": 3.2
+    },
+    "mean_contextual_fit_mirrored": 3.72,
+    "mean_contextual_fit_sound": 3.56,
+    "n": 100,
+    "n_mirrored": 25,
+    "p_value": 0.375
+  }
+}

@@ -35,13 +35,22 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
+from scipy import stats
 
+from thesis.analysis.plots import plot_factor_interaction
 from thesis.judge.prompt import JudgeItem
 from thesis.judge.run import JudgeResult, score_items
 from thesis.llm.cache import ResponseCache
 from thesis.llm.cost import CostLedger
 from thesis.logging_setup import configure_logging, get_logger
-from thesis.paths import CACHE_DIR, COST_LEDGER, MANIFESTS_DIR, TABLES_DIR, ensure_dirs
+from thesis.paths import (
+    CACHE_DIR,
+    COST_LEDGER,
+    DOCS_FIGURES_DIR,
+    MANIFESTS_DIR,
+    TABLES_DIR,
+    ensure_dirs,
+)
 
 log = get_logger(__name__)
 
@@ -88,24 +97,80 @@ def scores_frame(results: Sequence[JudgeResult], frame: pd.DataFrame, *, arm: st
 
 
 def summarize(scored: pd.DataFrame) -> dict[str, object]:
-    """Mean scores by arm and by whether a human coded the reply as mirrored."""
+    """Mean scores by arm and by whether a human coded the reply as mirrored.
+
+    Each arm's gap gets a rank-sum test, because the whole question is whether
+    a difference of a third of a rubric point is a signal at all: the scores
+    are 1-5 integers over 25 mirrored and 75 sound replies, and a mean
+    difference that size can easily be nothing. Reporting the means without
+    the test would let a null read as a finding.
+    """
     summary: dict[str, object] = {}
     for arm, arm_frame in scored.groupby("arm"):
-        by_group = arm_frame.groupby("mirrored")[f"score_{FOCUS_DIMENSION}"].mean()
+        column = f"score_{FOCUS_DIMENSION}"
+        sound = arm_frame.loc[~arm_frame["mirrored"], column]
+        mirrored = arm_frame.loc[arm_frame["mirrored"], column]
+        statistic, p_value = stats.mannwhitneyu(sound, mirrored, alternative="two-sided")
         summary[str(arm)] = {
             "n": len(arm_frame),
-            "mean_contextual_fit_sound": round(float(by_group.get(False, float("nan"))), 2),
-            "mean_contextual_fit_mirrored": round(float(by_group.get(True, float("nan"))), 2),
-            "gap": round(
-                float(by_group.get(False, float("nan")) - by_group.get(True, float("nan"))), 2
-            ),
+            "n_mirrored": len(mirrored),
+            "mean_contextual_fit_sound": round(float(sound.mean()), 2),
+            "mean_contextual_fit_mirrored": round(float(mirrored.mean()), 2),
+            "gap": round(float(sound.mean() - mirrored.mean()), 2),
+            "mann_whitney_u": float(statistic),
+            "p_value": round(float(p_value), 3),
             "mean_all_dimensions": {
-                column.removeprefix("score_"): round(float(arm_frame[column].mean()), 2)
-                for column in arm_frame.columns
-                if column.startswith("score_")
+                name.removeprefix("score_"): round(float(arm_frame[name].mean()), 2)
+                for name in arm_frame.columns
+                if name.startswith("score_")
             },
         }
+    summary["context_effect"] = _context_effect(scored)
     return summary
+
+
+def _context_effect(scored: pd.DataFrame) -> dict[str, object]:
+    """How much every score moves when the judge is also shown the stimulus.
+
+    Paired by item -- the same reply scored twice -- so this is a signed-rank
+    test rather than a rank-sum one. It is a separate question from whether the
+    judge can tell mirrored replies apart: a judge can become uniformly more
+    generous without becoming any better at discriminating, and that turns out
+    to be exactly what happens.
+    """
+    wide = scored.pivot(index="item", columns="arm")
+    effects: dict[str, object] = {}
+    for column in (c for c in scored.columns if c.startswith("score_")):
+        with_context = wide[(column, "with context")]
+        reply_only = wide[(column, "reply only")]
+        _, p_value = stats.wilcoxon(with_context, reply_only)
+        effects[column.removeprefix("score_")] = {
+            "shift": round(float((with_context - reply_only).mean()), 2),
+            "p_value": round(float(p_value), 4),
+        }
+    return effects
+
+
+def plot(scored: pd.DataFrame) -> Path:
+    """The interaction the result lives in: two lines, one per manual code."""
+    means = scored.groupby(["arm", "mirrored"])[f"score_{FOCUS_DIMENSION}"].mean()
+    arms = ("reply only", "with context")
+    return plot_factor_interaction(
+        arms,
+        {
+            "coded sound by a reader": tuple(float(means[(arm, False)]) for arm in arms),
+            "coded as mirroring the request": tuple(float(means[(arm, True)]) for arm in arms),
+        },
+        path=DOCS_FIGURES_DIR / "judge_context_contextual_fit.png",
+        title="Showing the judge the incoming message: more generous, no better",
+        subtitle=(
+            "Both lines rise (p<.001); neither gap between them is distinguishable from "
+            "noise (p=.32, p=.38). n=100, scored twice."
+        ),
+        x_label="what the judge was shown",
+        y_label="mean contextual-fit score (1-5)",
+        legend_loc="upper left",
+    )
 
 
 def run(
@@ -160,6 +225,7 @@ def main() -> None:
     frame = pd.read_csv(args.coded)
     scored, summary = run(frame, client, model=args.model)
     scored.to_csv(args.out, index=False)
+    log.info("wrote %s", plot(scored))
     (MANIFESTS_DIR / "judge_blindness.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8"
     )
