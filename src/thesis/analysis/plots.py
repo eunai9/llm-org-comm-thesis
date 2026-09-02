@@ -610,6 +610,27 @@ def main() -> None:
         legend_loc="lower right",
     )
 
+    # Section 38: Q2 re-run against the rebuilt corpus (section 37). Unlike
+    # every earlier Q2 run, one dimension (role_consistency) now shows a
+    # real, non-equivalent gap -- the point of this figure is to show that
+    # it is the outlier, not to bury it among five dimensions that still
+    # read as equivalent.
+    plot_paired_dimensions(
+        (
+            "role_consistency",
+            "contextual_fit",
+            "corpus_plausibility",
+            "clarity",
+            "politeness_appropriateness",
+            "conflict_management",
+        ),
+        real_scores=(4.47, 4.07, 4.20, 4.63, 4.18, 4.33),
+        generated_scores=(4.24, 3.97, 4.34, 4.50, 4.13, 4.12),
+        path=DOCS_FIGURES_DIR / "judge_paired_fidelity_rebuilt.png",
+        title="Judge scores after the corpus rebuild (n=183)",
+        subtitle="Role consistency is now a real gap (p=.015, not equivalent); the other five still read as equivalent.",
+    )
+
 
 if __name__ == "__main__":
     main()
