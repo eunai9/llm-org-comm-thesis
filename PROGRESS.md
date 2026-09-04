@@ -1984,45 +1984,6 @@ pass, ruff/black/mypy clean.
 
 ---
 
-### 40. The embedding check, re-run on the rebuilt corpus (Sep 4)
-
-Section 35's embedding check was the one part of that session never re-run
-after the corpus rebuild. Re-ran it. It costs nothing — the replies come
-from cache and the embedding model is local.
-
-**It is now a two-round test, not three.** Round 2 in section 35 was "cut
-the old quoted email off the real reply". The rebuild (section 37) does
-that to the corpus itself, so re-cleaning the stored text now changes
-nothing at all — the code checks this and skips the round instead of
-drawing the same measurement twice as two bars.
-
-| What the program was shown | How often it guessed right | Length of the real reply |
-|---|---:|---:|
-| 1. The real reply as the corpus now stores it | 0.882 | 65.0 words |
-| 2. Also cut to the same length as its AI partner | 0.813 | 19.0 words |
-
-![Two rounds of the guessing test on the rebuilt corpus: 0.882, then 0.813.](docs/figures/embedding_rebuilt_separability_auc.png)
-
-Read against section 35's 0.963 / 0.844 / 0.812, this is the same story
-with the middle step already done for us. The first number falls from
-0.963 to 0.882 because the corpus no longer hands the program a free clue,
-and **the number that matters barely moves: 0.812 → 0.813**. That was the
-point of that round — it was already the fair one — so the corpus fix
-changed how the test looks, not what it says.
-
-**Topical tracking holds and improves slightly.** A generated reply is
-still closer to the real reply it was matched with (mean cosine 0.582)
-than to a real reply from another thread (0.465), and now **86% of replies
-are closer to their own**, up from 81%.
-
-Figures from this run are prefixed `embedding_rebuilt_`, and section 35's
-keep their own names. Re-running the analysis can no longer overwrite a
-figure that a written-up section points at, which is how the picture above
-section 35's table came to disagree with the table itself for a few
-minutes today.
-
----
-
 ### 41. Re-running the judge-swap pilot against the rebuilt corpus (Sep 4)
 
 Section 37 rebuilt the corpus. Two of the three stale results it left
@@ -2188,7 +2149,13 @@ confirm it actually worked. Build the measurement first.
   (section 35), which is the cheapest large improvement visible anywhere
   in this project right now — and probably the reason replies are one
   sentence long, which is what section 34 shows is breaking Q1's outcome
-  measure.
+  measure. Do this after the mirroring check above exists, so its effect
+  is a measured before/after, not an impression.
+- **Re-code the 100-item review packet yourself** (section 35). The codes
+  currently in `outputs/tables/manual_review_coded_first_pass.csv` are one
+  reader's; two independent codings give an agreement statistic, which is
+  what makes the qualitative half of this defensible — and it is a dry run
+  for the November human-coding round, with none of its ethics overhead.
 - **Decide how Q1 proceeds.** After the rebuild (section 39), the
   reply-level and sentence-level models no longer fully agree: one
   sentence-level contrast (writing up) is now borderline-significant,
