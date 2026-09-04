@@ -377,6 +377,32 @@ def test_interaction_model_custom_factor_names_are_respected() -> None:
     assert coef == pytest.approx(0.5, abs=0.2)
 
 
+def test_interaction_model_handles_a_colon_inside_a_factor_level() -> None:
+    """A factor level containing a colon -- e.g. an Ollama model id like
+    ``llama3.2:3b`` -- must not be confused with patsy's own ``:``
+    interaction-term separator. This is a regression test for a real crash
+    (``analysis.judge_swap``'s generator/judge factors are raw model ids):
+    ``_clean_interaction_term`` used to split a raw parameter name on every
+    literal ``:``, which shredded a level's own colon along with patsy's,
+    and raised an ``IndexError`` trying to read a ``[T.`` marker out of a
+    fragment that never had one."""
+    df = _two_factor_data(
+        {("qwen2.5:3b", "qwen2.5:3b"): 0.5},
+        factor1_levels=("llama3.2:3b", "qwen2.5:3b"),
+        factor2_levels=("llama3.2:3b", "qwen2.5:3b"),
+    )
+    result = fit_interaction_model(
+        df, "outcome", reference1="llama3.2:3b", reference2="llama3.2:3b"
+    )
+
+    interaction_coef, interaction_p = result.interaction("qwen2.5:3b", "qwen2.5:3b")
+    assert interaction_coef == pytest.approx(0.5, abs=0.2)
+    assert interaction_p < 0.01
+
+    main_coef, _ = result.main_effect("direction", "qwen2.5:3b")
+    assert main_coef == pytest.approx(0.0, abs=0.2)
+
+
 # ------------------------------------------------------------ association
 
 

@@ -650,6 +650,29 @@ def main() -> None:
         y_label="predicted probability (sentence-level)",
     )
 
+    # Section 41: the judge-swap self-preference pilot (section 23),
+    # re-run against the rebuilt corpus through the new
+    # analysis/judge_swap.py module. Plotted as the own-family judge score
+    # (generator == judge) old vs new, the one number self-preference would
+    # move -- the headline interaction weakened (p=.065 -> p=.134), but the
+    # own-family scores themselves both rose, which the two flat main-effect
+    # numbers in the section's table do not show on their own.
+    plot_factor_interaction(
+        ("llama-generated\n(llama judging)", "qwen-generated\n(qwen judging)"),
+        {
+            "old (section 23, pre-rebuild)": (3.725, 3.697),
+            "new (section 41, rebuilt corpus)": (4.103, 3.714),
+        },
+        path=DOCS_FIGURES_DIR / "judge_swap_rebuilt_interaction.png",
+        title="Judge swap after the corpus rebuild: does self-preference hold?",
+        subtitle=(
+            "Own-family judge score. Self-preference interaction: old p=.065, new "
+            "p=.134 (overall); corpus_plausibility only, new p=.012."
+        ),
+        x_label="which model wrote the reply, judged by the same model",
+        y_label="mean rubric score, own family (1-5)",
+    )
+
 
 if __name__ == "__main__":
     main()

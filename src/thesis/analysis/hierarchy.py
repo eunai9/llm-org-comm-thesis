@@ -56,6 +56,7 @@ of the sample's information to rounding.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -312,6 +313,19 @@ def fit_sentence_level_model(
     )
 
 
+# Splits a raw patsy interaction term into its per-factor pieces on patsy's
+# *own* ":" separator, never on a ":" that happens to sit inside a factor
+# level's own text. Patsy always writes that separator immediately after one
+# term's closing "]" and immediately before the next term's "C(" -- e.g.
+# "...[T.up]:C(tone, ...)..." -- so anchoring the split there (rather than
+# splitting on every literal ":", as a first version of this function did)
+# correctly leaves a level like "llama3.2:3b" (an Ollama model id, not a
+# hyphenated word -- the judge-swap generator/judge factors use raw model
+# ids as their levels) untouched: that colon is never preceded by "]" and
+# followed by "C(", so it never matches this boundary.
+_INTERACTION_TERM_BOUNDARY = re.compile(r"(?<=\]):(?=C\()")
+
+
 def _clean_interaction_term(name: str, factor1_col: str, factor2_col: str) -> str:
     """Turn one raw patsy parameter name into the plain ``factor[T.level]``
     form :class:`InteractionModelResult` uses, joining both sides with ``:``
@@ -319,7 +333,7 @@ def _clean_interaction_term(name: str, factor1_col: str, factor2_col: str) -> st
     which column name appears inside its ``C(...)`` wrapper, since patsy's
     own spelling gives no shorter way to tell them apart."""
     parts = []
-    for term in name.split(":"):
+    for term in _INTERACTION_TERM_BOUNDARY.split(name):
         if f"C({factor1_col}," in term:
             col = factor1_col
         elif f"C({factor2_col}," in term:

@@ -28,7 +28,7 @@ you to read, not for a computer to run. Updated after each work session.
 | Build the AI judge (scoring rubric and pipeline) | Done, on the free path |
 | Statistics that compare real vs. AI-written emails | Done, on the free path |
 | AI replies to a real email, compared to the real reply | Done — 183 pairs on the rebuilt corpus, see section 38 |
-| Does the judge favour its own kind of AI? (Q3) | Done, free workaround — two local model families, **now stale** |
+| Does the judge favour its own kind of AI? (Q3) | Re-run against the rebuilt corpus — headline result weaker, one item now significant, see section 41 |
 | Does hierarchy shape what gets written? (Q1) | Re-run against the rebuilt corpus — mostly still null, one contrast now borderline, see section 39 |
 | Validation pass: embedding map, 100 replies read by hand | Done — see section 35 |
 | Quoted text left inside "cleaned" message bodies | **Fixed in code and rebuilt — see section 37** |
@@ -1984,6 +1984,146 @@ pass, ruff/black/mypy clean.
 
 ---
 
+### 40. The embedding check, re-run on the rebuilt corpus (Sep 4)
+
+Section 35's embedding check was the one part of that session never re-run
+after the corpus rebuild. Re-ran it. It costs nothing — the replies come
+from cache and the embedding model is local.
+
+**It is now a two-round test, not three.** Round 2 in section 35 was "cut
+the old quoted email off the real reply". The rebuild (section 37) does
+that to the corpus itself, so re-cleaning the stored text now changes
+nothing at all — the code checks this and skips the round instead of
+drawing the same measurement twice as two bars.
+
+| What the program was shown | How often it guessed right | Length of the real reply |
+|---|---:|---:|
+| 1. The real reply as the corpus now stores it | 0.882 | 65.0 words |
+| 2. Also cut to the same length as its AI partner | 0.813 | 19.0 words |
+
+![Two rounds of the guessing test on the rebuilt corpus: 0.882, then 0.813.](docs/figures/embedding_rebuilt_separability_auc.png)
+
+Read against section 35's 0.963 / 0.844 / 0.812, this is the same story
+with the middle step already done for us. The first number falls from
+0.963 to 0.882 because the corpus no longer hands the program a free clue,
+and **the number that matters barely moves: 0.812 → 0.813**. That was the
+point of that round — it was already the fair one — so the corpus fix
+changed how the test looks, not what it says.
+
+**Topical tracking holds and improves slightly.** A generated reply is
+still closer to the real reply it was matched with (mean cosine 0.582)
+than to a real reply from another thread (0.465), and now **86% of replies
+are closer to their own**, up from 81%.
+
+Figures from this run are prefixed `embedding_rebuilt_`, and section 35's
+keep their own names. Re-running the analysis can no longer overwrite a
+figure that a written-up section points at, which is how the picture above
+section 35's table came to disagree with the table itself for a few
+minutes today.
+
+---
+
+### 41. Re-running the judge-swap pilot against the rebuilt corpus (Sep 4)
+
+Section 37 rebuilt the corpus. Two of the three stale results it left
+behind were already checked against it: Q2 in section 38, Q1 in section
+39. This is the third and last one — the judge-swap pilot from section 23,
+the free stand-in for Q3 (does a judge favor its own kind of AI?).
+
+**Before this, the judge-swap pilot had no real script either.** Like
+Q1's old pilot, its code was written once and never committed.
+`src/thesis/analysis/judge_swap.py` is that script now, run with
+`python -m thesis.analysis.judge_swap --generators llama3.2:3b qwen2.5:3b`.
+It rebuilds section 23's design, generates (or reuses) the 120 replies,
+scores every one with both models as judge, fits the same model section
+22 built, and prints the old numbers next to the new ones.
+
+**The design, confirmed rather than guessed at.** Section 23's text gave
+counts — 10 personas x 3 directions x 2 task types x both models — but
+never said which two task types, or what tone. It was recovered from the
+local cache: every `qwen2.5:3b` call still cached from Aug 24 (60 of
+them, and only ever 60 that day) decodes to `approve_or_decline` at high
+stakes and `report_problem` at routine stakes — the same two task types
+Q1 uses — at neutral tone only, crossed with 3 directions and 10
+personas. A test checks this reproduces exactly 60 cells per generator
+model before the design counted as settled.
+
+**Regenerated for real, mostly for free.** All 60 of the `llama3.2:3b`
+replies were already sitting in the cache — they turned out to be the
+exact same prompts as the neutral-tone quarter of Q1's own rerun (section
+39), since a cached prompt does not care which analysis asked for it. The
+60 `qwen2.5:3b` replies were new. All 240 judge scores (120 replies x 2
+judges) were freshly generated.
+
+**Fixed a real bug along the way.** The fit crashed the first time it
+ran. `fit_interaction_model`'s coefficient-name parser
+(`analysis/hierarchy.py`) split a raw parameter name on every `:`, on
+the assumption that a factor's own value would never contain one. It
+does here — the two factors are model ids, `llama3.2:3b` and
+`qwen2.5:3b`, both with a colon in them — so the parser confused a
+level's own colon with patsy's separator between the two sides of an
+interaction term, and crashed reading a marker that was never there.
+Fixed at the source, not worked around in this module: the split now
+looks for patsy's own separator specifically — a `:` sitting right
+between one term's closing `]` and the next term's `C(` — which a colon
+inside a level's own text never matches. A regression test with
+colon-containing levels now covers this in `test_hierarchy.py`. No
+earlier result that used this function (Q1's direction x tone
+interaction, section 22) was affected — none of those levels ever
+contained a colon.
+
+**The result:**
+
+| | old (section 23) | new (rebuilt corpus) |
+|---|---:|---:|
+| Generator quality effect (qwen vs. llama, judge held fixed) | −1.02 | −0.54 (p<.001) |
+| Judge generosity effect (llama vs. qwen judge, generator held fixed) | +0.63 | +0.61 (p<.001) |
+| Self-preference interaction, overall rubric mean | +0.42 (p=.065) | +0.32 (p=.134) |
+| Self-preference interaction, `corpus_plausibility` only | p=.20 (coefficient never recorded) | +0.70 (**p=.012**) |
+
+**Two things moved, in opposite directions.**
+
+qwen still writes replies that score higher than llama's, by both
+judges — that part replicates — but the gap is about half what it was
+(−0.54 instead of −1.02). The judge-generosity gap barely moved (+0.61
+vs. +0.63): llama-as-judge is still, consistently, a more generous rater
+than qwen-as-judge, no matter who wrote the reply.
+
+The headline self-preference number — the one section 23 called "just
+short of significance" — got weaker, not stronger: p=.065 became p=.134.
+On the overall rubric mean, this pilot does not replicate.
+
+But `corpus_plausibility` alone — the one item section 23 named as
+closest to "does this look authentic", and the item that gave the
+*weakest* evidence for self-preference last time (p=.20) — now gives the
+*strongest*: llama-judge rates llama-generated replies 0.70 points
+higher on plausibility than the additive model predicts, p=.012. That
+reversal is worth stating plainly: last time, the whole-rubric average
+carried the (weak) signal and the authenticity-specific item did not;
+now it is the other way round.
+
+**Read this the same careful way section 39 read its own moved number.**
+This is one significant result out of two tests, with no correction for
+multiple comparisons. It sits on the same 120-reply, 240-score pilot
+section 23 already called a pilot, not a powered study. Persona variance
+in the overall-rubric model came out at exactly zero — a boundary
+solution, not a real cross-persona pattern the model found. So: not
+confirmed self-preference, but not the same flat absence of signal
+section 23 reported either — the pattern moved, and moved toward one
+specific, substantively meaningful item rather than away from all of
+them.
+
+![Own-family judge score (generator == judge), old vs new. Both models'
+own-family score rose after the rebuild; the gap between them narrowed
+slightly.](docs/figures/judge_swap_rebuilt_interaction.png)
+
+Standing caveats are unchanged from section 23: two 3B local models
+stand in for the plan's actual cross-provider design, not a replacement
+for it, and this pilot's size was never meant to resolve a marginal
+signal on its own.
+
+---
+
 ## What's next
 
 *(Rewritten Aug 31 — the previous version was written before the corpus
@@ -1992,21 +2132,21 @@ version of this section keeps going stale: describing pending analysis as
 current after the data underneath it changed. Read section 37 before
 trusting any number elsewhere in this log dated before Aug 31.)*
 
-**The corpus is now rebuilt on the corrected text, and two of the three
-stale results have been re-analyzed against it.** Section 37 fixed a real
-bug (quoted text inflating message lengths) and reconfirmed one real null
+**The corpus is now rebuilt on the corrected text, and all three stale
+results have been re-analyzed against it.** Section 37 fixed a real bug
+(quoted text inflating message lengths) and reconfirmed one real null
 (the power score still does not track seniority, now on independently
-cleaned data). Q2 (section 38) and Q1 (section 39) have both since been
-redone against the rebuild; the judge-swap (section 23) has not. None of
-the older numbers were wrong for what they measured — they described a
-pipeline that has since changed, and both re-runs found real, if modest,
-differences once they were checked rather than assumed to still hold.
+cleaned data). Q2 (section 38), Q1 (section 39), and the judge-swap
+(section 41) have all since been redone against the rebuild. None of the
+older numbers were wrong for what they measured — they described a
+pipeline that has since changed, and every re-run found real, if modest,
+differences once checked rather than assumed to still hold.
 
 You and your supervisor decided not to spend money on this project. That
 remains settled, and remains less limiting than it first looked — the
 judge self-preference question (Q3), once written off here as impossible
 without two paid model families, was answered for free with two local
-families instead (section 23).
+families instead (section 23, re-checked in section 41).
 
 **Waiting on your supervisor** (four questions, all in the checkpoint
 memo, none blocking other work):
@@ -2021,22 +2161,21 @@ memo, none blocking other work):
 4. Who checks the 50-thread reconstruction sample — self-review, or a
    second reader for defensibility?
 
-**Q2 and Q1 are now current** (sections 38 and 39) — both redone against
-the rebuilt corpus. The judge-swap is the only one of the three stale
-results still computed against the pre-rebuild corpus.
+**Q2, Q1, and the judge-swap are all now current** (sections 38, 39, and
+41) — every result flagged stale after the corpus rebuild has been redone
+against it. There is no more re-analysis backlog from section 37 left.
+
+**Next priority: the mirroring check, then the persona act-instruction
+fix.** These two pair together. The mirroring check (below) needs no
+model call and turns the hand-coded "a quarter of replies just hand the
+request back" finding (section 35) into a number every reply can be
+scored on. Fixing the persona's instructions to stop doing that is
+probably the single cheapest large improvement left in this project — but
+fixing it blind, with no before/after number, would leave no way to
+confirm it actually worked. Build the measurement first.
 
 **Ready to do:**
 
-- **Re-run the judge-swap against the rebuilt corpus.** The last of the
-  three results still on stale data. Lower priority than Q2 was — the
-  self-preference signal there was already only directionally suggestive
-  (p=.065), so a rebuild is unlikely to change its status either way, but
-  the specific numbers are dated.
-- **Re-code the 100-item review packet yourself** (section 35). The codes
-  currently in `outputs/tables/manual_review_coded_first_pass.csv` are one
-  reader's; two independent codings give an agreement statistic, which is
-  what makes the qualitative half of this defensible — and it is a dry run
-  for the November human-coding round, with none of its ethics overhead.
 - **Build a targeted mirroring check.** Section 35 shows the rubric judge
   cannot detect the project's most common failure in either condition
   (section 35's follow-up), and that giving it more context only makes it
