@@ -631,6 +631,25 @@ def main() -> None:
         subtitle="Role consistency is now a real gap (p=.015, not equivalent); the other five still read as equivalent.",
     )
 
+    # Section 39: Q1 re-run against the rebuilt corpus (section 37), through
+    # the new src/thesis/analysis/q1.py module. Plotted as the sentence-level
+    # model's predicted probability (the same transform section 36 used), so
+    # the shape change -- a smooth rise becoming a V, with "writing up" now
+    # sitting further from lateral -- reads directly rather than needing a
+    # coefficient table decoded first.
+    plot_factor_interaction(
+        ("writing down", "writing to a peer", "writing up"),
+        {
+            "pre-rebuild (section 36)": (0.319, 0.347, 0.393),
+            "rebuilt corpus (section 39)": (0.317, 0.283, 0.369),
+        },
+        path=DOCS_FIGURES_DIR / "q1_rebuild_before_after.png",
+        title="Q1 after the corpus rebuild: mostly the same null, one contrast moves",
+        subtitle="Sentence-level predicted probability of an imperative sentence. 'Writing up' now differs from lateral at p=.046.",
+        x_label="who the persona is writing to",
+        y_label="predicted probability (sentence-level)",
+    )
+
 
 if __name__ == "__main__":
     main()

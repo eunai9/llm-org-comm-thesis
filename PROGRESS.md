@@ -29,7 +29,7 @@ you to read, not for a computer to run. Updated after each work session.
 | Statistics that compare real vs. AI-written emails | Done, on the free path |
 | AI replies to a real email, compared to the real reply | Done — 183 pairs on the rebuilt corpus, see section 38 |
 | Does the judge favour its own kind of AI? (Q3) | Done, free workaround — two local model families, **now stale** |
-| Does hierarchy shape what gets written? (Q1) | Measurement fixed and re-tested — still no significant effect, **now stale** |
+| Does hierarchy shape what gets written? (Q1) | Re-run against the rebuilt corpus — mostly still null, one contrast now borderline, see section 39 |
 | Validation pass: embedding map, 100 replies read by hand | Done — see section 35 |
 | Quoted text left inside "cleaned" message bodies | **Fixed in code and rebuilt — see section 37** |
 | Get API keys / decide on budget | **Decided: staying free — see note below** |
@@ -1881,6 +1881,109 @@ defensible claim than the one it replaces, even though it is a weaker one.
 
 ---
 
+### 39. Re-running Q1 against the rebuilt corpus: mostly the same null, one contrast moves (Sep 4)
+
+Section 38 showed a corpus correction can move a result: Q2's headline
+changed after the rebuild. That left Q1 flagged as worth checking too,
+since the rebuild changes persona style statistics, which changes the
+prompt text every Q1 reply comes from. This section is that check.
+
+**Before this, Q1 had no real script to check with.** Every earlier Q1 run
+(sections 7, 20, 22, 33, 34, 36) came from code that was written once,
+never committed, and thrown away. Nobody could re-run it without first
+figuring out what it even did. That gap is closed now:
+`src/thesis/analysis/q1.py` is a real module, run with
+`python -m thesis.analysis.q1 --local llama3.2:3b`. It rebuilds the exact
+design every earlier Q1 pilot used, generates (or reuses) the 240-reply
+grid, fits both models, and prints the old numbers next to the new ones.
+
+**The design, confirmed rather than guessed at.** No commit ever recorded
+what the 240-reply pilot actually contained. It was recovered by reading
+the local response cache still sitting on this machine from the Aug 30
+run: 10 personas × 3 directions × 4 incoming tones × 2 task types, one
+draw each. Each task type is pinned to one stakes level, not crossed with
+it — `approve_or_decline` is always high-stakes, `report_problem` is
+always routine. `build_q1_cells` with the current 10 personas produces
+exactly 240 cells, checked by a test before treating the design as
+correct.
+
+**Regenerated for real.** 188 of the 240 replies are freshly generated
+against the current, rebuilt-corpus personas; 52 came from cache (partly
+an earlier smoke test of this same module, partly prompt text that simply
+repeated). None of the 240 are leftover pre-rebuild data — the rebuild did
+make the old cache go stale, as expected.
+
+**The result:**
+
+| | writing down | writing up |
+|---|---|---|
+| Reply-level (linear), before | −0.052 (p=.437) | +0.056 (p=.401) |
+| Reply-level (linear), now | +0.027 (p=.672) | +0.083 (p=.192) |
+| Sentence-level (logistic, logit scale), before | −0.126 (p=.534) | +0.195 (p=.310) |
+| Sentence-level (logistic, logit scale), now | +0.163 (p=.401) | **+0.395 (p=.046)** |
+
+Three of the four numbers stay null, same as every earlier run. The
+fourth — writing up, at the sentence level — crosses the usual p<.05 line
+for the first time in this project. As a predicted probability, a persona
+writing up now uses an imperative sentence 36.9% of the time, against
+28.3% writing to a peer and 31.7% writing down. That is a V shape, not the
+smooth rise sections 33 and 36 reported — closer to the very first,
+pre-persona-fix pilot (section 7) than to anything measured since.
+
+![Sentence-level predicted probability of an imperative sentence, before
+and after the corpus rebuild. The pre-rebuild line rises steadily from
+writing down to writing up; the rebuilt-corpus line dips at lateral
+before rising, and sits further from it when writing
+up.](docs/figures/q1_rebuild_before_after.png)
+
+**This is not a finding yet — read it carefully, for four reasons.**
+
+1. It is one significant result out of four contrasts tested, with no
+   correction for multiple comparisons. One false positive in four tests
+   at an uncorrected 5% threshold is not a rare event.
+2. `fit_sentence_level_model`'s p-values are an approximate Wald test from
+   a variational-Bayes fit, not the same calibrated number the linear
+   model reports — its own docstring says so, and this is exactly the
+   situation that warning exists for.
+3. p=.046 is barely under the line, not comfortably under it.
+4. The reply-level model, fit on the exact same 240 replies measured a
+   coarser way, does not confirm it (p=.192).
+
+So the honest summary: section 36's null does not fully survive the
+rebuild, but nothing here confirms a new effect either. One measurement of
+one contrast crossed a threshold; three others, including the same
+contrast measured a different way, did not.
+
+**Two more numbers moved in this same run, stated plainly rather than
+buried:**
+
+- `decision ~ direction` (the plain chi-square, not clustered by persona)
+  went from chi2=5.02, p=.756 to chi2=18.02, **p=.021**. Escalation moves
+  the most — 8 of 80 replies writing down, 4 of 80 to a peer, 17 of 80
+  writing up. This test was already flagged in section 33 as suggestive,
+  not confirmatory, since it does not account for persona clustering — the
+  same limit applies here.
+- `hedge_rate ~ direction` stays null (up p=.525, down p=.491), matching
+  every earlier run.
+- Persona variance stays near zero on the reply-level model (0.0019) and
+  a real, nonzero 0.276 on the logit scale for the sentence-level model —
+  both match every earlier run.
+
+**The measurement problem section 34 found is still there.** 59.2% of the
+240 replies are exactly one sentence long (was 57.5% before) — the
+rebuild did not touch reply length, so the sentence-level model is still
+the more trustworthy of the two, for the same reason section 34 gave.
+
+**What this leaves behind for next time:** a real module instead of
+scratch code. `src/thesis/analysis/q1.py`, with 18 tests in
+`tests/test_q1.py` covering the design reconstruction and the
+feature-extraction glue — the model-fitting itself is already tested in
+`test_hierarchy.py`. The next corpus or persona change can be checked
+with one command instead of redoing this archaeology again. 505 tests
+pass, ruff/black/mypy clean.
+
+---
+
 ## What's next
 
 *(Rewritten Aug 31 — the previous version was written before the corpus
@@ -1889,15 +1992,15 @@ version of this section keeps going stale: describing pending analysis as
 current after the data underneath it changed. Read section 37 before
 trusting any number elsewhere in this log dated before Aug 31.)*
 
-**The corpus is now rebuilt on the corrected text, but nothing has been
-re-analyzed against it yet.** Section 37 fixed a real bug (quoted text
-inflating message lengths) and reconfirmed one real null (the power score
-still does not track seniority, now on independently cleaned data), but
-every pilot result in sections 17–36 — the Q1 direction/sentence-level
-models, the n=190 Q2 equivalence result, the judge-swap, the mirroring
-review — was computed against a corpus or persona statistics this rebuild
-has since replaced. None of it is wrong for what it measured; all of it
-now needs a decision about whether it is worth re-measuring.
+**The corpus is now rebuilt on the corrected text, and two of the three
+stale results have been re-analyzed against it.** Section 37 fixed a real
+bug (quoted text inflating message lengths) and reconfirmed one real null
+(the power score still does not track seniority, now on independently
+cleaned data). Q2 (section 38) and Q1 (section 39) have both since been
+redone against the rebuild; the judge-swap (section 23) has not. None of
+the older numbers were wrong for what they measured — they described a
+pipeline that has since changed, and both re-runs found real, if modest,
+differences once they were checked rather than assumed to still hold.
 
 You and your supervisor decided not to spend money on this project. That
 remains settled, and remains less limiting than it first looked — the
@@ -1918,10 +2021,9 @@ memo, none blocking other work):
 4. Who checks the 50-thread reconstruction sample — self-review, or a
    second reader for defensibility?
 
-**Q2 is now current** (section 38) — the only one of the three stale
-results that has been redone against the rebuilt corpus, thread-clustering
-fix included. Q1's sentence-level result and the judge-swap are still
-computed against the pre-rebuild corpus.
+**Q2 and Q1 are now current** (sections 38 and 39) — both redone against
+the rebuilt corpus. The judge-swap is the only one of the three stale
+results still computed against the pre-rebuild corpus.
 
 **Ready to do:**
 
@@ -1930,11 +2032,6 @@ computed against the pre-rebuild corpus.
   self-preference signal there was already only directionally suggestive
   (p=.065), so a rebuild is unlikely to change its status either way, but
   the specific numbers are dated.
-- **Decide whether Q1 needs re-running too**, given Q2's experience: a
-  corpus correction just changed Q2's headline in a real way (one
-  dimension stopped being equivalent), so a similar shift in Q1 cannot be
-  ruled out from Q2's result alone. Worth doing before treating section
-  36's null as final.
 - **Re-code the 100-item review packet yourself** (section 35). The codes
   currently in `outputs/tables/manual_review_coded_first_pass.csv` are one
   reader's; two independent codings give an agreement statistic, which is
@@ -1953,15 +2050,18 @@ computed against the pre-rebuild corpus.
   in this project right now — and probably the reason replies are one
   sentence long, which is what section 34 shows is breaking Q1's outcome
   measure.
-- **Decide how Q1 proceeds.** Both the reply-level and (section 36)
-  sentence-level models agree on a small, non-significant hierarchy
-  pattern. That could mean a real effect this design is underpowered to
-  detect (n=10 personas), or no effect at all — this data cannot tell the
-  two apart, and Q1's evidence currently rests as much on the empirical
-  Enron subset as on the simulator.
-  The research plan expected needing a fallback here, though in the
-  opposite direction — it expected the simulated hierarchy to be the
-  *stronger* arm. Worth raising with your supervisor.
+- **Decide how Q1 proceeds.** After the rebuild (section 39), the
+  reply-level and sentence-level models no longer fully agree: one
+  sentence-level contrast (writing up) is now borderline-significant,
+  three of four contrasts are still null. n=10 personas is not much to
+  estimate a random intercept from, so this could be a real effect this
+  design is underpowered to detect cleanly, or noise that crossed a line
+  by chance — a bigger run (more personas, or more replicates) is the only
+  way to tell those apart, not more re-analysis of the same 240 replies.
+  Q1's evidence currently rests as much on the empirical Enron subset as
+  on the simulator. The research plan expected needing a fallback here,
+  though in the opposite direction — it expected the simulated hierarchy
+  to be the *stronger* arm. Worth raising with your supervisor.
 - **A proper dose-response test of the length instruction** (section 32).
   State several target lengths, hold everything else fixed, measure the
   response curve. Turns a two-point observation into a real result about
