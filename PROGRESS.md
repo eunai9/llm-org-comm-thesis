@@ -31,6 +31,7 @@ you to read, not for a computer to run. Updated after each work session.
 | Does the judge favour its own kind of AI? (Q3) | Re-run against the rebuilt corpus — headline result weaker, one item now significant, see section 41 |
 | Does hierarchy shape what gets written? (Q1) | Re-run against the rebuilt corpus — mostly still null, one contrast now borderline, see section 39 |
 | Validation pass: embedding map, 100 replies read by hand | Done — see section 35 |
+| Measure the mirroring failure automatically | Done — see section 42 |
 | Quoted text left inside "cleaned" message bodies | **Fixed in code and rebuilt — see section 37** |
 | Get API keys / decide on budget | **Decided: staying free — see note below** |
 
@@ -2134,6 +2135,112 @@ signal on its own.
 
 ---
 
+### 42. Measuring the mirroring failure instead of reading for it (Sep 5)
+
+Section 35 found, by hand, that a quarter of generated replies answer a
+request by handing it back to the sender. That number existed only because
+someone read 100 replies. It could not be computed for the other 83 pairs,
+for any future run, or for a before/after comparison of a prompt fix — and
+section 35's follow-up showed the LLM judge cannot see the failure at all,
+in either of the two conditions tested.
+
+**Built the measure.** `src/thesis/analysis/mirroring.py`, no model calls at
+all — spaCy plus set arithmetic, so it runs over every reply the project has
+ever produced in a few seconds and costs nothing. Three signals, deliberately
+kept apart rather than blended:
+
+- **`borrowed_words`** — the share of the reply's own content words that
+  already appeared in the message it answers.
+- **`longest_repeat`** — the longest stretch of words repeated verbatim from
+  that message, relative to the reply's length.
+- **`returned_request`** — `borrowed_words`, but only when the incoming
+  message asks for something *and* the reply also asks for something.
+
+**The simplest signal won, and the cleverest one lost.** Checked against the
+100 hand codes:
+
+| Signal | How well it separates the hand-coded mirrored replies |
+|---|---:|
+| Words borrowed from the sender | **0.834** |
+| Longest repeated phrase | 0.786 |
+| Both sides ask for something | 0.667 |
+
+![How well each signal finds the replies a reader called mirroring.](docs/figures/mirroring_signal_auc.png)
+
+`returned_request` was the one designed to match the concept most closely,
+and it is the weakest of the three. The reason is visible in the misses: "Can
+you send it to me? I don't have access to their directories" is plainly
+handing the task back, but the message it answers contains no explicit
+request, so the gate scores it zero. The concept was narrower than the
+failure. **`borrowed_words` is the headline measure** — the plainest of the
+three and the one that works best.
+
+A weighted mix of `borrowed_words` and "the reply is itself a request" scores
+0.871, better than any single signal. **Not adopted.** Its weight was chosen
+by looking at the same 100 items it is scored on, so that 0.871 is optimistic
+by an unknown amount. It can be reconsidered when a second coder's sheet
+exists to check it against.
+
+**What it finds across all 183 pairs.** Generated replies are built about
+twice as much out of the sender's own words as real replies are:
+
+| | Mean share of the reply's words taken from the sender |
+|---|---:|
+| AI replies | **0.579** |
+| Real replies | 0.301 |
+| Real replies, cut to the AI reply's length | 0.278 |
+
+![How much of a reply is built from the sender's own words, AI versus real.](docs/figures/mirroring_generated_vs_real.png)
+
+The length-matched row matters: `borrowed_words` is a share of a reply's
+distinct vocabulary, and a longer reply has more room for words the sender
+never used, so a real reply would score lower purely for being longer. Cutting
+real replies to their AI partner's length removes that advantage, and the gap
+gets slightly *wider* rather than closing.
+
+At the "most of this reply is the sender's words" cut-off, **25.7% of AI
+replies are flagged, against 7.1% of length-matched real replies**. The 25.7%
+lands almost exactly on section 35's hand-coded 25%, on a set that is mostly
+different replies — the measure reproduces the reader's rate without having
+been fitted to reproduce anything.
+
+**And it immediately overturned one of section 35's own hints.** That section
+noted mirroring looked commoner writing down (38%) and up (33%) than to a
+peer (16%), while warning it was 21 and 24 items and should be treated as
+something to check. Checked:
+
+| | Hand-coded, the 100 sampled | Measured, all 183 |
+|---|---:|---:|
+| Writing down | 38.1% | 23.5% |
+| Writing to a peer | 16.4% | 28.4% |
+| Writing up | 33.3% | 21.6% |
+
+![Flagged rate by who the persona is writing to, across all 183 pairs.](docs/figures/mirroring_rate_by_direction.png)
+
+**On the same 100 items the measure agrees with the reader almost exactly**
+(38.1% / 18.2% / 33.3% against the reader's 38.1% / 16.4% / 33.3%), so this is
+not the measure disagreeing with the coding. It is the sample: the direction
+pattern was a property of which 100 replies happened to be drawn, and it does
+not survive the full set. One evening of hand coding produced a hint; ten
+seconds of a measure that can run on everything retired it. That is the
+argument for building measures out of hand codes rather than stopping at them.
+
+**Two limitations worth stating.** The measure is lexical, so it misses
+mirroring that reuses the meaning without the words — "Send the email to him",
+in reply to a request for someone's email address, scores near zero. And it
+flags some replies that fail for other reasons, since an incoherent reply
+assembled from the sender's vocabulary looks the same to it. At the cut-off,
+roughly two flags in three are replies the reader also called mirroring, and
+it catches about seven in ten of them — both figures measured at a threshold
+chosen on those same 100 items, so both are optimistic until a second coder
+exists.
+
+**This is now the before/after instrument for the prompt fix.** The persona is
+never told it is the one who has to act; that is the next change, and its
+effect is now a number rather than an impression.
+
+---
+
 ## What's next
 
 *(Rewritten Aug 31 — the previous version was written before the corpus
@@ -2175,31 +2282,31 @@ memo, none blocking other work):
 41) — every result flagged stale after the corpus rebuild has been redone
 against it. There is no more re-analysis backlog from section 37 left.
 
-**Next priority: the mirroring check, then the persona act-instruction
-fix.** These two pair together. The mirroring check (below) needs no
-model call and turns the hand-coded "a quarter of replies just hand the
-request back" finding (section 35) into a number every reply can be
-scored on. Fixing the persona's instructions to stop doing that is
-probably the single cheapest large improvement left in this project — but
-fixing it blind, with no before/after number, would leave no way to
-confirm it actually worked. Build the measurement first.
+**The mirroring check now exists (section 42), so the persona
+act-instruction fix is next.** The measure needs no model call, agrees
+with the reader's codes closely at the group level, and already puts a
+baseline on the board: **25.7% of generated replies are built mostly from
+the sender's own words, against 7.1% of real replies of the same length.**
+That is the "before" number the prompt fix has to move.
 
 **Ready to do:**
 
-- **Build a targeted mirroring check.** Section 35 shows the rubric judge
-  cannot detect the project's most common failure in either condition
-  (section 35's follow-up), and that giving it more context only makes it
-  more generous. A direct measure — how much of a reply's content is
-  repeated from its own stimulus, in words or meaning — needs no model
-  call and would turn the hand-coded 25% into a number that can be
-  computed over every reply the project ever generates.
 - **Give the persona an explicit instruction that it is the one who must
   act.** A quarter of replies hand the request back to the sender
-  (section 35), which is the cheapest large improvement visible anywhere
-  in this project right now — and probably the reason replies are one
-  sentence long, which is what section 34 shows is breaking Q1's outcome
-  measure. Do this after the mirroring check above exists, so its effect
-  is a measured before/after, not an impression.
+  (sections 35 and 42), which is the cheapest large improvement visible
+  anywhere in this project right now — and probably the reason replies are
+  one sentence long, which is what section 34 shows is breaking Q1's
+  outcome measure. The before/after is now measurable: re-run the pairs
+  with the changed persona prompt and compare against section 42's 0.579
+  mean and 25.7% flagged rate. Note that changing the persona prompt
+  invalidates the response cache again, so this is a fresh generation run
+  rather than a re-analysis.
+- **Extend the mirroring measure past vocabulary**, if the prompt fix
+  moves the lexical number but the replies still read wrong. Section 42's
+  measure misses mirroring that reuses the meaning without the words
+  ("Send the email to him", answering a request for an email address).
+  The embedding vectors are already cached, so a semantic version costs
+  nothing extra to try.
 - **Re-code the 100-item review packet yourself** (section 35). The codes
   currently in `outputs/tables/manual_review_coded_first_pass.csv` are one
   reader's; two independent codings give an agreement statistic, which is

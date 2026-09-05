@@ -1,0 +1,35 @@
+{
+  "auc_vs_hand_codes": {
+    "borrowed_words": 0.834,
+    "longest_repeat": 0.786,
+    "returned_request": 0.667
+  },
+  "flagged_rate_by_direction": {
+    "down": {
+      "n": 51,
+      "rate": 0.235
+    },
+    "lateral": {
+      "n": 95,
+      "rate": 0.284
+    },
+    "up": {
+      "n": 37,
+      "rate": 0.216
+    }
+  },
+  "headline_signal": "borrowed_words",
+  "mean_borrowed_words": {
+    "generated": 0.579,
+    "real": 0.301,
+    "real_length_matched": 0.278
+  },
+  "n_hand_coded": 100,
+  "n_pairs": 183,
+  "share_over_threshold": {
+    "generated": 0.257,
+    "real_length_matched": 0.071
+  },
+  "threshold": 0.8,
+  "threshold_chosen_on_the_coded_sample": true
+}

@@ -177,7 +177,7 @@ def _load_nlp() -> Language:
     return spacy.load("en_core_web_sm", disable=["ner", "lemmatizer"])
 
 
-def _is_imperative(sent: Span) -> bool:
+def is_imperative(sent: Span) -> bool:
     """A sentence-initial root verb with no nominal subject: "Send the report."
 
     This is the standard structural definition of an English imperative --
@@ -254,7 +254,7 @@ def extract_features(message_uid: str, doc: Doc) -> MessageFeatures:
 
         if sent.text.rstrip().endswith("?"):
             n_questions += 1
-        if _is_imperative(sent) or _has_obligation_modal(sent):
+        if is_imperative(sent) or _has_obligation_modal(sent):
             n_imperatives += 1
 
         hedge_hits = _count_phrase_hits(text_lower, _HEDGE_PHRASES)
@@ -318,7 +318,7 @@ def extract_sentence_features(message_uid: str, doc: Doc) -> list[SentenceFeatur
             SentenceFeatures(
                 message_uid=message_uid,
                 sentence_index=i,
-                is_imperative=_is_imperative(sent) or _has_obligation_modal(sent),
+                is_imperative=is_imperative(sent) or _has_obligation_modal(sent),
                 is_question=sent.text.rstrip().endswith("?"),
                 has_hedge=hedge_hits > 0,
                 has_deference=_count_phrase_hits(text_lower, _DEFERENCE_PHRASES) > 0,
