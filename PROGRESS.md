@@ -1147,113 +1147,86 @@ content difference the judge is failing to notice.
 
 ---
 
-### 30. The length gap is real, but "4x" was the wrong comparison (Aug 28)
+### 30. The length gap is real. The "4x" figure was wrong. (Aug 28)
 
-Section 29 estimated the model's length undershoot by comparing its output
-(18.5 words) against the *real reply* average (79 words) and called that a
-roughly 4x miss. That is not quite the right comparison, because 79 words
-is not what the model was actually told to aim for — followed up to check
-against the number that is: `persona.style.mean_tokens`, the "Typical
-message length: about X words" line the prompt actually shows.
+Section 29 said the model writes about 4x too short. It compared the model's
+output (18.5 words) with the real reply average (79 words). That is the wrong
+target. The model is never told to write 79 words. The prompt shows
+`persona.style.mean_tokens`, as the line "Typical message length: about X
+words".
 
-That number, per persona, turns out to be much lower than 79 across the
-board (40 to 90 words, averaging **53.5**) — so the real undershoot is
-closer to **2.9x** (53.5 vs 18.5), not 4x. A real gap, just a smaller one
-than first estimated, and the earlier figure is corrected here rather than
-silently fixed in place.
+Those numbers are much lower. They run from 40 to 90 words, and average
+**53.5**. So the real undershoot is **2.9x**, not 4x. The gap is real. It is
+smaller than first reported. The old figure is corrected here rather than
+quietly replaced.
 
-**Chasing that number down found a second, separate problem worth fixing
-on its own.** `mean_tokens` is computed by averaging every message a
-role/department sends, with no length filter at all — including the 34.5%
-of the whole corpus that runs under 20 words (one-line acknowledgments,
-forwarded messages, and the like). Those messages could never have been
-sampled as an `S_shots`/`S_real_eval` stimulus in the first place, since
-that sampling frame requires 20–600 words. Restricting to that same
-eligible band, the corpus averages **108.9 words** (median 67) — more than
-twice the 53.5-word figure actually given to personas as their "typical
-length."
+**Checking that number found a second problem.** `mean_tokens` averages every
+message a role sends. It applies no length filter. 34.5% of the corpus is
+under 20 words. Those are one-line acknowledgments and forwards. They can
+never be picked as a stimulus, because the sampling frame needs 20 to 600
+words. Inside that band the corpus averages **108.9 words** (median 67). That
+is more than twice the 53.5 words personas are actually given.
 
-So there are two distinct problems here, not one, and they should stay
-separate rather than being folded into a single "the model writes too
-short" story:
+So there are two problems, not one. They should stay separate:
 
-1. **An instruction-following gap** — the model undershoots the length it
-   is explicitly told to aim for, by roughly 2.9x. This is a real
-   model-behavior finding.
-2. **A measurement-scope mismatch** — the "typical length" instruction
-   itself is diluted by messages that were never eligible to be an
-   `S_real_eval` stimulus to begin with, so even a model that followed its
-   instruction perfectly would still tend to undershoot what a real
-   `S_real_eval` reply looks like. This is a data-pipeline issue:
-   `mean_tokens` should probably be computed over the same 20–600-word band
-   the sampling frame already uses, so the number a persona is calibrated
-   toward actually matches the group it gets compared against.
+1. **The model does not follow the length instruction.** It writes about 2.9x
+   shorter than the number it is given. This is about model behavior.
+2. **The instruction itself is too low.** `mean_tokens` includes messages that
+   could never be a stimulus. Even a model that followed the instruction
+   perfectly would still look too short next to a real reply. This is a data
+   problem. `mean_tokens` should use the same 20 to 600 word band the sampling
+   frame uses.
 
-Not yet fixed — flagging both, precisely, rather than fixing the second one
-under time pressure and possibly changing every persona's downstream
-numbers without a chance to check the effect first.
+Neither is fixed yet. Fixing the second one changes every persona and makes
+every cached reply stale, so it needs a check first.
 
 ---
 
-### 31. Fixing the measurement-scope mismatch (Aug 28)
+### 31. Persona statistics now use the same length band as the sample (Aug 28)
 
-Fixed problem 2 from section 30: `mean_tokens`, and every other persona
-style statistic sharing its query, is now computed only over messages in
-the same 20–600-word band the sampling frame (`S_shots`/`S_real_eval`)
-already uses, instead of the whole unfiltered corpus. One line of SQL
-(`AND m.n_tokens_clean BETWEEN ? AND ?`, using the same config values
-`sampling.py` already reads), passed through as parameters rather than
-hardcoded, so the bound can only drift from the sampling frame's own if the
-config itself changes.
+Fixed problem 2 from section 30. `mean_tokens` and the other persona style
+numbers now use only messages of 20 to 600 words. That is the band the
+sampling frame already uses. The change is one line of SQL
+(`AND m.n_tokens_clean BETWEEN ? AND ?`). The bounds come from config, not
+from hardcoded numbers, so they cannot drift apart from the sampling frame.
 
-This is a bigger change than it looks, so it was not applied without
-checking first: it touches every persona's `personas_snapshot.json` (the
-frozen file the simulator actually reads) and quietly makes every cached AI
-reply behind every pilot run logged in this file so far go stale, since
-"typical length" is part of the rendered prompt text the cache keys on.
-Checked with you before running it, given both of those, rather than
-changing it on my own the way a pure bug fix would be.
+This is a bigger change than it looks. It rewrites `personas_snapshot.json`,
+the file the simulator reads. It also makes every cached AI reply stale,
+because "typical length" is part of the prompt text the cache keys on. I
+checked with you before running it.
 
-**The result confirms the diagnosis cleanly.** Persona `mean_tokens` now
-ranges 69–102 words, averaging **78.2** — up from 40–90 (avg 53.5), and
-almost exactly matching the 79-word `S_real_eval` real-reply average that
-started this whole thread in section 29. The other style statistics
-shifted too, all upward: excluding one-line acknowledgments and forwards
-raised every persona's average `imperative_ratio` and `hedge_rate`
-slightly, which makes sense — those trivial messages carry almost no
-directive or hedging language to average in.
+**The result confirms the diagnosis.** Persona `mean_tokens` now runs 69 to
+102 words and averages **78.2**. Before it ran 40 to 90 and averaged 53.5. The
+new average almost matches the 79-word real reply average from section 29. The
+other style numbers rose a little as well. Dropping one-line messages raises
+`imperative_ratio` and `hedge_rate`, because short acknowledgments carry
+almost no directive or hedging language.
 
-`personas_snapshot.json` regenerated and committed
-(`python -m thesis.sim.persona`); `memory_snapshot.json` was deliberately
-left untouched, since persona-memory narrative content does not reference
-`mean_tokens` directly, and regenerating it would mean ~100 new (still
-free, but unnecessary) calls for no expected change. 442 tests pass,
-ruff/black/mypy clean — no existing test exercises `derive_personas`'s SQL
-directly (it needs the full corpus), so nothing broke, but nothing caught
-this either; worth keeping in mind.
+`personas_snapshot.json` was regenerated and committed
+(`python -m thesis.sim.persona`). `memory_snapshot.json` was left alone.
+Persona memory text does not use `mean_tokens`, so regenerating it would cost
+about 100 calls for no expected change. 442 tests pass. ruff, black and mypy
+are clean. No test covers the SQL in `derive_personas`, because it needs the
+full corpus. Nothing broke here, but nothing would have caught it either.
 
-**Still open:** whether the model's own undershoot (problem 1) shrinks
-once it is being compared against this corrected, more accurate target —
-that needs a fresh pilot generation, not yet run.
+**Still open:** does the model's undershoot shrink against the corrected
+target? That needs a new generation run.
 
 ---
 
-### 32. Re-running everything against corrected personas — and an accidental experiment (Aug 29)
+### 32. Re-run against corrected personas, and an accidental experiment (Aug 29)
 
-Correcting the persona statistics (section 31) changed the prompt text
-every persona is built from, and since the response cache keys on rendered
-prompt text, that quietly made **every** cached AI reply behind every pilot
-in this log go stale. The results were never wrong for the setup they ran
-under, but they stopped describing the current pipeline. Re-ran the Q2
-fidelity comparison first, as the headline claim and the one most affected
-by a change in `mean_tokens`: all 190 pairs, 151 fresh generations, 380
-judge calls.
+The persona fix in section 31 changed the prompt text. The cache keys on that
+text, so every cached AI reply in this log went stale. The old results were
+correct for the setup they ran under. They just stopped describing the current
+pipeline. Q2 was re-run first, because it is the headline claim and the one
+most affected by `mean_tokens`. That took 190 pairs, 151 fresh generations and
+380 judge calls.
 
-**The headline survives, and gets cleaner.** Equivalence still holds on
-all six dimensions — and unlike the previous run, *no* dimension now shows
-even a statistically detectable difference (previously clarity at p=.015
-and conflict management at p=.037 did). The two largest gaps from before
-shrank: conflict management went from −0.21 to +0.01.
+**The headline holds, and gets cleaner.** All six dimensions are still
+equivalent. This time no dimension shows even a detectable difference. Before,
+clarity (p=.015) and conflict management (p=.037) did. The two largest gaps
+shrank. Conflict management went from −0.21 to +0.01.
 
 | Dimension | Real | AI | Gap | Detected? | Equivalent? |
 |---|---:|---:|---:|---|---|
@@ -1264,120 +1237,107 @@ shrank: conflict management went from −0.21 to +0.01.
 | Corpus plausibility | 4.25 | 4.29 | −0.04 | No | **Yes** |
 | Conflict management | 4.24 | 4.23 | +0.01 | No | **Yes** |
 
-![Judge scores after the persona correction, across all 190 pairs. Every
-gap is small and centred near zero, with no dimension showing a detectable
-difference.](docs/figures/judge_paired_fidelity_corrected.png)
+![Judge scores after the persona correction, across all 190 pairs. Every gap
+is small and close to zero.](docs/figures/judge_paired_fidelity_corrected.png)
 
-**The length question got a much more interesting answer than expected.**
-The prediction was that the undershoot would shrink once the model was
-given an accurate target. It did the opposite — the *ratio* got worse,
-from 2.9x to 3.93x. But that is the wrong way to read it, because the
-reason is that the target moved and the output did not:
+**The length result was a surprise.** The prediction was that the undershoot
+would shrink once the target was accurate. It grew instead, from 2.9x to
+3.93x. That is the wrong way to read it. The target moved and the output did
+not:
 
 | | Original personas | Corrected personas | Change |
 |---|---:|---:|---:|
 | Instructed target | 53.5 words | 78.2 words | **+46%** |
 | Actual output | 18.5 words | 19.9 words | **+7%** |
 
-![The instructed target rises steeply between the two runs while actual
-output stays almost flat — the model barely responds to the change in its
-stated target.](docs/figures/length_instruction_response.png)
+![The instructed target rises sharply between the two runs. Actual output
+stays almost flat.](docs/figures/length_instruction_response.png)
 
-This was an accidental but genuinely controlled test: the same 190
-stimuli, the same model, the same everything except the stated typical
-length, which rose by nearly half. Output moved by an amount that is
-plausibly just generation noise. **So this is not the model "trying and
-undershooting" — it is the model essentially ignoring the length
-instruction altogether.** That is a cleaner and more reportable finding
-than a mis-sized target would have been, and it reframes the length gap
-from a calibration problem into an instruction-following one.
+This was an accidental but controlled test. Same 190 stimuli, same model, same
+everything except the stated typical length, which rose by almost half. Output
+moved by an amount that could be generation noise. **The model is not trying
+and falling short. It is ignoring the length instruction.** That is a clearer
+result than a wrong target would have been. It turns the length gap from a
+calibration problem into an instruction-following problem.
 
-Worth stating the limit plainly: this is two conditions, not a designed
-dose-response experiment, so it shows very low sensitivity rather than
-measuring a precise slope. The obvious follow-up is cheap and free — hold
-everything else fixed and state several target lengths (say 20, 50, 100,
-200 words), then measure the response curve properly.
+The limit is worth stating. This is two conditions, not a designed experiment.
+It shows low sensitivity. It does not measure a slope. The follow-up is cheap
+and free: hold everything else fixed, state several target lengths (say 20,
+50, 100 and 200 words), and measure the response curve.
 
-**Discrimination is unchanged**, as expected given output length barely
-moved: full-text AUC 0.976 (was 0.966), length alone 0.931 (was 0.946).
-Real and generated replies remain nearly perfectly separable, still almost
-entirely on length.
+**Discrimination is unchanged**, as expected, since output length barely
+moved. Full-text AUC is 0.976 (was 0.966). Length alone is 0.931 (was 0.946).
+Real and generated replies are still almost perfectly separable, still mostly
+on length.
 
-**Not yet re-run against corrected personas:** the Q1 direction pilots and
-the judge-swap. Q1 matters more of the two, since `imperative_ratio` is
-both a persona statistic that changed and the outcome the direction effect
-is measured on.
+**Not yet re-run:** the Q1 direction pilots and the judge-swap. Q1 matters
+more. `imperative_ratio` is both a persona statistic that changed and the
+outcome the direction effect is measured on.
 
 ---
 
 ### 33. The Q1 direction effect did not survive the persona fix (Aug 29)
 
-Re-ran the 240-reply direction × tone pilot against the corrected personas.
-**The project's most-replicated finding collapsed.**
+Re-ran the 240-reply direction and tone pilot against the corrected personas.
+**The most-replicated finding in this project collapsed.**
 
 | `imperative_ratio ~ direction` | Before the fix | After the fix |
 |---|---|---|
 | Writing up vs. a peer | +0.135 (**p=.046**) | +0.056 (p=.401) |
 | Writing down vs. a peer | +0.231 (**p=.001**) | −0.052 (p=.437) |
 
-Not only did significance disappear — the "writing down" effect **flipped
-sign**. The underlying pattern changed shape entirely:
+Significance disappeared. The "writing down" effect also flipped sign. The
+whole pattern changed shape:
 
 | Mean imperative ratio | Writing down | To a peer | Writing up |
 |---|---:|---:|---:|
 | Original personas | 0.475 | 0.244 | 0.379 |
 | Corrected personas | 0.323 | 0.375 | 0.431 |
 
-![The direction pattern before and after the persona fix. The original
-personas produce a V shape with writing-to-a-peer lowest; the corrected
-personas produce a steady rise from writing down to writing
+![The direction pattern before and after the persona fix. The old pattern is a
+V. The new one rises steadily from writing down to writing
 up.](docs/figures/q1_direction_before_after.png)
 
-The old result was a V — writing to a peer produced the *least* directive
-language, with both up and down higher, which was flagged at the time as
-counter-intuitive. The new pattern is a straight line: most directive
-writing up, least writing down. That is arguably more sensible, but **it
-is not statistically significant, so it should not be read as a finding
-either.** The honest summary is that there is currently no detectable
+The old result was a V shape. Writing to a peer gave the least directive
+language, with up and down both higher. That was flagged at the time as
+strange. The new pattern is a straight line. Writing up is most directive,
+writing down least. That makes more sense. **But it is not significant, so it
+is not a finding either.** The honest summary: there is no detectable
 direction effect on directive language.
 
-**Why this matters more than one lost result: those three "replications"
-were not independent.** Sections 7, 20 and 22 each reported this effect,
-and each was treated as strengthening the case. But all three ran against
-the same personas carrying the same undetected bug — so they were three
-measurements of one flawed setup, not three independent confirmations.
-Repeating a measurement under a shared systematic error reproduces the
-error faithfully. That is a genuine methods-chapter lesson, and it is
-worth more to the thesis than the finding it cost.
+**The bigger lesson is about the three "replications".** Sections 7, 20 and 22
+each reported this effect. Each was treated as more support. All three ran
+against the same personas with the same undetected bug. So they were three
+measurements of one broken setup, not three independent confirmations.
+Repeating a measurement under a shared error reproduces the error. That
+belongs in the methods chapter. It is worth more than the finding it cost.
 
-Everything else in this run is null too, consistent with the above:
+The rest of this run is null too:
 
 - **`hedge_rate` by direction:** nothing (up p=.925, down p=.672).
-- **Decision by direction:** χ²=5.02, p=.756 — no association.
-- **Tone:** one main effect (deferential incoming message → more hedging,
-  p=.044) and one interaction (up × deferential) cross p<.05, out of
-  roughly a dozen tests. Consistent with chance; not treated as findings.
-- **Persona clustering:** `group_var = 0.0000` on both outcomes — personas
-  explain essentially none of the variance, the same degenerate case
-  section 19's optimizer fallback was built for.
+- **Decision by direction:** χ²=5.02, p=.756. No association.
+- **Tone:** one main effect (a deferential incoming message gives more hedging,
+  p=.044) and one interaction (up × deferential) cross p<.05, out of about a
+  dozen tests. That is what chance looks like. Not treated as findings.
+- **Persona clustering:** `group_var = 0.0000` on both outcomes. Personas
+  explain almost none of the variance. This is the same degenerate case the
+  optimizer fallback in section 19 was built for.
 
-**What this does not touch:** Q2. That comparison was re-run against the
-same corrected personas in section 32, and its equivalence result held
-(and improved), so the two are not in tension — one claim survived
-correction and the other did not.
+**Q2 is not affected.** It was re-run against the same corrected personas in
+section 32 and held up. One claim survived the correction and the other did
+not.
 
 ---
 
 ### 34. The Q1 null is a measurement failure, not a finding (Aug 29)
 
-Before accepting "hierarchy has no effect on directive language" as a
-result, checked whether the outcome measure can detect an effect at all at
-this reply length. It cannot.
+Before accepting "hierarchy has no effect on directive language", I checked
+whether the outcome measure can detect an effect at this reply length. It
+cannot.
 
-`imperative_ratio` is a **per-sentence rate** — imperative sentences
-divided by total sentences. That is a reasonable measure for a normal
-email. It is close to meaningless for a one-sentence one, where it can
-only be 0 or 1.
+`imperative_ratio` is a per-sentence rate. It divides imperative sentences by
+total sentences. That works for a normal email. It means almost nothing for a
+one-sentence email, where it can only be 0 or 1.
 
 | | Generated replies | Real replies |
 |---|---:|---:|
@@ -1386,105 +1346,90 @@ only be 0 or 1.
 | Distinct values `imperative_ratio` takes | **4** | 26 |
 | Smallest step between adjacent values | **0.167** | 0.005 |
 
-![Distribution of imperative ratio for generated and real replies. The
-generated values collapse onto three spikes at 0, 0.5 and 1; the real ones
-spread across the range.](docs/figures/q1_measure_resolution.png)
+![Imperative ratio for generated and real replies. The generated values sit on
+three spikes at 0, 0.5 and 1. The real ones spread across the
+range.](docs/figures/q1_measure_resolution.png)
 
-**The instrument's smallest step (0.167) is the same size as the effect
-being looked for (0.05–0.23).** Ninety-eight percent of generated replies
-score exactly 0.0, 0.5, or 1.0. Fitting a mixed model to that is close to
-fitting noise, and no amount of extra replies fixes it — the resolution
-limit is per-reply, so more replies at one sentence each just add more
-coarse observations.
+**The smallest step the measure can take (0.167) is as big as the effect being
+looked for (0.05 to 0.23).** 98% of generated replies score exactly 0.0, 0.5
+or 1.0. Fitting a mixed model to that is close to fitting noise. More replies
+do not help. The limit is per reply, so more one-sentence replies only add
+more coarse observations.
 
-This explains three separate oddities that had been recorded as unrelated:
+This explains three oddities that were recorded as unrelated:
 
-- **`deference_rate` was exactly zero everywhere** (section 12). Earlier
-  this was checked against the corpus and blamed on the lexicon simply
-  being rare (2.8% of real messages). That was half the story: at one
-  sentence per reply, the lexicon has almost no chance to fire at all. It
-  takes **1 distinct value** across all 240 generated replies.
+- **`deference_rate` was exactly zero everywhere** (section 12). Earlier this
+  was blamed on the lexicon being rare (2.8% of real messages). That was half
+  the story. At one sentence per reply the lexicon has almost no chance to
+  fire. It takes **1 distinct value** across all 240 generated replies.
 - **Persona variance was exactly 0.0000** on both outcomes, every time. A
   three-valued outcome cannot show differences between personas.
-- **The original, pre-fix "effect" looked strong.** A coarse outcome with
-  few discrete levels makes it easy to find spurious structure — which
-  fits with a result that vanished the moment an unrelated bug was fixed.
+- **The old pre-fix effect looked strong.** A coarse outcome with few levels
+  makes spurious structure easy to find. That fits a result which vanished as
+  soon as an unrelated bug was fixed.
 
-**So the honest statement is not "no direction effect exists" but "this
-design cannot currently measure one."** That is a weaker claim about the
-world and a much stronger claim about the method, and it is the one the
-evidence supports.
+**So the honest statement is not "there is no direction effect". It is "this
+design cannot measure one."** That is a weaker claim about the world and a
+stronger claim about the method. It is the claim the evidence supports.
 
-**It also makes the length problem the upstream cause of everything.** The
-model ignoring its length instruction (section 32) is not a cosmetic
-fidelity issue — it is what destroys the resolution of every per-sentence
-outcome Q1 depends on. Fixing Q1 means fixing reply length, or changing
-the outcome measure. Three options, in rough order of preference:
+**This also makes reply length the upstream cause.** The model ignores its
+length instruction (section 32). That is not a cosmetic fidelity problem. It
+destroys the resolution of every per-sentence outcome Q1 uses. Fixing Q1 means
+fixing reply length, or changing the outcome. Three options, best first:
 
-1. **Model the sentence, not the reply.** Each sentence becomes one binary
-   observation (imperative or not) in a logistic mixed model with random
-   intercepts for persona and reply. This uses the data as it actually is,
-   rather than dividing small integers by smaller ones.
-2. **Get longer replies**, which the prompt currently cannot do — the
-   model disregards the stated target (section 32). Would need a different
-   mechanism than an instruction.
-3. **Use outcomes that do not depend on sentence counts** — per-token
-   rates, or counts per reply.
+1. **Model the sentence, not the reply.** Each sentence is one binary
+   observation in a logistic mixed model, with random intercepts for persona
+   and reply. This uses the data as it is, instead of dividing small integers
+   by smaller ones.
+2. **Get longer replies.** The prompt cannot do this today, because the model
+   ignores the stated target (section 32). It would need another mechanism.
+3. **Use outcomes that do not depend on sentence counts**, such as per-token
+   rates or counts per reply.
 
-None of these has been done yet. Option 1 is cheap, needs no new
-generations, and is the obvious next move.
+None of these is done yet. Option 1 is cheap, needs no new generations, and is
+the obvious next step.
 
 ---
 
 ### 35. Sanity checks on the simulations, and 100 replies read by hand (Aug 30)
 
-Your supervisor asked for initial insights from some simulations, together
-with "some form of validation or basic sanity checks — like t-SNE plot,
-some qualitative inspection (what works and what doesn't), maybe manually
-review 100 messages". This section is that exercise, and it is the first
-time the generated text has been looked at directly, rather than through a
-score.
+Your supervisor asked for early insight from some simulations, plus "some form
+of validation or basic sanity checks — like t-SNE plot, some qualitative
+inspection (what works and what doesn't), maybe manually review 100 messages".
+This section is that work. It is the first time the generated text was read
+directly instead of scored.
 
-**Nothing new was generated.** All 190 matched real-vs-AI pairs were
-rebuilt from the response cache — 190 of 190 cache hits, no model calls, no
-cost — and everything below is analysis of exactly the replies section 32
-already reported on. The pairing now lives in one reusable place
-(`python -m thesis.analysis.pairs`), instead of being rebuilt from scratch
-inside each analysis, which is what let three different checks below run
-on provably the same rows.
+**Nothing new was generated.** All 190 matched real-vs-AI pairs came from the
+response cache. 190 of 190 were cache hits. No model calls and no cost. These
+are the same replies section 32 reported on. The pairing now lives in one
+place (`python -m thesis.analysis.pairs`) instead of being rebuilt inside each
+analysis. That is why the three checks below run on the same rows.
 
-**The short version.** The machinery works, and the replies are on-topic.
-But reading a hundred of them turns up a specific, common failure that the
-LLM judge is *structurally* unable to see, and three numbers this log has
-been quoting turn out to have been measured on text that still contained
-someone else's writing. Both problems are fixable; both are worth more
-than the results they revise.
+**Short version.** The machinery works and the replies are on topic. But
+reading 100 of them found a common failure the LLM judge cannot see. It also
+found that three numbers in this log were measured on text that still held
+someone else's writing. Both problems are fixable.
 
 #### The map, and why it needs a number next to it
 
-Every reply — real and generated — was embedded with a local sentence
-embedding model (`nomic-embed-text`, run through the same Ollama instance,
-free) and projected to two dimensions with t-SNE. The picture is the one
-your supervisor asked for, and on its own it looks reassuring: the two
-clouds overlap heavily, with real replies grouped slightly more toward the
-center.
+Every reply, real and generated, was turned into a vector by a local embedding
+model (`nomic-embed-text`, free, through the same Ollama instance). t-SNE then
+put those vectors on a flat page. The picture looks reassuring. The two clouds
+sit on top of each other, with real replies a little more central.
 
-![Real and generated replies to the same 190 messages, embedded and
-projected with t-SNE. The clouds overlap substantially.](docs/figures/embedding_map_quotes_removed.png)
+![Real and generated replies to the same 190 messages, projected with t-SNE.
+The clouds overlap a lot.](docs/figures/embedding_map_quotes_removed.png)
 
-**The picture cannot answer the question it looks like it answers.** Here
-is a harder test. Hide the labels, hand all 380 replies to a simple
-program, and ask it to guess which ones a person wrote. The score is how
-often it guesses right: **0.5 means it is guessing blindly, 1.0 means it
-is right every time.** On these replies it scores **0.844** — far from
-blind guessing, even though the picture above makes the two groups look
-mixed together. So the map is only ever reported *with* that number next
-to it. The honest reading: the model writes email that belongs to the same
-world, in a noticeably different voice.
+**The picture cannot answer the question it looks like it answers.** Here is a
+harder test. Hide the labels. Give all 380 replies to a simple program. Ask it
+to guess which ones a person wrote. The score is how often it guesses right.
+**0.5 means it is guessing blindly. 1.0 means it is always right.** It scores
+**0.844**. That is far from blind guessing, even though the picture looks
+mixed. So the map is only reported with that number next to it. Real and AI
+replies belong to the same world, but the voice is different.
 
-The test was run three times. Each round takes away one clue that has
-nothing to do with how the writer writes, so each round is fairer than the
-one before:
+The test ran three times. Each round removes one clue that has nothing to do
+with writing style. So each round is fairer than the one before.
 
 | What the program was shown | How often it guessed right | Length of the real reply |
 |---|---:|---:|
@@ -1492,111 +1437,98 @@ one before:
 | 2. With the old quoted email cut off the bottom | 0.844 | 54.4 words |
 | 3. Also cut to the same length as its AI partner | 0.812 | 17.9 words |
 
-![Three rounds of the guessing test, each fairer than the last: 0.963, then 0.844, then 0.812.](docs/figures/embedding_separability_auc.png)
+![Three rounds of the guessing test: 0.963, then 0.844, then 0.812.](docs/figures/embedding_separability_auc.png)
 
-Round 1 is easy for the wrong reason. Real replies still had the earlier
-email quoted underneath them, and an AI reply never has that — so the
-program was partly spotting "this one has an old email stuck to it", not
-"a person wrote this". Round 2 cuts that off. Real replies are also much
-longer, and length by itself is a giveaway, so round 3 cuts every real
-reply down to the length of its AI partner.
+Round 1 is easy for the wrong reason. Real replies still had the older email
+quoted underneath. An AI reply never has that. So the program was partly
+spotting "this one has an old email attached", not "a person wrote this".
+Round 2 cuts that off. Real replies are also much longer, and length alone is
+a giveaway. Round 3 cuts every real reply to the length of its AI partner.
 
-**What is left at 0.81 is a real difference in how the two write.** But
-the first number oversold how big that difference is. The older version of
-this test in this log moves the same way when recalculated — from **0.969
-to 0.906**, and length alone from 0.931 to **0.809**. The earlier
-conclusion still holds: real and AI replies are easy to tell apart, mostly
-by length. Its size was overstated, and section 32's "nearly perfectly
-separable" should be read as 0.91, not 0.98.
+**What is left at 0.81 is a real difference in writing.** The first number
+oversold it. The older version of this test moves the same way when
+recalculated: from **0.969 to 0.906**, and length alone from 0.931 to
+**0.809**. The earlier conclusion still holds. Real and AI replies are easy to
+tell apart, mostly by length. The size was overstated. Section 32's "nearly
+perfectly separable" should read 0.91, not 0.98.
 
-#### The replies really are answering their own stimulus
+#### The replies do answer their own message
 
-A cheap check with a real chance of failing: is a generated reply closer,
-in embedding space, to the real reply it was matched with than to a real
-reply from a different thread? Mean cosine similarity **0.57 against its
-own pair versus 0.46 against another's**, and **81% of replies are closer
-to their own**. This is not a formality — a simulator that just wrote
-plausible but generic office email would score near-identically on both,
-and this one does not.
+A cheap check that could have failed. Is a generated reply closer to the real
+reply it was matched with than to a real reply from another thread? Mean
+cosine similarity is **0.57 for its own pair and 0.46 for another's**. **81%
+of replies are closer to their own.** This matters. A simulator writing
+generic office email would score the same on both. This one does not.
 
-![Cosine similarity of each generated reply to its own matched real reply
-versus one from another thread.](docs/figures/embedding_topical_tracking.png)
+![Cosine similarity of each generated reply to its own real reply and to one
+from another thread.](docs/figures/embedding_topical_tracking.png)
 
 #### Reading 100 of them
 
-A stratified sample of 100 pairs (fixed seed, split proportionally across
-writing up, down and sideways) was written out as a review packet —
-incoming message, real reply, generated reply, side by side — and every
-item was read and given one primary code. The packet and the coding sheet
-are in `outputs/tables/`, and the codes are a **first pass, by me, that
-you should re-code yourself**: one coder's judgements are an input to a
-reliability check, not a result.
+I drew a sample of 100 pairs, with a fixed seed, split across writing up, down
+and sideways in proportion. Each item shows the incoming message, the real
+reply and the generated reply side by side. I read every one and gave it one
+main code. The packet and the coding sheet are in `outputs/tables/`. **These
+codes are my first pass. You should code them yourself.** One coder's
+judgement is an input to a reliability check, not a result.
 
 ![What 100 generated replies get wrong.](docs/figures/review_failure_modes.png)
 
-**47 of 100 are fine** — a colleague could have sent them. What the other
-53 do is more interesting than that headline number:
+**47 of 100 are fine.** A colleague could have sent them. The other 53 fail in
+these ways:
 
-- **25 mirror the request.** This is the main failure, and no category
-  invented in advance anticipated it. Asked to approve two vacation days,
-  the persona replies "Can you confirm that these dates are acceptable?"
-  Asked to send a list to Richard, it replies "Can you send the list to
-  Richard?" Told "could you get the latest form from Tana and check it
-  against ours", it answers "Can you get the most current swap form from
-  Tana and check it against the EEI form?" The reply is fluent, correctly
-  addressed, on-topic — and hands the sender's own task straight back.
-- **10 assert something they cannot know.** A reply claims to have checked
-  with the compliance team and reports no company under investigation (the
-  real replier names one that is); another answers a question about money
-  owed with an invented figure; another invents a sponsorship cost and a
-  streaming offer that appear nowhere in the thread.
-- **7 answer social messages in business register.** Banter about who has
-  signed more contracts gets a project-management reply; an out-of-office
-  joke gets a contract query. The model has no register other than
-  work-earnest.
-- 6 are generic, 3 incoherent, and 3 get the role or format wrong.
+- **25 mirror the request.** This is the main failure. No category invented in
+  advance predicted it. Asked to approve two vacation days, the persona
+  replies "Can you confirm that these dates are acceptable?" Asked to send a
+  list to Richard, it replies "Can you send the list to Richard?" The reply is
+  fluent, correctly addressed and on topic. It also hands the sender's own
+  task straight back.
+- **10 state something they cannot know.** One reply claims it checked with
+  the compliance team and reports no company under investigation. The real
+  replier names one that is. Another answers a question about money owed with
+  an invented figure. Another invents a sponsorship cost and a streaming
+  offer that appear nowhere.
+- **7 answer a social message in business language.** Banter about who signed
+  more contracts gets a project-management reply. An out-of-office joke gets a
+  contract query. The model has one register only.
+- 6 are generic, 3 are incoherent, and 3 get the role or the format wrong.
 
-Two mechanical facts from the same sample: **89% open with no greeting and
-100% close with no sign-off**, and the median generated reply is 21 words
-against 35 for the real one it is paired with. The formatting gap is easy
-to fix in the prompt; the mirroring is not.
+Two mechanical facts from the same sample. **89% have no greeting and 100%
+have no sign-off.** The median generated reply is 21 words against 35 for its
+real partner. The formatting gap is easy to fix in the prompt. The mirroring
+is not.
 
 **Mirroring and the one-sentence problem are probably the same problem.**
-Section 34 found that generated replies have a median of one sentence,
-which destroys the resolution of every per-sentence outcome Q1 depends on.
-Reading the replies suggests why they are one sentence: a reply that hands
-the request back has nothing else to say, and 25 of them do exactly that.
-That makes reply length less a formatting quirk than a symptom, and worth
-attacking at the prompt level — the persona is never told it is the person
-who has to act.
+Section 34 showed generated replies have a median of one sentence, which
+breaks every per-sentence outcome Q1 uses. Reading the replies suggests why. A
+reply that hands the task back has nothing else to say, and 25 of them do
+that. So reply length is a symptom, not a formatting quirk. The persona is
+never told it is the person who has to act.
 
-**Mirroring is not spread evenly.** It occurs in 38% of replies written
-downward and 33% written upward, against 16% written to a peer. That is a
-small-n observation (21, 24 and 55 items) and should be treated as
-something to test, not a finding — but it is the first hint in this
-project that the direction manipulation touches behavior at all, after
-section 33's null.
+**Mirroring is not spread evenly.** It happens in 38% of replies written
+downward and 33% written upward, against 16% written to a peer. The cells are
+small (21, 24 and 55 items). Treat it as something to test, not a finding. It
+is still the first hint that the direction manipulation touches behavior at
+all, after section 33's null.
 
 ![Mirroring rate by writing direction.](docs/figures/review_mirroring_by_direction.png)
 
-#### The judge cannot see the failure, and showing it more does not help
+#### The judge cannot see this failure
 
-The judge scores real and generated replies as equivalent on all six
-rubric dimensions. A reader finds a quarter of them handing the request
-back. The reason the two disagree is structural, not a matter of taste:
-**the judge prompt contains the reply and nothing else**, while two of its
-six dimensions ask about fit to "the specific message it is responding to"
-and to "the stated role and seniority level". Neither the incoming message
-nor the role is in the prompt. A mirrored reply, read on its own, is a
-perfectly good email.
+The judge scores real and generated replies as equivalent on all six rubric
+dimensions. A reader finds a quarter of them handing the request back. The
+disagreement is structural. **The judge prompt holds the reply and nothing
+else.** Two of the six dimensions ask about fit to "the specific message it is
+responding to" and to "the stated role and seniority level". Neither the
+incoming message nor the role is in the prompt. Read on its own, a mirrored
+reply is a good email.
 
-The obvious fix is to show the judge the incoming message — this cannot
-break blinding, since that message is real in both arms and says nothing
-about who wrote the reply. So all 100 reviewed replies were scored twice
-by `qwen2.5:3b`, once each way, and the scores compared against the manual
-codes.
+The obvious fix is to show the judge the incoming message. That cannot break
+blinding. The incoming message is real in both arms and says nothing about who
+wrote the reply. So all 100 reviewed replies were scored twice by
+`qwen2.5:3b`, once each way, and compared against my codes.
 
-**The fix does not work, and the way it fails is informative.**
+**The fix does not work.**
 
 | Mean `contextual_fit` | Reply only | With the incoming message |
 |---|---:|---:|
@@ -1604,107 +1536,94 @@ codes.
 | Coded as mirroring the request | 2.72 | **3.72** |
 | Gap | +0.33 (p=.32) | −0.16 (p=.38) |
 
-![Both lines rise when the judge is shown the incoming message, and the
-mirrored replies rise further — but neither gap is distinguishable from
-noise.](docs/figures/judge_context_contextual_fit.png)
+![Both lines rise when the judge sees the incoming message. Neither gap can be
+told apart from noise.](docs/figures/judge_context_contextual_fit.png)
 
-**Neither gap can be told apart from noise**, so the honest headline is
-that the judge does not detect mirroring in either condition — not that
-context makes it worse. The sign flip hints at a mechanism worth naming (a
-mirrored reply reuses the incoming message's own words, so with that
-message in front of it, word overlap can read *as* contextual fit), but 25
-mirrored replies cannot establish it.
+**Neither gap can be told apart from noise.** So the honest headline is that
+the judge does not detect mirroring in either condition. It is not that
+context makes it worse. The sign flip suggests a mechanism. A mirrored reply
+reuses the incoming message's words, so with that message in view, word
+overlap can look like contextual fit. 25 mirrored replies cannot establish
+that.
 
-What the run does establish, paired and clearly, is a **leniency shift**:
-with context added, every dimension rises — clarity +0.70, politeness
-+0.66, contextual fit +0.63, corpus plausibility +0.59, conflict
-management +0.48, role consistency +0.40, all p<.05 and most p<.001 on a
-Wilcoxon signed-rank test over the same items. **More context makes this
-judge more generous without making it more accurate**, which is a warning
-about LLM-as-judge calibration worth carrying into the methods chapter: a
-rubric change that raises every score can look like an improvement while
-carrying no new information.
+One thing is clear and significant. Adding context raises every score:
+clarity +0.70, politeness +0.66, contextual fit +0.63, corpus plausibility
++0.59, conflict management +0.48, role consistency +0.40. All p<.05 and most
+p<.001 on a signed-rank test over the same items. **More context makes this
+judge more generous, not more accurate.** That belongs in the methods chapter.
+A rubric change can raise every score and add no information.
 
-Practical consequence: the judge's equivalence result (section 32) should
-be read as "the judge cannot separate real from generated replies *on what
-it was shown*", not as "the replies are equivalent". Detecting mirroring
-needs an outcome built for it — a targeted check for whether a reply
-restates its stimulus — not a better rubric prompt.
+What this means for Q2: read section 32's result as "the judge cannot separate
+real from generated replies from what it was shown", not as "the replies are
+equivalent". Catching mirroring needs a measure built for it, not a better
+rubric prompt.
 
-#### Half the "real" replies contained someone else's writing
+#### Half the "real" replies held someone else's writing
 
-Reading the packet made an ingest bug obvious that no test had caught. The
-cleaner that strips quoted ancestors from a message missed two of the most
-common cases in this corpus:
+Reading the packet exposed an ingest bug that no test caught. The cleaner that
+strips quoted text missed the two most common cases in this corpus:
 
-1. `-----Original Message-----` **indented by a single space**, because the
-   pattern was anchored hard to column zero;
-2. **Lotus Notes quoting**, which has no banner at all — just an indented
-   sender line, a timestamp, and indented `To:`/`cc:`/`Subject:` lines.
+1. `-----Original Message-----` **indented by one space**. The pattern was
+   anchored to column zero.
+2. **Lotus Notes quoting**, which has no banner at all. It is an indented
+   sender line, a timestamp, then indented `To:`, `cc:` and `Subject:` lines.
    Notes was the client most of Enron used, so this is not an edge case.
 
-A third bug came with them: the signature stripper treated any trailing
-line containing the word "email", "phone" or "fax" as contact details, and
-deleted real closing sentences ("I received an email from Chris about the
-schedule").
+A third bug came with them. The signature stripper deleted any trailing line
+holding the word "email", "phone" or "fax". That removed real closing
+sentences, such as "I received an email from Chris about the schedule".
 
-**Effect on the evaluation set:** 48% of the 190 real replies shrink once
-this is fixed, mean length **79.3 → 54.4 words** (median 56.5 → 37), and
-**25 of 190 fall below the 20-word floor** the sampling frame requires —
-they were never eligible to be evaluation items in the first place.
-**Effect on the corpus as a whole:** milder, 17.7% of messages shortened
-in a 20,000-message sample, 2.4% dropping out of the 20–600 word band.
-The bias is concentrated exactly where the evaluation happens, because
-replies quote and first messages do not.
+**Effect on the evaluation set.** 48% of the 190 real replies get shorter
+after the fix. Mean length falls from **79.3 to 54.4 words** (median 56.5 to
+37). **25 of 190 drop below the 20-word floor** the sampling frame requires.
+They were never eligible as evaluation items.
 
-All three patterns are fixed in `thesis/data/rfc822.py` with tests. **The
-derived data has not been rebuilt** — that means re-running ingest (~47
-minutes) and every step below it, which regenerates persona statistics,
-which makes every cached reply stale again, exactly the cascade section 32
-describes. That is your call, not a fix to make quietly under time
-pressure. Until then, the analysis re-cleans the stored text in memory,
-and both the repaired and unrepaired columns sit side by side in the pairs
-table, so the difference stays visible.
+**Effect on the whole corpus.** Milder. In a 20,000-message sample, 17.7% get
+shorter and 2.4% leave the 20 to 600 word band. The bias sits where the
+evaluation happens, because replies quote and first messages do not.
 
-**What it costs the existing numbers.** The 79-word real-reply average is
-the anchor the whole length discussion rests on (sections 29–32), and the
-corrected figure is ~54. Persona `mean_tokens` — corrected in section 31
-to 78.2 words specifically to match that anchor — is computed from the
-same contaminated field, so it is too high as well. Section 32's
-conclusion that the model *ignores* its length instruction is not
-overturned (19.9 words against any of these targets is still a large
-shortfall), but the size of the gap it reports is not right, and the
-dose-response experiment already planned should wait for clean data
-instead of re-measuring against a moving target.
+All three patterns are fixed in `thesis/data/rfc822.py`, with tests. **The
+derived data is not rebuilt yet.** Rebuilding means re-running ingest (about
+47 minutes) and every step below it. That regenerates persona statistics,
+which makes every cached reply stale again. It is the same cascade as section
+32. That is your call. Until then the analysis re-cleans the text in memory,
+and the pairs table holds both the repaired and the unrepaired column.
+
+**What this costs the existing numbers.** The 79-word real-reply average
+anchors the whole length discussion in sections 29 to 32. The correct figure
+is about 54. Persona `mean_tokens` was set to 78.2 in section 31 to match that
+anchor, and it comes from the same contaminated field, so it is too high as
+well. Section 32's conclusion still stands: 19.9 words is far short of any of
+these targets. But the size of the gap is wrong, and the planned dose-response
+experiment should wait for clean data.
 
 #### 190 pairs are not 190 independent observations
 
-The 190 pairs come from **133 distinct threads** and contain only **151
-distinct generated replies**. One thread contributes 11 pairs — one
-incoming message with eleven different real repliers, each matched to a
-persona, and where two of those repliers share a persona, the generated
-reply is the same text repeated. The paired Wilcoxon and TOST results in
-section 32 treat all 190 as independent, which they are not, so their
-p-values and equivalence bounds are too optimistic. The fix is standard
-and cheap (cluster by thread, or average within thread before testing) and
-needs no new generation.
+The 190 pairs come from **133 distinct threads** and hold only **151 distinct
+generated replies**. One thread gives 11 pairs. That is one incoming message
+with eleven real repliers, each matched to a persona. Where two repliers share
+a persona, the generated reply is the same text twice. Section 32's paired
+Wilcoxon and TOST treat all 190 as independent. They are not, so those
+p-values and equivalence bounds are too optimistic. The fix is standard and
+cheap: cluster by thread, or average within thread before testing. It needs no
+new generation.
 
 ---
 
-### 36. Fixing the measurement problem doesn't rescue Q1 — but it doesn't have to be wasted either (Aug 30)
+### 36. The measurement fix gives a better null, not a hidden effect (Aug 30)
 
-Section 34's recommended next step, done: refit the Q1 grid at the level
-it actually has data for — one binary observation per **sentence**,
-instead of a rate divided across a reply that is usually one sentence
-long. New machinery — `extract_sentence_features` (features.py) and
-`fit_sentence_level_model` (hierarchy.py, a logistic mixed model via
-`statsmodels`' variational-Bayes GLMM, since a linear model has no
-business fitting a 0/1 outcome) — rebuilt against the same 240 cached
-replies from section 33, so this needed no new generation and is
-unaffected by the quote-stripping bug (that lives in the corpus cleaner;
-generated text is never quoted).
+Did section 34's recommended step. Refit the Q1 grid at the level the data
+actually has: one binary observation per **sentence**, instead of a rate
+divided across a reply that is usually one sentence long. Two new pieces of
+machinery do this. `extract_sentence_features` in features.py, and
+`fit_sentence_level_model` in hierarchy.py, a logistic mixed model through
+`statsmodels`' variational-Bayes GLMM. A linear model has no business fitting
+a 0/1 outcome. Both run on the same 240 cached replies from section 33, so
+this needed no new generation. The quote-stripping bug does not touch it,
+because that bug lives in the corpus cleaner and generated text is never
+quoted.
 
-**The direction effect is still not significant, at 347 sentences instead
+**The direction effect is still not significant, now on 347 sentences instead
 of 240 coarse ratios:**
 
 | | Writing up | Writing down |
@@ -1712,135 +1631,111 @@ of 240 coarse ratios:**
 | Reply-level ratio (linear, section 33) | +0.056 (p=.401) | −0.052 (p=.437) |
 | Sentence-level (logistic, this section) | +0.195 logit (p≈.310) | −0.126 logit (p≈.534) |
 
-So the honest update is not "the effect was hiding after all" — it
-wasn't. It's narrower and more useful than that: **the measurement problem
-in section 34 was real and worth fixing, and fixing it produced a more
-trustworthy null, not a hidden effect.** Two things support that reading:
+So the effect was not hiding. The update is narrower and more useful.
+**Section 34's measurement problem was real and worth fixing. Fixing it gives
+a null you can trust, not a hidden effect.** Two things support that:
 
-- **Both methods land on the same shape.** Converting the sentence model's
-  logit coefficients to predicted probabilities gives 0.319 (down) / 0.347
-  (lateral) / 0.393 (up) — visually indistinguishable from the linear
-  model's 0.323 / 0.375 / 0.431. Two structurally different models, fit on
-  differently-shaped data, agree almost exactly on the pattern's shape.
-  That is real information: whatever weak signal exists in this data
-  points the same way no matter how it's measured, even though neither
-  method can call it significant at this sample size.
+- **Both methods find the same shape.** The sentence model's predicted
+  probabilities are 0.319 (down), 0.347 (lateral) and 0.393 (up). The linear
+  model gives 0.323 / 0.375 / 0.431. Two different models, fit on
+  differently-shaped data, agree on the shape. Whatever weak signal is in this
+  data points the same way however it is measured. Neither method can call it
+  significant at this sample size.
 
-  ![Reply-level (linear) and sentence-level (logistic) models plotted
-  together. Both rise from writing down to writing up, in close
-  agreement.](docs/figures/q1_sentence_vs_reply_level.png)
+  ![Reply-level and sentence-level models plotted together. Both rise from
+  writing down to writing up.](docs/figures/q1_sentence_vs_reply_level.png)
 
-- **The random-intercept variance stopped being suspiciously exact.** The
-  linear model's persona variance was `0.0000` to four decimal places,
-  every time it was run — itself a sign of an outcome too coarse to show
-  differences between personas at all. The logistic model recovers a
-  real, nonzero persona standard deviation (0.211 on the logit scale),
-  which is what should happen once the outcome can actually vary within a
-  persona's own replies.
+- **The persona variance stopped being suspiciously exact.** The linear
+  model's persona variance was `0.0000` to four decimal places every time.
+  That is itself a sign of an outcome too coarse to show differences between
+  personas. The logistic model recovers a real persona standard deviation of
+  0.211 on the logit scale. That is what should happen once the outcome can
+  vary inside one persona's replies.
 
-**What this does and doesn't mean for Q1.** It doesn't bring back the
-retracted finding — no version of this analysis supports "hierarchy
-significantly shapes directive language" right now. It does mean the null
-can be trusted rather than blamed on measurement, and it leaves a small,
-consistently-shaped, likely genuinely underpowered pattern (n=10 personas
-is not much to estimate a random intercept from) that a bigger run — or
-the mirroring fix from section 35, which may be a more direct lever on
-reply length and content than direction ever was — could still resolve
-either way.
+**What this means for Q1.** It does not bring back the retracted finding. No
+version of this analysis supports "hierarchy shapes directive language". It
+does mean the null is a real null, not a measurement artifact. It leaves a
+small pattern with a consistent shape that is probably underpowered. n=10
+personas is not much for estimating a random intercept. A bigger run could
+still settle it. So could the mirroring fix from section 35, which may be a
+more direct lever on reply length and content than direction ever was.
 
-`SentenceModelResult`'s coefficients are posterior means from variational
-Bayes, not maximum-likelihood estimates, and its p-values are an
-approximate Wald test from the posterior mean/SD, not the same calibrated
-quantity `MixedModelResult` reports — documented in the function's own
-docstring, so a reader of the code sees the caveat before trusting the
-number, not only here.
+One caveat about the numbers. `SentenceModelResult`'s coefficients are
+posterior means from variational Bayes, not maximum-likelihood estimates. Its
+p-values are an approximate Wald test from the posterior mean and SD. They are
+not the same quantity `MixedModelResult` reports. This is written in the
+function's docstring, so a reader of the code sees it before trusting the
+number.
 
-Two tests recover a known injected effect on the logit scale (following
-this module's standing practice of testing recovery, not just that the
-function runs); ten more cover the reference-level and error-handling
-behavior already expected of every model in this module. 487 tests pass,
-ruff/black/mypy clean.
+Two tests recover a known injected effect on the logit scale, following this
+module's practice of testing recovery rather than only that the function runs.
+Ten more cover reference levels and error handling. 487 tests pass. ruff,
+black and mypy are clean.
 
 ---
 
-### 37. Rebuilding the corpus from scratch with the quote-stripping fix (Aug 31)
+### 37. Rebuilding the corpus with the quote-stripping fix (Aug 31)
 
-Section 35's quote-stripping fix (`rfc822.py`) was committed on Aug 30 but
-never applied to the actual derived data — every downstream artifact
-(ingest → threads → features → network → power → sampling → personas)
-still reflected the old, quote-contaminated cleaning. Rebuilt the entire
-chain from the raw corpus.
+Section 35 fixed the quote stripper in `rfc822.py` on Aug 30, but never
+applied it to the data. Every derived artifact still used the old cleaning:
+ingest, threads, features, network, power, sampling, personas. I rebuilt the
+whole chain from the raw corpus.
 
-**Two WSL crashes on the way, and a real environment lesson.** The
-`features` stage (the spaCy pass over 233k+ messages) crashed the whole
-WSL VM twice — not a Python exception, an actual filesystem
-unmount/remount with journal corruption, which knocked out the local
-Ollama server both times. Reducing the script's own parallelism (4 → 2 →
-1 process) made no difference, which ruled out the script as the cause:
-this machine has 16GB of physical RAM total, WSL is already capped at 8GB
-of it, and Docker Desktop was quietly holding a further ~2GB in
-background processes the whole time, with no visible tray icon or window
-to notice it by. Closing Docker Desktop (confirmed by checking process
-*paths*, not names — an early guess that a cluster of "whale"-named
-processes was Docker turned out to be a mixup with an unrelated browser,
-Naver Whale, which shares part of the name) freed enough room for the
-same script, unchanged, to complete cleanly in the same run that had
-twice taken down the VM. Worth remembering for any future large
-local-model or corpus-scale job on this machine: check actual free system
-memory first, not just WSL's own internal usage.
+**Two WSL crashes on the way, and a lesson about this machine.** The features
+stage runs spaCy over 233k messages. It crashed the whole WSL VM twice. Not a
+Python error. The filesystem unmounted and remounted with journal corruption,
+and it took the local Ollama server down both times. Cutting the script's
+parallelism from 4 to 2 to 1 process changed nothing, which ruled out the
+script. The machine has 16GB of RAM. WSL is capped at 8GB. Docker Desktop was
+holding about 2GB more in background processes, with no tray icon or window to
+show it. Closing Docker Desktop freed enough room, and the same script ran
+cleanly. One detail worth repeating: I confirmed the processes by their file
+paths, not their names. An early guess that some "whale"-named processes were
+Docker was wrong. They belonged to Naver Whale, a browser. For any future
+large local-model or corpus-scale job here, check free system memory first,
+not just WSL's own usage.
 
-**The rebuild's own numbers, checked against what was already in this
-log:**
+**The rebuild's numbers, checked against this log:**
 
-- **Threading and conversation counts are exactly unchanged** — 254,359
-  unique messages, 18,467 conversations, 8,959 with 3+ messages, all
-  identical to section 5's original figures. Expected: threading runs on
-  headers and participants, not on the cleaned body text the quote fix
-  touches.
-- **The corpus's own "usable messages" headline number drops.** Messages
-  classified as empty after cleaning rose from 16,686 to **21,031** —
-  correctly stripping quoted content revealed that 4,345 more messages
-  (+26%) had nothing of the sender's own left once the quote was properly
-  removed; the old, buggy stripper had been counting quoted text as
-  content. **Usable messages for feature extraction is now 233,282, not
-  237,627** — a real correction to a number already cited earlier in this
-  log, not a rounding difference.
-- **The power score's construct-validity failure is unchanged and now
-  doubly confirmed.** Spearman(rank, power_score) = **−0.0695**, against
-  −0.065 before the rebuild — the same null, to two decimal places, on a
-  fully independent recalculation from cleaner text. Whatever is wrong
-  with this measure, it is not caused by the quote-contamination bug.
-- **`S_real_eval` now draws 313 of 400 requested pairs**, up from 302 —
-  more real replies clear the 20-word eligibility floor once they are not
-  artificially inflated by quoted ancestors.
-- **Persona `mean_tokens` moved again**, as expected: 74.5 words average
-  (range 62–93), down from section 31's 78.2. The corpus-wide
-  contamination was milder than the S_real_eval-specific 48% figure
-  (matching section 35's own prediction of a smaller, ~18% corpus-wide
-  effect), so this is a second, smaller correction in the same direction,
-  not a contradiction of the first one.
+- **Threading and conversation counts did not change.** 254,359 unique
+  messages, 18,467 conversations, 8,959 with 3 or more messages. Identical to
+  section 5. This is expected. Threading uses headers and participants, not
+  the cleaned body text.
+- **The "usable messages" number drops.** Messages that are empty after
+  cleaning rose from 16,686 to **21,031**. Stripping quotes properly showed
+  that 4,345 more messages (+26%) had nothing of the sender's own left. The
+  old stripper counted quoted text as content. **Usable messages for feature
+  extraction is now 233,282, not 237,627.** That is a real correction to a
+  number cited earlier in this log.
+- **The power score still fails its validity check.** Spearman(rank,
+  power_score) is **−0.0695**, against −0.065 before the rebuild. The same
+  null, from an independent recalculation on cleaner text. Whatever is wrong
+  with this measure, the quote bug did not cause it.
+- **`S_real_eval` now draws 313 of 400 requested pairs**, up from 302. More
+  real replies clear the 20-word floor once quoted text no longer inflates
+  them.
+- **Persona `mean_tokens` moved again**, as expected. It is now 74.5 words on
+  average (range 62 to 93), down from 78.2 in section 31. The corpus-wide
+  contamination was milder than the 48% figure for the evaluation set, which
+  matches section 35's own estimate of about 18% corpus-wide. This is a
+  second, smaller correction in the same direction.
 
-**Every cached AI reply is invalidated a fourth time** — the same cascade
-sections 17 and 31 already went through, and for the same reason: persona
-statistics are rendered into the prompt text the cache keys on. This
-includes the sentence-level Q1 result from section 36 and the n=190 Q2
-equivalence result from section 32, both computed against the previous
-(section 31) persona correction, not this one. Deliberately not
-re-running either yet — that is a real decision about how much of the
-last several sections to redo a second time, not something to do
-automatically under time pressure.
+**Every cached AI reply is now stale for the fourth time.** Same cascade as
+sections 17 and 31, same reason: persona statistics go into the prompt text
+the cache keys on. This affects the sentence-level Q1 result in section 36 and
+the n=190 Q2 result in section 32. Both ran against the section 31 personas,
+not these. I did not re-run either straight away. How much of the last few
+sections to redo is a real decision, not an automatic one.
 
 ---
 
-### 38. Re-running Q2 against the rebuilt corpus: one dimension stops being equivalent (Sep 2)
+### 38. Q2 on the rebuilt corpus: one dimension stops being equivalent (Sep 2)
 
-Section 32 reported equivalence on all six rubric dimensions, with no
-detectable difference on any of them — this project's cleanest result so
-far. Re-ran it fully against the rebuilt corpus (section 37): fresh pairs
-(`analysis/pairs.py`, the centralized pairing module, instead of a one-off
-script), fresh generations, fresh judging, same design as before (reply
-only, no incoming-message context, format-matched Subject + body on both
-sides). **The headline result does not hold up fully.**
+Section 32 found equivalence on all six rubric dimensions, with no detectable
+difference on any. That was the cleanest result in this project. I re-ran it
+on the rebuilt corpus from section 37: fresh pairs through `analysis/pairs.py`
+instead of a one-off script, fresh generations, fresh judging, same design as
+before. **The headline does not fully hold.**
 
 | Dimension | Real | Generated | Gap | Detected? | Equivalent? |
 |---|---:|---:|---:|---|---|
@@ -1851,80 +1746,68 @@ sides). **The headline result does not hold up fully.**
 | Contextual fit | 4.07 | 3.97 | +0.10 | No | Yes |
 | Politeness | 4.18 | 4.13 | +0.05 | No | Yes |
 
-![Judge scores after the corpus rebuild. Role consistency stands out as
-the one dimension with a real, non-equivalent gap; the other five still
-show generated scoring close to or above real.](docs/figures/judge_paired_fidelity_rebuilt.png)
+![Judge scores after the corpus rebuild. Role consistency is the one dimension
+with a real gap.](docs/figures/judge_paired_fidelity_rebuilt.png)
 
-**Role consistency is now a real, detectable gap that fails the
-equivalence test — the first time any dimension has failed it since the
-n=190 result.** Real replies score meaningfully higher on "does this read
-as someone in the stated role, at the stated seniority level, actually
-wrote it." This is similar to the very first, flawed n=40 pilot (section
-24), which also flagged role consistency as a failure — but for a wrong
-reason then (an unblinding format bug). This is not that bug coming back:
-format is identical on both sides here, and the gap is smaller (+0.23 vs
-the old +0.84) and based on properly cleaned text. It looks like a
-genuine, modest signal that appeared once contamination and format
-artifacts were both removed, not the old bug reappearing.
+**Role consistency now shows a real gap and fails the equivalence test.** That
+is the first dimension to fail it since the n=190 result. Real replies score
+higher on "does this read as someone in the stated role and seniority level".
 
-**Added thread-level clustering this time**, the fix section 35 flagged
-and left undone: 183 pairs come from only 121 distinct threads, so
-treating all 183 as independent overstates precision. Averaging within
-thread before testing (121 effective observations instead of 183) mostly
-agrees with the plain numbers — role consistency stays flagged either way
-(clustered p=.046) — but corpus plausibility flips from equivalent to not
-shown once clustering removes some of the plain test's inflated
-precision. Both versions are reported side by side above, instead of
-picking one, so the sensitivity to this choice stays visible instead of
-hidden in a single number.
+The first n=40 pilot (section 24) also flagged role consistency, but for a
+wrong reason: a format bug that unblinded the judge. This is not that bug
+returning. The format is identical on both sides here, the gap is much smaller
+(+0.23 against +0.84), and the text is properly cleaned. It looks like a
+modest real signal that appeared once contamination and format artifacts were
+removed.
 
-**Length and discrimination are essentially unchanged in shape, smaller in
-size.** Real replies now average 65.0 words (median 44.0) — the
-correctly-cleaned figure, down from the old, quote-inflated 79.3 — while
-generated replies are unchanged at 19.8. Full-text discrimination AUC is
-0.927 (was 0.976), length alone 0.908 (was 0.931): still highly
-separable, still mostly on length, with the gap between the two narrowing
-slightly now that the real-reply length itself is more accurate.
+**I added thread-level clustering this time**, the fix section 35 flagged.
+183 pairs come from only 121 distinct threads, so treating all 183 as
+independent overstates precision. Averaging within thread first gives 121
+effective observations. It mostly agrees with the plain numbers. Role
+consistency stays flagged either way (clustered p=.046). Corpus plausibility
+flips from equivalent to not shown, once clustering removes some of the plain
+test's false precision. Both versions are reported above rather than one, so
+the sensitivity to that choice stays visible.
 
-**Net effect on how Q2 should be described going forward:** not "the
-judge finds them equivalent everywhere," but "equivalent on five of six
-dimensions, with a real, modest role-consistency gap that a corpus
-correction — not a design fix — brought into view." That is a more
-defensible claim than the one it replaces, even though it is a weaker one.
+**Length and discrimination keep their shape and get smaller.** Real replies
+now average 65.0 words (median 44.0), down from the quote-inflated 79.3.
+Generated replies are unchanged at 19.8. Full-text discrimination AUC is 0.927
+(was 0.976). Length alone is 0.908 (was 0.931). Still highly separable, still
+mostly on length.
+
+**How to describe Q2 from now on:** not "the judge finds them equivalent
+everywhere", but "equivalent on five of six dimensions, with a modest
+role-consistency gap that a corpus correction brought into view". That is a
+weaker claim and a more defensible one.
 
 ---
 
-### 39. Re-running Q1 against the rebuilt corpus: mostly the same null, one contrast moves (Sep 4)
+### 39. Q1 on the rebuilt corpus: mostly the same null, one contrast moves (Sep 4)
 
-Section 38 showed a corpus correction can move a result: Q2's headline
-changed after the rebuild. That left Q1 flagged as worth checking too,
-since the rebuild changes persona style statistics, which changes the
-prompt text every Q1 reply comes from. This section is that check.
+Section 38 showed that a corpus correction can move a result. Q1 needed the
+same check, because the rebuild changes persona style statistics, and those go
+into the prompt text every Q1 reply comes from.
 
-**Before this, Q1 had no real script to check with.** Every earlier Q1 run
-(sections 7, 20, 22, 33, 34, 36) came from code that was written once,
-never committed, and thrown away. Nobody could re-run it without first
-figuring out what it even did. That gap is closed now:
-`src/thesis/analysis/q1.py` is a real module, run with
-`python -m thesis.analysis.q1 --local llama3.2:3b`. It rebuilds the exact
-design every earlier Q1 pilot used, generates (or reuses) the 240-reply
-grid, fits both models, and prints the old numbers next to the new ones.
+**Q1 had no script to check with.** Every earlier Q1 run (sections 7, 20, 22,
+33, 34, 36) used code that was written once, never committed, and thrown away.
+Nobody could re-run it without working out what it did. That is fixed.
+`src/thesis/analysis/q1.py` is a real module. Run it with
+`python -m thesis.analysis.q1 --local llama3.2:3b`. It rebuilds the design,
+generates or reuses the 240-reply grid, fits both models, and prints the old
+numbers next to the new ones.
 
-**The design, confirmed rather than guessed at.** No commit ever recorded
-what the 240-reply pilot actually contained. It was recovered by reading
-the local response cache still sitting on this machine from the Aug 30
-run: 10 personas × 3 directions × 4 incoming tones × 2 task types, one
-draw each. Each task type is pinned to one stakes level, not crossed with
-it — `approve_or_decline` is always high-stakes, `report_problem` is
-always routine. `build_q1_cells` with the current 10 personas produces
-exactly 240 cells, checked by a test before treating the design as
-correct.
+**The design was recovered, not guessed.** No commit recorded what the
+240-reply pilot contained. I read it out of the local response cache still on
+this machine from the Aug 30 run: 10 personas × 3 directions × 4 incoming
+tones × 2 task types, one draw each. Each task type is pinned to one stakes
+level rather than crossed with it. `approve_or_decline` is always high stakes.
+`report_problem` is always routine. A test checks that `build_q1_cells` with
+the current 10 personas gives exactly 240 cells.
 
-**Regenerated for real.** 188 of the 240 replies are freshly generated
-against the current, rebuilt-corpus personas; 52 came from cache (partly
-an earlier smoke test of this same module, partly prompt text that simply
-repeated). None of the 240 are leftover pre-rebuild data — the rebuild did
-make the old cache go stale, as expected.
+**Regenerated for real.** 188 of the 240 replies are fresh, against the
+rebuilt-corpus personas. 52 came from cache, partly from an earlier smoke test
+of this module and partly from prompt text that repeats. None of the 240 are
+leftover pre-rebuild data.
 
 **The result:**
 
@@ -1935,79 +1818,66 @@ make the old cache go stale, as expected.
 | Sentence-level (logistic, logit scale), before | −0.126 (p=.534) | +0.195 (p=.310) |
 | Sentence-level (logistic, logit scale), now | +0.163 (p=.401) | **+0.395 (p=.046)** |
 
-Three of the four numbers stay null, same as every earlier run. The
-fourth — writing up, at the sentence level — crosses the usual p<.05 line
-for the first time in this project. As a predicted probability, a persona
-writing up now uses an imperative sentence 36.9% of the time, against
-28.3% writing to a peer and 31.7% writing down. That is a V shape, not the
-smooth rise sections 33 and 36 reported — closer to the very first,
-pre-persona-fix pilot (section 7) than to anything measured since.
+Three of the four numbers stay null, like every earlier run. The fourth,
+writing up at sentence level, crosses p<.05 for the first time in this
+project. As a probability, a persona writing up uses an imperative sentence
+36.9% of the time, against 28.3% to a peer and 31.7% writing down. That is a V
+shape. Sections 33 and 36 reported a smooth rise. This is closer to the first
+pilot in section 7 than to anything since.
 
-![Sentence-level predicted probability of an imperative sentence, before
-and after the corpus rebuild. The pre-rebuild line rises steadily from
-writing down to writing up; the rebuilt-corpus line dips at lateral
-before rising, and sits further from it when writing
-up.](docs/figures/q1_rebuild_before_after.png)
+![Sentence-level probability of an imperative sentence, before and after the
+rebuild. The new line dips at lateral, then rises.](docs/figures/q1_rebuild_before_after.png)
 
-**This is not a finding yet — read it carefully, for four reasons.**
+**This is not a finding yet. Four reasons:**
 
-1. It is one significant result out of four contrasts tested, with no
-   correction for multiple comparisons. One false positive in four tests
-   at an uncorrected 5% threshold is not a rare event.
-2. `fit_sentence_level_model`'s p-values are an approximate Wald test from
-   a variational-Bayes fit, not the same calibrated number the linear
-   model reports — its own docstring says so, and this is exactly the
-   situation that warning exists for.
-3. p=.046 is barely under the line, not comfortably under it.
-4. The reply-level model, fit on the exact same 240 replies measured a
-   coarser way, does not confirm it (p=.192).
+1. It is one significant result out of four contrasts, with no correction for
+   multiple comparisons. One false positive in four tests at 5% is common.
+2. `fit_sentence_level_model`'s p-values are an approximate Wald test from a
+   variational-Bayes fit. They are not the calibrated number the linear model
+   gives. Its docstring says so.
+3. p=.046 is barely under the line.
+4. The reply-level model, on the same 240 replies, does not confirm it
+   (p=.192).
 
-So the honest summary: section 36's null does not fully survive the
-rebuild, but nothing here confirms a new effect either. One measurement of
-one contrast crossed a threshold; three others, including the same
-contrast measured a different way, did not.
+So section 36's null does not fully survive the rebuild, and nothing here
+confirms a new effect. One measurement of one contrast crossed a threshold.
+Three others did not, including the same contrast measured another way.
 
-**Two more numbers moved in this same run, stated plainly rather than
-buried:**
+**Two more numbers moved in this run:**
 
-- `decision ~ direction` (the plain chi-square, not clustered by persona)
-  went from chi2=5.02, p=.756 to chi2=18.02, **p=.021**. Escalation moves
-  the most — 8 of 80 replies writing down, 4 of 80 to a peer, 17 of 80
-  writing up. This test was already flagged in section 33 as suggestive,
-  not confirmatory, since it does not account for persona clustering — the
-  same limit applies here.
-- `hedge_rate ~ direction` stays null (up p=.525, down p=.491), matching
-  every earlier run.
-- Persona variance stays near zero on the reply-level model (0.0019) and
-  a real, nonzero 0.276 on the logit scale for the sentence-level model —
-  both match every earlier run.
+- `decision ~ direction` (plain chi-square, not clustered by persona) went
+  from chi2=5.02, p=.756 to chi2=18.02, **p=.021**. Escalation moves most: 8
+  of 80 replies writing down, 4 of 80 to a peer, 17 of 80 writing up. Section
+  33 already flagged this test as suggestive only, because it ignores persona
+  clustering. That limit still applies.
+- `hedge_rate ~ direction` stays null (up p=.525, down p=.491).
+- Persona variance stays near zero on the reply-level model (0.0019) and is a
+  real 0.276 on the logit scale for the sentence-level model. Both match every
+  earlier run.
 
-**The measurement problem section 34 found is still there.** 59.2% of the
-240 replies are exactly one sentence long (was 57.5% before) — the
-rebuild did not touch reply length, so the sentence-level model is still
-the more trustworthy of the two, for the same reason section 34 gave.
+**Section 34's measurement problem is still here.** 59.2% of the 240 replies
+are one sentence long, against 57.5% before. The rebuild did not touch reply
+length. So the sentence-level model is still the more trustworthy of the two.
 
-**What this leaves behind for next time:** a real module instead of
-scratch code. `src/thesis/analysis/q1.py`, with 18 tests in
-`tests/test_q1.py` covering the design reconstruction and the
-feature-extraction glue — the model-fitting itself is already tested in
-`test_hierarchy.py`. The next corpus or persona change can be checked
-with one command instead of redoing this archaeology again. 505 tests
-pass, ruff/black/mypy clean.
+**What this leaves behind:** a real module instead of scratch code.
+`src/thesis/analysis/q1.py`, with 18 tests in `tests/test_q1.py` covering the
+design reconstruction and the feature glue. The model fitting is already
+tested in `test_hierarchy.py`. The next corpus or persona change can be
+checked with one command. 505 tests pass. ruff, black and mypy are clean.
 
 ---
 
 ### 40. The embedding check, re-run on the rebuilt corpus (Sep 4)
 
 Section 35's embedding check was the one part of that session never re-run
-after the corpus rebuild. Re-ran it. It costs nothing — the replies come
-from cache and the embedding model is local.
+after the rebuild. I re-ran it. It costs nothing. The replies come from cache
+and the embedding model is local.
 
-**It is now a two-round test, not three.** Round 2 in section 35 was "cut
-the old quoted email off the real reply". The rebuild (section 37) does
-that to the corpus itself, so re-cleaning the stored text now changes
-nothing at all — the code checks this and skips the round instead of
-drawing the same measurement twice as two bars.
+**It is now a two-round test, not three.** Round 2 in section 35 was "cut the
+old quoted email off the real reply". The rebuild in section 37 does that to
+the corpus itself. So re-cleaning the stored text changes nothing now. The
+code checks for this and skips the round, instead of drawing the same
+measurement twice.
 
 | What the program was shown | How often it guessed right | Length of the real reply |
 |---|---:|---:|
@@ -2016,152 +1886,131 @@ drawing the same measurement twice as two bars.
 
 ![Two rounds of the guessing test on the rebuilt corpus: 0.882, then 0.813.](docs/figures/embedding_rebuilt_separability_auc.png)
 
-Read against section 35's 0.963 / 0.844 / 0.812, this is the same story
-with the middle step already done for us. The first number falls from
-0.963 to 0.882 because the corpus no longer hands the program a free clue,
-and **the number that matters barely moves: 0.812 → 0.813**. That was the
-point of that round — it was already the fair one — so the corpus fix
-changed how the test looks, not what it says.
+Compare with section 35's 0.963 / 0.844 / 0.812. It is the same story with the
+middle step already done. The first number falls from 0.963 to 0.882, because
+the corpus no longer gives the program a free clue. **The number that matters
+barely moves: 0.812 to 0.813.** That round was already the fair one. The
+corpus fix changed how the test looks, not what it says.
 
-**Topical tracking holds and improves slightly.** A generated reply is
-still closer to the real reply it was matched with (mean cosine 0.582)
-than to a real reply from another thread (0.465), and now **86% of replies
-are closer to their own**, up from 81%.
+**Topical tracking holds and improves a little.** A generated reply is still
+closer to its own real reply (mean cosine 0.582) than to a real reply from
+another thread (0.465). **86% of replies are closer to their own**, up from
+81%.
 
-Figures from this run are prefixed `embedding_rebuilt_`, and section 35's
-keep their own names. Re-running the analysis can no longer overwrite a
-figure that a written-up section points at, which is how the picture above
-section 35's table came to disagree with the table itself for a few
-minutes today.
+Figures from this run use the prefix `embedding_rebuilt_`. Section 35's keep
+their own names. A re-run can no longer overwrite a figure that a written-up
+section points at. That is how the picture above section 35's table came to
+disagree with the table for a few minutes today.
 
 ---
 
-### 41. Re-running the judge-swap pilot against the rebuilt corpus (Sep 4)
+### 41. The judge-swap pilot on the rebuilt corpus (Sep 4)
 
-Section 37 rebuilt the corpus. Two of the three stale results it left
-behind were already checked against it: Q2 in section 38, Q1 in section
-39. This is the third and last one — the judge-swap pilot from section 23,
-the free stand-in for Q3 (does a judge favor its own kind of AI?).
+Section 37 rebuilt the corpus and left three stale results. Q2 was checked in
+section 38 and Q1 in section 39. This is the third: the judge-swap pilot from
+section 23, the free stand-in for Q3 (does a judge favor its own kind of AI?).
 
-**Before this, the judge-swap pilot had no real script either.** Like
-Q1's old pilot, its code was written once and never committed.
-`src/thesis/analysis/judge_swap.py` is that script now, run with
-`python -m thesis.analysis.judge_swap --generators llama3.2:3b qwen2.5:3b`.
-It rebuilds section 23's design, generates (or reuses) the 120 replies,
-scores every one with both models as judge, fits the same model section
-22 built, and prints the old numbers next to the new ones.
+**This pilot had no script either.** Like Q1's, its code was written once and
+never committed. `src/thesis/analysis/judge_swap.py` is that script now. Run
+it with `python -m thesis.analysis.judge_swap --generators llama3.2:3b
+qwen2.5:3b`. It rebuilds section 23's design, generates or reuses the 120
+replies, scores each one with both models as judge, fits the model from
+section 22, and prints old numbers next to new ones.
 
-**The design, confirmed rather than guessed at.** Section 23's text gave
-counts — 10 personas x 3 directions x 2 task types x both models — but
-never said which two task types, or what tone. It was recovered from the
-local cache: every `qwen2.5:3b` call still cached from Aug 24 (60 of
-them, and only ever 60 that day) decodes to `approve_or_decline` at high
-stakes and `report_problem` at routine stakes — the same two task types
-Q1 uses — at neutral tone only, crossed with 3 directions and 10
-personas. A test checks this reproduces exactly 60 cells per generator
-model before the design counted as settled.
+**The design was recovered, not guessed.** Section 23 gave counts (10 personas
+× 3 directions × 2 task types × both models) but never said which task types
+or which tone. I read it from the cache. Every `qwen2.5:3b` call cached from
+Aug 24, all 60 of them, decodes to `approve_or_decline` at high stakes and
+`report_problem` at routine stakes, at neutral tone only. Those are the same
+two task types Q1 uses. A test checks the design gives exactly 60 cells per
+generator model.
 
-**Regenerated for real, mostly for free.** All 60 of the `llama3.2:3b`
-replies were already sitting in the cache — they turned out to be the
-exact same prompts as the neutral-tone quarter of Q1's own rerun (section
-39), since a cached prompt does not care which analysis asked for it. The
-60 `qwen2.5:3b` replies were new. All 240 judge scores (120 replies x 2
-judges) were freshly generated.
+**Regenerated, mostly for free.** All 60 `llama3.2:3b` replies were already
+cached. They are the same prompts as the neutral-tone quarter of Q1's rerun in
+section 39, because a cached prompt does not care which analysis asked for it.
+The 60 `qwen2.5:3b` replies were new. All 240 judge scores (120 replies × 2
+judges) were fresh.
 
-**Fixed a real bug along the way.** The fit crashed the first time it
-ran. `fit_interaction_model`'s coefficient-name parser
-(`analysis/hierarchy.py`) split a raw parameter name on every `:`, on
-the assumption that a factor's own value would never contain one. It
-does here — the two factors are model ids, `llama3.2:3b` and
-`qwen2.5:3b`, both with a colon in them — so the parser confused a
-level's own colon with patsy's separator between the two sides of an
-interaction term, and crashed reading a marker that was never there.
-Fixed at the source, not worked around in this module: the split now
-looks for patsy's own separator specifically — a `:` sitting right
-between one term's closing `]` and the next term's `C(` — which a colon
-inside a level's own text never matches. A regression test with
-colon-containing levels now covers this in `test_hierarchy.py`. No
-earlier result that used this function (Q1's direction x tone
-interaction, section 22) was affected — none of those levels ever
-contained a colon.
+**Fixed a real bug on the way.** The fit crashed the first time.
+`fit_interaction_model` in `analysis/hierarchy.py` parses coefficient names by
+splitting on every `:`. It assumed a factor value never contains one. Here
+both factors are model ids, `llama3.2:3b` and `qwen2.5:3b`, and both contain a
+colon. The parser read a level's own colon as patsy's separator between two
+sides of an interaction term, then crashed looking for a marker that was not
+there. I fixed it at the source. The split now looks for patsy's separator
+specifically: a `:` sitting between one term's closing `]` and the next term's
+`C(`. A colon inside a level never matches that. A regression test with
+colon-containing levels covers it in `test_hierarchy.py`. No earlier result
+was affected, because no earlier level contained a colon.
 
 **The result:**
 
 | | old (section 23) | new (rebuilt corpus) |
 |---|---:|---:|
-| Generator quality effect (qwen vs. llama, judge held fixed) | −1.02 | −0.54 (p<.001) |
-| Judge generosity effect (llama vs. qwen judge, generator held fixed) | +0.63 | +0.61 (p<.001) |
+| Generator quality effect (qwen vs. llama, judge fixed) | −1.02 | −0.54 (p<.001) |
+| Judge generosity effect (llama vs. qwen judge, generator fixed) | +0.63 | +0.61 (p<.001) |
 | Self-preference interaction, overall rubric mean | +0.42 (p=.065) | +0.32 (p=.134) |
 | Self-preference interaction, `corpus_plausibility` only | p=.20 (coefficient never recorded) | +0.70 (**p=.012**) |
 
 **Two things moved, in opposite directions.**
 
-qwen still writes replies that score higher than llama's, by both
-judges — that part replicates — but the gap is about half what it was
-(−0.54 instead of −1.02). The judge-generosity gap barely moved (+0.61
-vs. +0.63): llama-as-judge is still, consistently, a more generous rater
-than qwen-as-judge, no matter who wrote the reply.
+qwen still writes replies that score higher than llama's, by both judges. That
+part replicates. The gap is about half its old size (−0.54 against −1.02). The
+judge-generosity gap barely moved (+0.61 against +0.63). llama-as-judge is
+still the more generous rater, whoever wrote the reply.
 
-The headline self-preference number — the one section 23 called "just
-short of significance" — got weaker, not stronger: p=.065 became p=.134.
-On the overall rubric mean, this pilot does not replicate.
+The headline self-preference number got weaker, not stronger. Section 23
+called p=.065 "just short of significance". It is now p=.134. On the overall
+rubric mean, this pilot does not replicate.
 
-But `corpus_plausibility` alone — the one item section 23 named as
-closest to "does this look authentic", and the item that gave the
-*weakest* evidence for self-preference last time (p=.20) — now gives the
-*strongest*: llama-judge rates llama-generated replies 0.70 points
-higher on plausibility than the additive model predicts, p=.012. That
-reversal is worth stating plainly: last time, the whole-rubric average
-carried the (weak) signal and the authenticity-specific item did not;
-now it is the other way round.
+But `corpus_plausibility` alone flipped the other way. Section 23 named it as
+the item closest to "does this look authentic", and it gave the weakest
+evidence then (p=.20). Now it gives the strongest. llama-judge rates
+llama-generated replies 0.70 points higher on plausibility than the additive
+model predicts, p=.012. Last time the whole-rubric average carried the weak
+signal and this item did not. Now it is the other way round.
 
-**Read this the same careful way section 39 read its own moved number.**
-This is one significant result out of two tests, with no correction for
-multiple comparisons. It sits on the same 120-reply, 240-score pilot
-section 23 already called a pilot, not a powered study. Persona variance
-in the overall-rubric model came out at exactly zero — a boundary
-solution, not a real cross-persona pattern the model found. So: not
-confirmed self-preference, but not the same flat absence of signal
-section 23 reported either — the pattern moved, and moved toward one
-specific, substantively meaningful item rather than away from all of
-them.
+**Read this as carefully as section 39's moved number.** It is one significant
+result out of two tests, with no correction for multiple comparisons. It comes
+from the same 120-reply, 240-score pilot section 23 already called a pilot.
+Persona variance in the overall-rubric model came out at exactly zero, which
+is a boundary solution rather than a real pattern. So this is not confirmed
+self-preference. It is also not the flat absence section 23 reported. The
+pattern moved, and it moved toward one specific item.
 
-![Own-family judge score (generator == judge), old vs new. Both models'
-own-family score rose after the rebuild; the gap between them narrowed
-slightly.](docs/figures/judge_swap_rebuilt_interaction.png)
+![Own-family judge score (generator equals judge), old against new. Both
+models' own-family score rose after the rebuild.](docs/figures/judge_swap_rebuilt_interaction.png)
 
-Standing caveats are unchanged from section 23: two 3B local models
-stand in for the plan's actual cross-provider design, not a replacement
-for it, and this pilot's size was never meant to resolve a marginal
-signal on its own.
+The caveats from section 23 still hold. Two 3B local models stand in for the
+plan's cross-provider design. They do not replace it. This pilot was never
+sized to settle a marginal signal.
 
 ---
 
 ### 42. Measuring the mirroring failure instead of reading for it (Sep 5)
 
-Section 35 found, by hand, that a quarter of generated replies answer a
-request by handing it back to the sender. That number existed only because
-someone read 100 replies. It could not be computed for the other 83 pairs,
-for any future run, or for a before/after comparison of a prompt fix — and
-section 35's follow-up showed the LLM judge cannot see the failure at all,
-in either of the two conditions tested.
+Section 35 found by hand that a quarter of generated replies answer a request
+by handing it back to the sender. That number existed only because someone
+read 100 replies. It could not be computed for the other 83 pairs, for a
+future run, or for a before-and-after test of a prompt fix. Section 35 also
+showed the LLM judge cannot see this failure at all.
 
-**Built the measure.** `src/thesis/analysis/mirroring.py`, no model calls at
-all — spaCy plus set arithmetic, so it runs over every reply the project has
-ever produced in a few seconds and costs nothing. Three signals, deliberately
-kept apart rather than blended:
+**So I built a measure.** `src/thesis/analysis/mirroring.py` makes no model
+calls. It uses spaCy and set arithmetic. It runs over every reply the project
+has produced in a few seconds and costs nothing. It has three signals, kept
+apart rather than blended:
 
 - **`borrowed_words`** — the share of the reply's own content words that
   already appeared in the message it answers.
-- **`longest_repeat`** — the longest stretch of words repeated verbatim from
+- **`longest_repeat`** — the longest run of words repeated word for word from
   that message, relative to the reply's length.
 - **`returned_request`** — `borrowed_words`, but only when the incoming
-  message asks for something *and* the reply also asks for something.
+  message asks for something and the reply also asks for something.
 
-**The simplest signal won, and the cleverest one lost.** Checked against the
-100 hand codes:
+**The simplest signal won. The cleverest one lost.** Checked against the 100
+hand codes:
 
-| Signal | How well it separates the hand-coded mirrored replies |
+| Signal | How well it finds the replies a reader called mirroring |
 |---|---:|
 | Words borrowed from the sender | **0.834** |
 | Longest repeated phrase | 0.786 |
@@ -2169,22 +2018,20 @@ kept apart rather than blended:
 
 ![How well each signal finds the replies a reader called mirroring.](docs/figures/mirroring_signal_auc.png)
 
-`returned_request` was the one designed to match the concept most closely,
-and it is the weakest of the three. The reason is visible in the misses: "Can
-you send it to me? I don't have access to their directories" is plainly
-handing the task back, but the message it answers contains no explicit
-request, so the gate scores it zero. The concept was narrower than the
-failure. **`borrowed_words` is the headline measure** — the plainest of the
-three and the one that works best.
+`returned_request` was designed to match the concept most closely. It is the
+weakest of the three. The misses show why. "Can you send it to me? I don't
+have access to their directories" clearly hands the task back, but the message
+it answers contains no explicit request, so the gate scores it zero. The
+concept was narrower than the failure. **`borrowed_words` is the headline
+measure.** It is the plainest and it works best.
 
 A weighted mix of `borrowed_words` and "the reply is itself a request" scores
-0.871, better than any single signal. **Not adopted.** Its weight was chosen
-by looking at the same 100 items it is scored on, so that 0.871 is optimistic
-by an unknown amount. It can be reconsidered when a second coder's sheet
-exists to check it against.
+0.871. **I did not adopt it.** Its weight was chosen by looking at the same
+100 items it is scored on, so 0.871 is too good by an unknown amount. It can
+be reconsidered when a second coder's sheet exists.
 
 **What it finds across all 183 pairs.** Generated replies are built about
-twice as much out of the sender's own words as real replies are:
+twice as much from the sender's own words as real replies are:
 
 | | Mean share of the reply's words taken from the sender |
 |---|---:|
@@ -2192,24 +2039,23 @@ twice as much out of the sender's own words as real replies are:
 | Real replies | 0.301 |
 | Real replies, cut to the AI reply's length | 0.278 |
 
-![How much of a reply is built from the sender's own words, AI versus real.](docs/figures/mirroring_generated_vs_real.png)
+![How much of a reply is built from the sender's own words, AI against real.](docs/figures/mirroring_generated_vs_real.png)
 
-The length-matched row matters: `borrowed_words` is a share of a reply's
-distinct vocabulary, and a longer reply has more room for words the sender
-never used, so a real reply would score lower purely for being longer. Cutting
-real replies to their AI partner's length removes that advantage, and the gap
-gets slightly *wider* rather than closing.
+The length-matched row matters. `borrowed_words` is a share of a reply's
+distinct vocabulary. A longer reply has more room for words the sender never
+used, so a real reply would score lower just for being longer. Cutting real
+replies to their AI partner's length removes that advantage. The gap gets
+slightly wider, not smaller.
 
 At the "most of this reply is the sender's words" cut-off, **25.7% of AI
 replies are flagged, against 7.1% of length-matched real replies**. The 25.7%
-lands almost exactly on section 35's hand-coded 25%, on a set that is mostly
-different replies — the measure reproduces the reader's rate without having
-been fitted to reproduce anything.
+almost matches section 35's hand-coded 25%, on a set of mostly different
+replies. The measure reproduces the reader's rate without being fitted to do
+so.
 
-**And it immediately overturned one of section 35's own hints.** That section
-noted mirroring looked commoner writing down (38%) and up (33%) than to a
-peer (16%), while warning it was 21 and 24 items and should be treated as
-something to check. Checked:
+**It also overturned one of section 35's own hints.** That section saw
+mirroring look more common writing down (38%) and up (33%) than to a peer
+(16%), and warned it was only 21 and 24 items. Here is the check:
 
 | | Hand-coded, the 100 sampled | Measured, all 183 |
 |---|---:|---:|
@@ -2219,35 +2065,33 @@ something to check. Checked:
 
 ![Flagged rate by who the persona is writing to, across all 183 pairs.](docs/figures/mirroring_rate_by_direction.png)
 
-**On the same 100 items the measure agrees with the reader almost exactly**
-(38.1% / 18.2% / 33.3% against the reader's 38.1% / 16.4% / 33.3%), so this is
-not the measure disagreeing with the coding. It is the sample: the direction
-pattern was a property of which 100 replies happened to be drawn, and it does
-not survive the full set. One evening of hand coding produced a hint; ten
-seconds of a measure that can run on everything retired it. That is the
-argument for building measures out of hand codes rather than stopping at them.
+**On the same 100 items the measure agrees with the reader almost exactly**:
+38.1% / 18.2% / 33.3% against 38.1% / 16.4% / 33.3%. So this is not the
+measure disagreeing with the coding. It is the sample. The direction pattern
+came from which 100 replies were drawn. It does not survive the full set. One
+evening of hand coding produced a hint. Ten seconds of a measure that runs on
+everything retired it.
 
-**Two limitations worth stating.** The measure is lexical, so it misses
-mirroring that reuses the meaning without the words — "Send the email to him",
-in reply to a request for someone's email address, scores near zero. And it
-flags some replies that fail for other reasons, since an incoherent reply
-assembled from the sender's vocabulary looks the same to it. At the cut-off,
-roughly two flags in three are replies the reader also called mirroring, and
-it catches about seven in ten of them — both figures measured at a threshold
-chosen on those same 100 items, so both are optimistic until a second coder
-exists.
+**Two limits.** The measure is lexical, so it misses mirroring that reuses the
+meaning without the words. "Send the email to him", answering a request for
+someone's email address, scores near zero. It also flags some replies that
+fail for other reasons, because an incoherent reply built from the sender's
+words looks the same to it. At the cut-off, about two flags in three are
+replies the reader also called mirroring, and it catches about seven in ten of
+them. Both figures come from a threshold chosen on those same 100 items, so
+both are too good.
 
-**This is now the before/after instrument for the prompt fix.** The persona is
-never told it is the one who has to act; that is the next change, and its
-effect is now a number rather than an impression.
+**This is now the before-and-after instrument for the prompt fix.** The
+persona is never told it is the one who has to act. That is the next change,
+and its effect is now a number.
 
 ---
 
 ### 43. Telling the persona to act: the phrasing changed, the habit did not (Sep 5)
 
-With the measure from section 42 in place, made the change it was built to
-test. The persona prompt now says, in the cached prefix every reply is built
-from:
+With the measure from section 42 in place, I made the change it was built to
+test. The persona prompt now says this, in the cached prefix every reply is
+built from:
 
 > You are the person this message was sent to. If it asks you to do something,
 > decide something, or send something, then you are the one who has to act on
@@ -2257,16 +2101,13 @@ from:
 > truly did not give you what you need — it is not a way of handing the task
 > back.
 
-**The wording deliberately never mentions words, vocabulary, or repetition.**
-The measure is lexical, so an instruction like "do not reuse the sender's
-wording" would optimize the measure directly and the result would prove
-nothing. This instruction describes the behavior; the measure is left to
-notice or not.
+**The wording never mentions words, vocabulary or repetition.** The measure is
+lexical. An instruction like "do not reuse the sender's wording" would aim at
+the measure and prove nothing. This instruction describes the behavior.
 
-All 183 pairs were regenerated — same stimuli, same personas, same local
-model, one added paragraph. This is the fifth time the response cache has been
-invalidated, for the usual reason: the persona prompt is part of the text the
-cache keys on.
+All 183 pairs were regenerated. Same stimuli, same personas, same local model,
+one added paragraph. This is the fifth time the cache went stale, for the
+usual reason: the persona prompt is part of the text the cache keys on.
 
 **The failure it targeted did not move.**
 
@@ -2275,79 +2116,71 @@ cache keys on.
 | Mean share of the reply's words taken from the sender | 0.579 | 0.565 | −0.014 | p=.61 |
 | Replies built mostly from the sender's words | 25.7% | 19.1% | −6.6 pts | p=.12 |
 
-Paired reply by reply on the same stimuli — 31 replies stopped being flagged,
-19 started. The flagged rate moved in the right direction and the mean did not
-move at all; neither is distinguishable from noise.
+Paired reply by reply on the same stimuli. 31 replies stopped being flagged
+and 19 started. The mean did not move. The flagged rate moved the right way
+but cannot be told apart from noise.
 
-**Two things did move, and both are significant.**
+**Two other things did move, and both are significant.**
 
 | | Before | After | |
 |---|---:|---:|---|
 | Replies phrased as a request | 49.7% | 38.8% | **p=.02** |
 | Reply length | 19.8 words | 22.7 words | **p=.0002** |
 
-![The instruction moved how replies are phrased, but not what they are built
+![The instruction moved how replies are phrased, not what they are built
 from.](docs/figures/act_instruction_before_after.png)
 
-So the model **did** read the instruction and **did** respond to it. It stopped
-phrasing so many replies as requests, and wrote a little more. It did not stop
-handing the task back — it learned to hand it back in a different grammatical
-costume:
+So the model read the instruction and responded to it. It phrased fewer
+replies as requests and wrote a little more. It did not stop handing the task
+back. It handed it back in different grammar:
 
 > **Before** — "Send the list to Richard."
 > **After** — "Can you pass this along to Richard? Thanks."
 
-That is the second reply scoring *lower* on the measure while doing exactly the
-same thing, which is worth stating plainly: **part of the 6.6-point drop is
-rephrasing, not improvement.** The lexical blind spot section 42 named as a
-limitation is not hypothetical — it is active in this very comparison, and it
-means the real improvement is smaller than the already-insignificant number
-suggests.
+That second reply scores lower on the measure and does the same thing. **So
+part of the 6.6-point drop is rephrasing, not improvement.** The lexical blind
+spot named in section 42 is not hypothetical. It is active in this comparison.
+The real improvement is smaller than an already-insignificant number suggests.
 
-Some replies did genuinely improve:
+Some replies did get better:
 
 > **Before** — "I'll take your 1 and 3 for my 1 and 4"
 > **After** — "I'll take my 1 and 4, but I need to check the numbers with legal
 > before finalizing."
 
-And some got worse — one reply went from asking a reasonable question to
-issuing the sender's own instruction back at them almost verbatim ("Please
-e-mail the agreement to your customer. If not, give me a name and phone
-number.").
+Some got worse. One went from asking a reasonable question to repeating the
+sender's own instruction almost word for word: "Please e-mail the agreement to
+your customer. If not, give me a name and phone number."
 
-**This is the same finding as section 32, in a second domain.** There, the
-model ignored an explicit instruction about reply length. Here it half-follows
-an explicit instruction about who acts: it complies with the surface form the
-instruction names and not with the behavior the instruction is about. Two
-independent instructions, the same pattern. For a thesis about whether LLM
-agents can simulate organizational roles, **that is a more useful result than a
-prompt fix that worked would have been** — it says something about the limits
-of prompt-level control over a 3B open-weights model, which is a finding, where
-"we fixed it by asking nicely" would only have been housekeeping.
+**This is section 32's finding in a second area.** There the model ignored an
+instruction about reply length. Here it half-follows an instruction about who
+acts. It obeys the surface form the instruction names and not the behavior the
+instruction is about. Two instructions, one pattern. For a thesis about
+whether LLM agents can simulate organizational roles, that is more useful than
+a prompt fix that worked. It says something about the limits of prompt control
+over a 3B open-weights model.
 
-**What this does not settle.** A larger model may well follow this instruction
-properly; that is decision 2 in the supervisor questions, not something this
-run can answer. And the honest reading of the negative result is bounded by the
-measure: a semantic version of it — the same reply meaning, not the same reply
-words — would catch the costume-change cases this one misses, and the embedding
-vectors for that are already cached.
+**What this does not settle.** A larger model may follow the instruction
+properly. That is supervisor question 2, not something this run can answer.
+And the negative result is only as good as the measure. A version that
+compares meaning rather than words would catch the rephrased cases.
 
-**Kept both generations.** The before and after pair files sit side by side in
-`data/interim/`, so this comparison can be re-run, and any future prompt change
-can be measured against either.
+**Both generations are kept.** The before and after pair files sit side by
+side in `data/interim/`, so this comparison can be re-run and any future
+prompt change can be measured against either.
 
 ---
 
 ### 44. The semantic version of the mirroring measure does not work (Sep 5)
 
 Section 43 left one question open. The lexical measure scores a reply lower
-for saying the same thing in different words — "Send the list to Richard."
-became "Can you pass this along to Richard? Thanks." — so part of the small
-improvement it reported may have been rephrasing rather than change. A
-meaning-level measure was supposed to settle that. It does not.
+for saying the same thing in different words. "Send the list to Richard."
+became "Can you pass this along to Richard? Thanks." So part of the small
+improvement may have been rephrasing. A meaning-level measure was supposed to
+settle that. It does not.
 
-**Four variants tried, all built on the local embedding model** (free, and the
-vectors were already cached from section 40):
+**Four variants, all on the local embedding model.** They are free, and the
+vectors were already cached from section 40.
 
 | What it compares | How well it finds the hand-coded mirrored replies |
 |---|---:|
@@ -2358,28 +2191,27 @@ vectors were already cached from section 40):
 
 ![Every meaning-level signal scores worse than counting borrowed words.](docs/figures/mirroring_semantic_vs_lexical.png)
 
-A fifth variant — how much closer the reply sits to the message than the real
-human reply did, which should control for topic — scored 0.609. A rank-average
-of the lexical measure and the best semantic one scored 0.757, worse than the
-lexical measure alone.
+A fifth variant scored 0.609. It measured how much closer the reply sits to
+the message than the real human reply did, which should control for topic. A
+rank-average of the lexical measure and the best semantic one scored 0.757,
+worse than the lexical measure alone.
 
-**Why it fails is worth understanding, because it is not a coding error.** An
-embedding of a short business email is dominated by what the email is *about*.
-A reply that hands the request back and a reply that answers it properly are
-both about the same contract, the same counterparty, the same deadline — so
-they sit at almost the same distance from the incoming message. What separates
-them is who is being asked to act, which is a small part of the sentence's
-meaning as this model represents it, and it gets swamped.
+**Why it fails is not a coding error.** An embedding of a short business email
+is dominated by what the email is about. A reply that hands the request back
+and a reply that answers it are both about the same contract, the same
+counterparty, the same deadline. So they sit at almost the same distance from
+the incoming message. What separates them is who has to act. That is a small
+part of the meaning as this model represents it, and it gets swamped.
 
-**The decisive check is where it fails.** On the seven replies the reader
-called mirroring that the lexical measure misses — exactly the cases a
-semantic measure was supposed to rescue — request-echo scores **0.398 against
-0.383 for sound replies**. No separation at all. It does not fail gracefully
-and it does not fail in a complementary way; it fails on precisely the subset
-it was built for.
+**The decisive check is where it fails.** Take the seven replies the reader
+called mirroring that the lexical measure misses. Those are exactly the cases
+a semantic measure was meant to catch. Request-echo scores **0.398 on them,
+against 0.383 for sound replies.** No separation. It does not fail gracefully
+and it does not fail in a useful, complementary way. It fails on the subset it
+was built for.
 
-**It still answers section 43's question, though from the other direction.**
-Scoring both generations with the semantic signals shows nothing moved:
+**It still answers section 43's question, from the other side.** Scoring both
+generations gives this:
 
 | | Before the instruction | After |
 |---|---:|---:|
@@ -2387,28 +2219,26 @@ Scoring both generations with the semantic signals shows nothing moved:
 | Closest matching sentence, by meaning | 0.776 | 0.777 (p=.64) |
 | Closest matching request, by meaning | 0.402 | 0.406 (p=.15) |
 
-Flat on all three. Since the lexical measure fell slightly while the meaning
-measures did not move at all, the reading in section 43 stands: **the prompt
-change altered wording, not behavior.** That conclusion rests on a weak
-instrument, so it is support rather than proof — but it points the same way as
-the hand-read examples.
+Flat on all three. The lexical measure fell a little and the meaning measures
+did not move at all. So section 43's reading stands: **the prompt change
+altered wording, not behavior.** That rests on a weak instrument, so it is
+support and not proof. It points the same way as the examples I read.
 
-**Kept, behind a flag.** `--semantic` adds these signals; they are off by
-default because they need a running embedding model and are slower, and
-because a measure that scores 0.58 has no business in a default pipeline. They
-stay in the module rather than in a scratch file so this negative result can be
-re-checked with one command instead of being taken on trust.
+**Kept behind a flag.** `--semantic` adds these signals. They are off by
+default. They need a running embedding model, they are slower, and a signal
+scoring 0.58 does not belong in a default pipeline. They stay in the module
+rather than in a scratch file so this negative result can be re-checked with
+one command.
 
-**What would actually work is no longer cheap**, which is the real conclusion
-of this section. The two remaining options both cost something: ask a model the
-narrow question directly ("does this reply ask the sender to do the thing they
-asked?"), showing it the incoming message — but section 35's follow-up found
-that adding context made the judge uniformly more generous without making it
-more discriminating, so that route needs its own validation against the hand
-codes before any number from it can be believed. Or code a second sample by
-hand, which is the November human-coding round the plan already contains. The
-free, automatic, meaning-aware measure that would have avoided both does not
-exist here.
+**What would work is no longer cheap.** That is the real conclusion here. Two
+options remain, and both cost something. First, ask a model the narrow
+question directly ("does this reply ask the sender to do the thing they
+asked?") with the incoming message shown. Section 35 found that adding context
+made the judge more generous without making it sharper, so this route needs
+its own validation against the hand codes before any number from it can be
+believed. Second, code a second sample by hand. That is the November human
+coding round already in the plan. The free, automatic, meaning-aware measure
+that would have avoided both does not exist here.
 
 ---
 
