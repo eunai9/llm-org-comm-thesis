@@ -18,7 +18,7 @@ you to read, not for a computer to run. Updated after each work session.
 | Figure out *who* sent each email (identity) | Done |
 | Look up each person's job title / rank | Done |
 | Reconstruct email conversation threads | Done |
-| Measure "power" expressed in each email's writing style | Done (see note below) |
+| Measure "power" expressed in each email's writing style | Done — split into its two halves too, neither works, see section 45 |
 | Draw the samples the simulator and judge will use | Done |
 | Plumbing for talking to the AI models (cost, caching) | Done |
 | Build the AI agent simulator | Done, except a second *paid* provider |
@@ -2242,6 +2242,44 @@ that would have avoided both does not exist here.
 
 ---
 
+### 45. Splitting the power score does not rescue it (Sep 5)
+
+Section 7 found the power score does not track seniority. Section 37
+checked again after the corpus rebuild and got the same null. One question
+stayed open both times: maybe one half of the score works even though the
+combined number does not. This checks that, on the same 233,282 emails
+both earlier checks used.
+
+**The split needs no new weights.** `compute_power_score` now takes a
+`layers` argument: `"both"` (the default, unchanged from before), `"a"`
+(linguistic features only), or `"b"` (network features only). Each still
+uses the exact weights already frozen in `configs/data.yaml`. Nothing was
+re-tuned to get a better number here or anywhere else in this section.
+
+**All three scores, checked against seniority the same way as before:**
+
+| Score | Spearman(rank, score) | Monotonic by rank? |
+|---|---:|---|
+| Combined (both layers) | −0.0695 | No |
+| Layer A alone (linguistic) | +0.0018 | No |
+| Layer B alone (network) | +0.0649 | No |
+
+![Splitting the power score does not rescue it.](docs/figures/power_score_layers_by_rank.png)
+
+**Neither half works.** Layer A alone sits even closer to zero than the
+combined score. Layer B alone sits a little further from zero, but it is
+still tiny, and it is not monotonic either — the mean jumps around by rank
+instead of climbing. Junior employees score highest on Layer B alone, the
+same pattern that broke the combined score in section 7.
+
+**This answers the third open supervisor question directly.** There is no
+better half to report instead of the combined null. All three views —
+combined, linguistic alone, network alone — say the same thing: this
+score does not track seniority in this corpus. Report it as one null, not
+three, because splitting it did not turn up a hidden one that works.
+
+---
+
 ## What's next
 
 *(Rewritten Aug 31 — the previous version was written before the corpus
@@ -2274,8 +2312,11 @@ memo, none blocking other work):
 2. Which models produce the final results — is departmental compute or
    research credit available, or does the thesis get reframed around
    open-weights models as the object of study?
-3. How to present the power-score null — report as-is, or split it into
-   linguistic and network parts first?
+3. How to present the power-score null — section 45 split it into
+   linguistic and network parts, and both are flat too, so there is no
+   better half to lead with. Still open: report it as one null, or show
+   all three numbers as evidence the null is not an artifact of how the
+   two parts were combined?
 4. Who checks the 50-thread reconstruction sample — self-review, or a
    second reader for defensibility?
 
@@ -2302,6 +2343,13 @@ remaining routes both cost something: a model asked the narrow question
 with the incoming message shown, which needs its own validation first
 (section 35's follow-up shows what goes wrong otherwise), or a second
 hand-coded sample, which is the November round already in the plan.
+
+**The power score is also split now (section 45), and splitting it did not
+help.** Layer A alone (Spearman +0.0018) and Layer B alone (+0.0649) are
+both as flat as the combined score (−0.0695), and neither is monotonic by
+rank. There is no hidden working half. This closes out supervisor question
+3 on the data side — what is left is a presentational choice, not an
+analysis one.
 
 **Next priority is therefore yours to pick**, since the cheap technical
 work in this thread is finished. The strongest candidates are re-coding
@@ -2339,9 +2387,6 @@ and the better automatic measure, and the four supervisor questions.
   State several target lengths, hold everything else fixed, measure the
   response curve. Turns a two-point observation into a real result about
   instruction-following.
-- **Split the power score** into its linguistic and network halves.
-  Cheap, needs no AI calls, and would make decision 3 above easier to
-  answer by putting the actual numbers in front of it.
 - **Build the contamination probe and anonymized-stimulus arm.** Named in
   the research plan, and still the strongest objection an examiner can
   raise; both are cheap and turn an unanswerable question into a table.

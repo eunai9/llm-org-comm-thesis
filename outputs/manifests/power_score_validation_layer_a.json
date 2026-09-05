@@ -1,0 +1,38 @@
+{
+  "is_monotonic_nondecreasing": false,
+  "mean_power_score_by_rank": {
+    "1": {
+      "mean": -0.0385,
+      "n": 26575,
+      "std": 0.5261
+    },
+    "2": {
+      "mean": -0.0364,
+      "n": 10472,
+      "std": 0.5379
+    },
+    "3": {
+      "mean": -0.0531,
+      "n": 17353,
+      "std": 0.4818
+    },
+    "4": {
+      "mean": -0.0299,
+      "n": 17569,
+      "std": 0.5496
+    },
+    "5": {
+      "mean": -0.0164,
+      "n": 6080,
+      "std": 0.4404
+    },
+    "6": {
+      "mean": -0.0132,
+      "n": 3730,
+      "std": 0.4984
+    }
+  },
+  "n_scored_messages": 233282,
+  "n_with_known_rank": 81779,
+  "spearman_rank_vs_score": 0.0018
+}

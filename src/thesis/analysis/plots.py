@@ -15,7 +15,14 @@ and size of the change directly, which is where the finding actually lives.
   make the reader compare bar tops across a gutter instead.
 - :func:`plot_factor_interaction` -- an interaction plot, because whether two
   factors interact is exactly whether the lines are parallel; that is the
-  one visual question the judge-swap design exists to ask.
+  one visual question the judge-swap design exists to ask. Capped at two
+  series by design.
+- :func:`plot_multi_line_trend` -- the same line-per-level drawing for a
+  three-way comparison (e.g. combined score vs. its two halves), where the
+  question is not one factor's interaction but how three versions of a
+  measure move together across the same levels. A separate function so
+  ``plot_factor_interaction``'s two-series cap stays intact for its own
+  callers.
 - :func:`plot_discrimination_auc` -- horizontal bars against an explicit
   chance line, because an AUC is meaningless without 0.5 in the frame.
 
@@ -57,6 +64,11 @@ from thesis.paths import DOCS_FIGURES_DIR
 # From references/palette.md, light mode, used as published.
 SERIES_1 = "#2a78d6"  # blue
 SERIES_2 = "#eb6834"  # orange
+SERIES_3 = "#1baf7a"  # aqua -- the palette's fixed slot 3, only added for the
+# one chart here with three lines (plot_multi_line_trend). Slots 1-3 together
+# are validated all-pairs colorblind-safe in the reference palette; slot 4
+# (yellow) is not, so a fourth line is not something to add to that function
+# by extending this tuple.
 SURFACE = "#fcfcfb"
 INK_PRIMARY = "#0b0b0b"
 INK_SECONDARY = "#52514e"
@@ -236,6 +248,81 @@ def plot_factor_interaction(
     ax.set_ylabel(y_label, color=INK_SECONDARY, fontsize=9.5)
     # Upper left: the direct labels already occupy the right-hand margin, and
     # both series rise left-to-right, so this corner is the empty one.
+    legend = ax.legend(frameon=False, fontsize=9, loc=legend_loc)
+    for text in legend.get_texts():
+        text.set_color(INK_SECONDARY)
+    return _finish(fig, ax, title, subtitle, path)
+
+
+def plot_multi_line_trend(
+    x_levels: Sequence[str],
+    series: dict[str, Sequence[float]],
+    path: Path,
+    *,
+    title: str,
+    subtitle: str = "",
+    x_label: str = "",
+    y_label: str = "",
+    legend_loc: LegendLoc = "upper left",
+) -> Path:
+    """Up to three lines across the levels of one factor.
+
+    Same drawing as :func:`plot_factor_interaction`, but for a comparison
+    between three versions of a measure rather than the two-factor
+    interaction design that function is built around -- so this is a
+    separate function, not a raised cap. ``plot_factor_interaction`` stays
+    capped at two series for its own callers.
+
+    Colors are the palette's first three categorical slots (blue, orange,
+    aqua), used in that fixed order. Slots 1-3 together are the only run of
+    the reference palette validated colorblind-safe against every pairing at
+    once (see ``references/palette.md``), which is exactly what three
+    same-chart lines need; a fourth line would need slot 4 (yellow), which
+    is not validated alongside the others, so this stays capped at three
+    rather than growing to fit whatever is asked of it later.
+    """
+    if not 1 <= len(series) <= 3:
+        msg = f"expected 1 to 3 series for this chart, got {len(series)}"
+        raise ValueError(msg)
+    for name, values in series.items():
+        if len(values) != len(x_levels):
+            msg = f"series {name!r} has {len(values)} values but there are {len(x_levels)} levels"
+            raise ValueError(msg)
+
+    fig, ax = plt.subplots(figsize=(6.6, 4.2))
+    _style_axes(ax)
+    ax.yaxis.grid(True, color=GRIDLINE, linewidth=1)
+    ax.set_axisbelow(True)
+
+    x = list(range(len(x_levels)))
+    for color, (name, values) in zip((SERIES_1, SERIES_2, SERIES_3), series.items(), strict=False):
+        ax.plot(
+            x,
+            values,
+            color=color,
+            linewidth=2,
+            marker="o",
+            markersize=9,
+            markeredgecolor=SURFACE,
+            markeredgewidth=2,
+            label=name,
+            zorder=3,
+        )
+        ax.annotate(
+            name,
+            (x[-1], values[-1]),
+            textcoords="offset points",
+            xytext=(10, 0),
+            va="center",
+            color=color,
+            fontsize=9.5,
+            fontweight="600",
+        )
+
+    ax.set_xticks(x, list(x_levels))
+    ax.set_xlim(-0.35, len(x_levels) - 0.35)
+    ax.set_xlabel(x_label, color=INK_SECONDARY, fontsize=9.5)
+    ax.set_ylabel(y_label, color=INK_SECONDARY, fontsize=9.5)
     legend = ax.legend(frameon=False, fontsize=9, loc=legend_loc)
     for text in legend.get_texts():
         text.set_color(INK_SECONDARY)
@@ -744,6 +831,26 @@ def main() -> None:
         ),
         x_label="which model wrote the reply, judged by the same model",
         y_label="mean rubric score, own family (1-5)",
+    )
+
+    # Section 45: the power score split into its two halves and checked
+    # against seniority separately. Three lines, not two, so
+    # plot_factor_interaction's cap does not fit -- this is exactly the case
+    # plot_multi_line_trend exists for. All three are flat; none is
+    # monotonic across the six ranks.
+    plot_multi_line_trend(
+        ("junior", "manager", "director", "VP", "managing\ndir.", "pres./\nCEO"),
+        {
+            "combined (rho=-0.070)": (0.0912, -0.0420, -0.0209, 0.0070, -0.0074, 0.0165),
+            "Layer A alone (rho=+0.002)": (-0.0385, -0.0364, -0.0531, -0.0299, -0.0164, -0.0132),
+            "Layer B alone (rho=+0.065)": (0.1949, -0.0464, 0.0049, 0.0364, -0.0002, 0.0412),
+        },
+        path=DOCS_FIGURES_DIR / "power_score_layers_by_rank.png",
+        title="Splitting the power score does not rescue it",
+        subtitle="Mean score by seniority rank, 233k emails. All three lines are flat; none rises with rank.",
+        x_label="seniority rank",
+        y_label="mean power score (z-scored)",
+        legend_loc="upper right",
     )
 
 

@@ -28,7 +28,10 @@ does not rise with rank, the plan is explicit: report that finding, do not
 go back and adjust the weights until it does. That would be circular, and
 it is exactly the trap a statistics committee is positioned to notice.
 
-Run with ``python -m thesis.data.power``.
+Run with ``python -m thesis.data.power``. Add ``--layers a`` or
+``--layers b`` to validate one weight layer alone instead of the combined
+score; ``--layers both`` (the default) is unchanged from before this option
+existed.
 """
 
 from __future__ import annotations
@@ -36,6 +39,8 @@ from __future__ import annotations
 import argparse
 import json
 from itertools import pairwise
+from pathlib import Path
+from typing import Literal
 
 import duckdb
 import pandas as pd
@@ -109,7 +114,11 @@ def load_joined_features(
 
 
 def compute_power_score(
-    df: pd.DataFrame, config: Config, *, min_components: int = 3
+    df: pd.DataFrame,
+    config: Config,
+    *,
+    min_components: int = 3,
+    layers: Literal["both", "a", "b"] = "both",
 ) -> pd.DataFrame:
     """Add a ``power_score`` column: the availability-weighted mean of
     signed z-scored components, per the module docstring's formula.
@@ -117,11 +126,24 @@ def compute_power_score(
     Messages with fewer than ``min_components`` available features get a
     null score rather than a score computed from a near-empty basis -- an
     average of one z-score is not a meaningful composite.
+
+    ``layers`` picks which of the two frozen weight sets to score with:
+    ``"both"`` (default, unchanged behavior) uses Layer A and Layer B
+    together; ``"a"`` or ``"b"`` restricts the score to one layer's weights,
+    so the two halves of the composite can be validated against seniority
+    on their own. This does not introduce new weights -- it only excludes
+    one layer's columns from the same ``configs/data.yaml`` weights already
+    in force.
     """
-    weights: dict[str, float] = {
-        **config.data.power.layer_a_weights,
-        **config.data.power.layer_b_weights,
-    }
+    if layers == "a":
+        weights: dict[str, float] = dict(config.data.power.layer_a_weights)
+    elif layers == "b":
+        weights = dict(config.data.power.layer_b_weights)
+    else:
+        weights = {
+            **config.data.power.layer_a_weights,
+            **config.data.power.layer_b_weights,
+        }
     columns = [c for c in (*_LAYER_A_COLUMNS, *_LAYER_B_COLUMNS) if c in weights]
     missing_weight = set(weights) - set(columns)
     if missing_weight:
@@ -217,16 +239,32 @@ def main() -> None:
     parser.add_argument("--features", default=str(FEATURES_PATH))
     parser.add_argument("--network", default=str(NETWORK_PATH))
     parser.add_argument("--out", default=str(INTERIM_DIR / "power_scores.parquet"))
+    parser.add_argument(
+        "--layers",
+        choices=["both", "a", "b"],
+        default="both",
+        help="score with both weight layers (default), Layer A alone, or Layer B alone",
+    )
     args = parser.parse_args()
 
     configure_logging()
     ensure_dirs()
 
+    # Default filenames are unchanged for --layers both, so existing tooling
+    # that reads power_scores.parquet / power_score_validation.json keeps
+    # working. A layer-only run gets its own filename instead of overwriting
+    # the combined score's output.
+    suffix = "" if args.layers == "both" else f"_layer_{args.layers}"
+    out_path = (
+        Path(args.out) if suffix == "" else Path(args.out).with_stem(Path(args.out).stem + suffix)
+    )
+    validation_path = MANIFESTS_DIR / f"power_score_validation{suffix}.json"
+
     config = load_config()
     df = load_joined_features(args.messages, args.features, args.network)
     log.info("joined feature table: %d rows", len(df))
 
-    scored = compute_power_score(df, config)
+    scored = compute_power_score(df, config, layers=args.layers)
     n_scored = int(scored["power_score"].notna().sum())
     log.info("power_score computed for %d / %d messages", n_scored, len(scored))
 
@@ -234,11 +272,11 @@ def main() -> None:
         scored[["message_uid", "from_addr", "power_score", "n_power_components"]],
         preserve_index=False,
     )
-    pq.write_table(out_table, args.out, compression="zstd")
-    log.info("wrote %s", args.out)
+    pq.write_table(out_table, out_path, compression="zstd")
+    log.info("wrote %s", out_path)
 
     validation = validate_against_seniority(scored, args.messages)
-    (MANIFESTS_DIR / "power_score_validation.json").write_text(
+    validation_path.write_text(
         json.dumps(validation, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
 

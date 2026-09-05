@@ -220,3 +220,64 @@ def test_seniority_aggregation_logic_directly() -> None:
     scored["seniority_rank"] = scored["from_addr"].map(ranks)
     by_rank = scored.groupby("seniority_rank")["power_score"].mean()
     assert by_rank[4] > by_rank[1]
+
+
+def _layered_df() -> pd.DataFrame:
+    """Two rows with every column populated and varying, so both layers
+    have something to score."""
+    return pd.DataFrame(
+        {
+            "message_uid": ["a", "b"],
+            "from_addr": ["x", "y"],
+            "imperative_ratio": [0.2, 0.8],
+            "hedge_rate": [0.1, 0.9],
+            "deference_rate": [0.0, 0.0],
+            "commitment_rate": [0.0, 0.0],
+            "question_ratio": [0.0, 0.0],
+            "n_recipients": [1, 5],
+            "is_broadcast": [0.0, 1.0],
+            "eigenvector_centrality": [0.1, 0.9],
+            "thread_initiation_rate": [0.0, 1.0],
+            "last_word_rate": [0.0, 1.0],
+            "reply_latency_asymmetry": [0.1, 0.9],
+        }
+    )
+
+
+def test_layers_restrict_the_columns_actually_used() -> None:
+    """layers="a" and layers="b" must use a smaller, different set of
+    weighted columns than layers="both" -- the whole point of the split.
+    ``n_power_components`` is the direct, countable proof: it can only
+    reach as high as the number of weighted columns that layer has.
+    """
+    df = _layered_df()
+    config = _config(
+        {"imperative_ratio": 1.0, "hedge_rate": -1.0},
+        {
+            "n_recipients": 0.5,
+            "eigenvector_centrality": 1.0,
+            "thread_initiation_rate": 1.0,
+            "last_word_rate": 1.0,
+        },
+    )
+    both = compute_power_score(df, config, min_components=1, layers="both")
+    layer_a = compute_power_score(df, config, min_components=1, layers="a")
+    layer_b = compute_power_score(df, config, min_components=1, layers="b")
+
+    assert both["n_power_components"].tolist() == [6, 6]
+    assert layer_a["n_power_components"].tolist() == [2, 2]
+    assert layer_b["n_power_components"].tolist() == [4, 4]
+
+
+def test_default_layers_both_matches_pre_split_behavior() -> None:
+    """Calling compute_power_score with no ``layers`` argument must behave
+    exactly as it did before this parameter existed: the default is
+    "both", not a new default that scores differently."""
+    df = _layered_df()
+    config = _config(
+        {"imperative_ratio": 1.0, "hedge_rate": -1.0},
+        {"eigenvector_centrality": 1.0},
+    )
+    default_call = compute_power_score(df, config, min_components=1)
+    explicit_both = compute_power_score(df, config, min_components=1, layers="both")
+    pd.testing.assert_frame_equal(default_call, explicit_both)
