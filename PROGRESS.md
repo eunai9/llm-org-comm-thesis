@@ -33,6 +33,7 @@ you to read, not for a computer to run. Updated after each work session.
 | Validation pass: embedding map, 100 replies read by hand | Done — see section 35 |
 | Measure the mirroring failure automatically | Done — see section 42 |
 | Fix the mirroring failure by instructing the persona | Tried and did not work — phrasing moved, behavior did not, see section 43 |
+| Measure mirroring by meaning rather than by words | Tried and does not work — every variant scores worse, see section 44 |
 | Quoted text left inside "cleaned" message bodies | **Fixed in code and rebuilt — see section 37** |
 | Get API keys / decide on budget | **Decided: staying free — see note below** |
 
@@ -2337,6 +2338,80 @@ can be measured against either.
 
 ---
 
+### 44. The semantic version of the mirroring measure does not work (Sep 5)
+
+Section 43 left one question open. The lexical measure scores a reply lower
+for saying the same thing in different words — "Send the list to Richard."
+became "Can you pass this along to Richard? Thanks." — so part of the small
+improvement it reported may have been rephrasing rather than change. A
+meaning-level measure was supposed to settle that. It does not.
+
+**Four variants tried, all built on the local embedding model** (free, and the
+vectors were already cached from section 40):
+
+| What it compares | How well it finds the hand-coded mirrored replies |
+|---|---:|
+| **Words borrowed from the sender** (the lexical measure) | **0.834** |
+| Closest matching sentence, by meaning | 0.706 |
+| Whole reply against the whole message, by meaning | 0.586 |
+| Closest matching *request* sentence, by meaning | 0.579 |
+
+![Every meaning-level signal scores worse than counting borrowed words.](docs/figures/mirroring_semantic_vs_lexical.png)
+
+A fifth variant — how much closer the reply sits to the message than the real
+human reply did, which should control for topic — scored 0.609. A rank-average
+of the lexical measure and the best semantic one scored 0.757, worse than the
+lexical measure alone.
+
+**Why it fails is worth understanding, because it is not a coding error.** An
+embedding of a short business email is dominated by what the email is *about*.
+A reply that hands the request back and a reply that answers it properly are
+both about the same contract, the same counterparty, the same deadline — so
+they sit at almost the same distance from the incoming message. What separates
+them is who is being asked to act, which is a small part of the sentence's
+meaning as this model represents it, and it gets swamped.
+
+**The decisive check is where it fails.** On the seven replies the reader
+called mirroring that the lexical measure misses — exactly the cases a
+semantic measure was supposed to rescue — request-echo scores **0.398 against
+0.383 for sound replies**. No separation at all. It does not fail gracefully
+and it does not fail in a complementary way; it fails on precisely the subset
+it was built for.
+
+**It still answers section 43's question, though from the other direction.**
+Scoring both generations with the semantic signals shows nothing moved:
+
+| | Before the instruction | After |
+|---|---:|---:|
+| Words borrowed from the sender | 0.579 | 0.565 (p=.61) |
+| Closest matching sentence, by meaning | 0.776 | 0.777 (p=.64) |
+| Closest matching request, by meaning | 0.402 | 0.406 (p=.15) |
+
+Flat on all three. Since the lexical measure fell slightly while the meaning
+measures did not move at all, the reading in section 43 stands: **the prompt
+change altered wording, not behavior.** That conclusion rests on a weak
+instrument, so it is support rather than proof — but it points the same way as
+the hand-read examples.
+
+**Kept, behind a flag.** `--semantic` adds these signals; they are off by
+default because they need a running embedding model and are slower, and
+because a measure that scores 0.58 has no business in a default pipeline. They
+stay in the module rather than in a scratch file so this negative result can be
+re-checked with one command instead of being taken on trust.
+
+**What would actually work is no longer cheap**, which is the real conclusion
+of this section. The two remaining options both cost something: ask a model the
+narrow question directly ("does this reply ask the sender to do the thing they
+asked?"), showing it the incoming message — but section 35's follow-up found
+that adding context made the judge uniformly more generous without making it
+more discriminating, so that route needs its own validation against the hand
+codes before any number from it can be believed. Or code a second sample by
+hand, which is the November human-coding round the plan already contains. The
+free, automatic, meaning-aware measure that would have avoided both does not
+exist here.
+
+---
+
 ## What's next
 
 *(Rewritten Aug 31 — the previous version was written before the corpus
@@ -2387,21 +2462,32 @@ flagged rate 25.7% to 19.1%, p=.12). That is the same pattern as section
 32's length instruction: the model complies with the surface form an
 instruction names and not with the behavior it is about.
 
-**Next priority: a semantic version of the mirroring measure**, which
-section 43 turned from a nice-to-have into the thing blocking a clean
-answer. The lexical measure demonstrably scores a reply lower for saying
-the same thing in different words ("Send the list to Richard." became "Can
-you pass this along to Richard?"), so part of even the small improvement
-it reports is rephrasing rather than change.
+**The semantic version of that measure was tried and does not work
+(section 44).** Every meaning-level variant scores worse than counting
+borrowed words (0.71 and below, against 0.83), and it fails hardest on
+exactly the replies the lexical measure misses. It does confirm section
+43's reading — nothing moved on any measure — but as support, not proof.
+**There is no free automatic measure left to build here.** The two
+remaining routes both cost something: a model asked the narrow question
+with the incoming message shown, which needs its own validation first
+(section 35's follow-up shows what goes wrong otherwise), or a second
+hand-coded sample, which is the November round already in the plan.
+
+**Next priority is therefore yours to pick**, since the cheap technical
+work in this thread is finished. The strongest candidates are re-coding
+the 100-item packet (below), which unblocks both the reliability figure
+and the better automatic measure, and the four supervisor questions.
 
 **Ready to do:**
 
-- **Extend the mirroring measure past vocabulary.** Compare what the reply
-  *means* to what the incoming message means, not which words it reuses.
-  The embedding vectors are already cached, so this costs nothing, and it
-  is the only way to know how much of section 43's 6.6-point drop is real.
-  Re-scoring both generations with it is then a re-analysis, not a new
-  generation run.
+- **A model-based mirroring check, validated against the hand codes.** Ask
+  the judge model the narrow question — "does this reply ask the sender to
+  do the thing they asked?" — with the incoming message shown, and score
+  the same 100 coded replies to see whether it beats 0.834 before
+  trusting it anywhere. Not free in runtime, and section 35's follow-up is
+  the reason it needs validating rather than adopting. Scoring both
+  generations with it afterwards is a re-analysis, not a new generation
+  run.
 - **Re-code the 100-item review packet yourself** (section 35). The codes
   currently in `outputs/tables/manual_review_coded_first_pass.csv` are one
   reader's; two independent codings give an agreement statistic, which is

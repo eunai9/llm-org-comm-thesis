@@ -22,6 +22,7 @@ from thesis.analysis.mirroring import (
     load_nlp,
     longest_shared_run,
     score_texts,
+    semantic_echo,
     validate,
 )
 
@@ -140,6 +141,57 @@ def test_validate_scores_a_signal_pointing_the_wrong_way_below_chance() -> None:
     """A signal that ranks mirrored replies lowest must not be reported as good."""
     scored = pd.DataFrame({signal: [0.1, 0.1, 0.9, 0.9] for signal in SIGNALS})
     assert validate(scored, [True, True, False, False])["borrowed_words"] == 0.0
+
+
+# ---------------------------------------------------------------- semantic
+
+
+def _fake_embed(texts):  # type: ignore[no-untyped-def]
+    """One dimension per distinct text, so identical strings score 1.0 together.
+
+    Keeps the arithmetic testable without standing up an embedding server.
+    """
+    import numpy as np
+
+    vocabulary = {text: i for i, text in enumerate(dict.fromkeys(texts))}
+    vectors = np.zeros((len(texts), len(vocabulary)), dtype=float)
+    for row, text in enumerate(texts):
+        vectors[row, vocabulary[text]] = 1.0
+    return vectors
+
+
+def test_semantic_echo_is_highest_when_a_sentence_is_repeated() -> None:
+    repeated = "Could you check the swap form against the EEI form?"
+    scored = semantic_echo([repeated], [repeated], nlp=nlp, embed=_fake_embed)
+    assert scored["echo_any"].iloc[0] == pytest.approx(1.0)
+
+
+def test_semantic_echo_is_zero_when_nothing_matches() -> None:
+    scored = semantic_echo(
+        ["Could you check the swap form against the EEI form?"],
+        ["The counterparty signed yesterday afternoon."],
+        nlp=nlp,
+        embed=_fake_embed,
+    )
+    assert scored["echo_any"].iloc[0] == 0.0
+
+
+def test_semantic_echo_of_a_request_ignores_non_request_sentences() -> None:
+    """echo_request compares only against the sentences that ask for something."""
+    stimulus = "The counterparty signed yesterday afternoon. Could you send me the executed copy?"
+    scored = semantic_echo(
+        [stimulus],
+        ["The counterparty signed yesterday afternoon."],
+        nlp=nlp,
+        embed=_fake_embed,
+    )
+    assert scored["echo_any"].iloc[0] == pytest.approx(1.0)
+    assert scored["echo_request"].iloc[0] == 0.0
+
+
+def test_semantic_echo_on_an_empty_reply_scores_zero() -> None:
+    scored = semantic_echo(["Could you send it?"], [""], nlp=nlp, embed=_fake_embed)
+    assert scored["echo_any"].iloc[0] == 0.0
 
 
 # ------------------------------------------------------------- before/after

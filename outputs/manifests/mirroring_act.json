@@ -1,6 +1,8 @@
 {
   "auc_vs_hand_codes": {
     "borrowed_words": 0.834,
+    "echo_any": 0.706,
+    "echo_request": 0.579,
     "longest_repeat": 0.786,
     "returned_request": 0.667
   },

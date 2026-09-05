@@ -679,6 +679,27 @@ def main() -> None:
         legend_loc="lower left",
     )
 
+    # Section 44: every meaning-level signal scores worse than counting the
+    # words a reply borrows. Ordered worst-to-best is tempting, but the order
+    # here is the argument -- the simplest signal first, then the increasingly
+    # sophisticated ones that were expected to beat it and did not.
+    plot_discrimination_auc(
+        (
+            "words borrowed from the sender\n(counting words)",
+            "closest matching sentence\n(meaning)",
+            "closest matching request\n(meaning)",
+            "reply vs. whole message\n(meaning)",
+        ),
+        (0.834, 0.706, 0.579, 0.586),
+        path=DOCS_FIGURES_DIR / "mirroring_semantic_vs_lexical.png",
+        title="Counting words beats comparing meanings",
+        subtitle=(
+            "How well each signal finds the 25 replies a reader called mirroring, out of 100."
+        ),
+        x_label="how well the signal separates them",
+        chance_note="0.5 = no better than chance",
+    )
+
     # Section 35's guessing test, pinned to the values that section reports.
     # It cannot be regenerated from live data any more: the corpus it measured
     # was rebuilt on Aug 31, so its middle row -- the one that removes quoted

@@ -44,10 +44,11 @@ from __future__ import annotations
 import argparse
 import json
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import spacy
 from scipy import stats
@@ -64,6 +65,7 @@ from thesis.analysis.plots import (
 )
 from thesis.analysis.review_summary import DIRECTION_LABELS
 from thesis.data.features import is_imperative
+from thesis.llm.embeddings import embed_texts, l2_normalize
 from thesis.logging_setup import configure_logging, get_logger
 from thesis.paths import DOCS_FIGURES_DIR, MANIFESTS_DIR, TABLES_DIR, ensure_dirs
 
@@ -93,6 +95,15 @@ _SECOND_PERSON = re.compile(r"\byou\b|\byour\b", re.I)
 
 # Signals, in the order the write-up walks through them.
 SIGNALS: tuple[str, ...] = ("borrowed_words", "longest_repeat", "returned_request")
+
+# Meaning-level signals, computed only when asked for: they need a running
+# embedding model, and section 44 found every one of them worse than simply
+# counting borrowed words.
+SEMANTIC_SIGNALS: tuple[str, ...] = ("echo_any", "echo_request")
+
+# Below this, a "sentence" is a fragment or a header line, and embedding it
+# says more about the fragment than about the message.
+_MIN_SENTENCE_WORDS = 3
 
 
 @dataclass(frozen=True, slots=True)
@@ -214,7 +225,82 @@ def score_texts(
 def validate(scored: pd.DataFrame, is_mirrored: Sequence[bool]) -> dict[str, float]:
     """How well each signal separates the hand-coded mirrored replies from the rest."""
     labels = [int(value) for value in is_mirrored]
-    return {signal: round(float(roc_auc_score(labels, scored[signal])), 3) for signal in SIGNALS}
+    return {
+        signal: round(float(roc_auc_score(labels, scored[signal])), 3)
+        for signal in scored.columns
+        if signal in SIGNALS or signal in SEMANTIC_SIGNALS
+    }
+
+
+def semantic_echo(
+    stimuli: Sequence[str],
+    replies: Sequence[str],
+    *,
+    nlp: Language | None = None,
+    embed: Callable[[Sequence[str]], np.ndarray] = embed_texts,
+    max_stimulus_sentences: int = 25,
+) -> pd.DataFrame:
+    """Meaning-level echo: how close the reply comes to the message it answers.
+
+    Off the default path and behind ``--semantic``, because it **does not
+    work** and the point of keeping it is that the claim stays checkable
+    rather than resting on a scratch file someone has to take on trust. See
+    section 44: every variant here scores worse than counting borrowed words.
+
+    Two views, both computed sentence by sentence, since a whole-message
+    embedding of a long quoted chain is dominated by whatever the chain is
+    about:
+
+    - ``echo_any`` -- the closest any reply sentence comes to any sentence of
+      the incoming message.
+    - ``echo_request`` -- the same, but only against the sentences that
+      actually ask for something, which is the narrower claim about what
+      mirroring is.
+
+    Unlike the lexical signals this needs a running embedding model, which is
+    why ``embed`` is injectable: the tests exercise the arithmetic without
+    standing up Ollama.
+    """
+    nlp = nlp or load_nlp()
+    rows: list[dict[str, float]] = []
+    for stimulus, reply in zip(stimuli, replies, strict=True):
+        stimulus_doc, reply_doc = nlp(str(stimulus)), nlp(str(reply))
+        reply_sentences = _usable_sentences(reply_doc)
+        targets = {
+            "echo_any": _usable_sentences(stimulus_doc)[:max_stimulus_sentences],
+            "echo_request": [
+                sent.text.strip()
+                for sent in stimulus_doc.sents
+                if _is_request(sent) and len(sent.text.split()) >= _MIN_SENTENCE_WORDS
+            ][:max_stimulus_sentences],
+        }
+        rows.append(
+            {
+                name: _closest_match(target, reply_sentences, embed)
+                for name, target in targets.items()
+            }
+        )
+    return pd.DataFrame.from_records(rows)
+
+
+def _usable_sentences(doc: Doc) -> list[str]:
+    """Sentences long enough to embed meaningfully."""
+    return [
+        sent.text.strip() for sent in doc.sents if len(sent.text.split()) >= _MIN_SENTENCE_WORDS
+    ]
+
+
+def _closest_match(
+    targets: Sequence[str],
+    candidates: Sequence[str],
+    embed: Callable[[Sequence[str]], np.ndarray],
+) -> float:
+    """Highest cosine similarity between any candidate and any target."""
+    if not targets or not candidates:
+        return 0.0
+    vectors = l2_normalize(embed(list(targets) + list(candidates)))
+    similarities = vectors[len(targets) :] @ vectors[: len(targets)].T
+    return round(float(similarities.max()), 4)
 
 
 @dataclass(frozen=True, slots=True)
@@ -317,7 +403,11 @@ def compare_runs(
 
 
 def run(
-    pairs: pd.DataFrame, coded: pd.DataFrame, *, nlp: Language | None = None
+    pairs: pd.DataFrame,
+    coded: pd.DataFrame,
+    *,
+    nlp: Language | None = None,
+    semantic: bool = False,
 ) -> tuple[pd.DataFrame, dict[str, object]]:
     """Score every pair, validate against the hand codes, and summarize both.
 
@@ -346,7 +436,23 @@ def run(
         measured = score_texts(stimuli, replies, nlp=nlp).add_prefix(f"{name}_")
         scored = pd.concat([scored, measured], axis=1)
 
+    if semantic:
+        # Generated replies only. The point of the meaning-level signals is
+        # comparing one generation against another, and embedding the real
+        # replies as well would double a slow pass for a column nothing reads.
+        scored = pd.concat(
+            [scored, semantic_echo(stimuli, generated, nlp=nlp).add_prefix("generated_")], axis=1
+        )
+
     coded_scores = score_texts(coded["stimulus_text"], coded["generated_reply"], nlp=nlp)
+    if semantic:
+        coded_scores = pd.concat(
+            [
+                coded_scores,
+                semantic_echo(coded["stimulus_text"], coded["generated_reply"], nlp=nlp),
+            ],
+            axis=1,
+        )
     is_mirrored = (coded["failure_mode"] == "mirrors_request").tolist()
     aucs = validate(coded_scores, is_mirrored)
 
@@ -459,6 +565,11 @@ def main() -> None:
         help="Filename prefix for the figures, so a re-run does not overwrite reported ones.",
     )
     parser.add_argument(
+        "--semantic",
+        action="store_true",
+        help="Also score the meaning-level signals. Needs a running embedding model.",
+    )
+    parser.add_argument(
         "--manifest",
         default=str(MANIFESTS_DIR / "mirroring.json"),
         help="Where to write the summary. Give a re-run its own file, as with the figures.",
@@ -475,7 +586,7 @@ def main() -> None:
     ensure_dirs()
 
     pairs = pd.read_parquet(args.pairs)
-    scored, summary = run(pairs, pd.read_csv(args.coded))
+    scored, summary = run(pairs, pd.read_csv(args.coded), semantic=args.semantic)
     if args.compare_to:
         summary["compared_with_previous_prompt"] = asdict(
             compare_runs(pd.read_parquet(args.compare_to), pairs)
