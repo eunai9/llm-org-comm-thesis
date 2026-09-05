@@ -10,6 +10,31 @@ This is my AI agent workspace. I use it for my thesis: LLMs for Simulating Organ
 
 I am a master student majoring Statistics and Data Science. I am writing my master thesis with you. The readers will be professors, my supervisor, and experts in AI and data science.
 
+# Writing Style
+
+This is a rule, not a preference. Follow it in everything you write for me:
+chat replies, PROGRESS.md, commit messages, reports, code comments, and docstrings.
+
+The goal is that I understand the text on the first read.
+
+Do this:
+
+- Write short sentences. One idea per sentence.
+- Use the easiest word that is still correct.
+- Put the result first. Then the reason.
+- Use plain numbers and plain facts.
+
+Do not do this:
+
+- Do not write long sentences with many commas.
+- Do not use dashes to add extra clauses.
+- Do not write rhetorical or dramatic lines. Do not build up to a point.
+- Do not say the same thing twice in different words.
+- Do not add phrases that carry no information, like "it is worth noting that"
+  or "this is exactly the kind of thing that".
+
+I do not want elaborate writing. I dislike it. Being clear is the only goal.
+
 # Tech Stack
 
 - Python only, developed in an Ubuntu environment.
