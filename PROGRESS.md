@@ -32,6 +32,7 @@ you to read, not for a computer to run. Updated after each work session.
 | Does hierarchy shape what gets written? (Q1) | Re-run against the rebuilt corpus — mostly still null, one contrast now borderline, see section 39 |
 | Validation pass: embedding map, 100 replies read by hand | Done — see section 35 |
 | Measure the mirroring failure automatically | Done — see section 42 |
+| Fix the mirroring failure by instructing the persona | Tried and did not work — phrasing moved, behavior did not, see section 43 |
 | Quoted text left inside "cleaned" message bodies | **Fixed in code and rebuilt — see section 37** |
 | Get API keys / decide on budget | **Decided: staying free — see note below** |
 
@@ -2241,6 +2242,101 @@ effect is now a number rather than an impression.
 
 ---
 
+### 43. Telling the persona to act: the phrasing changed, the habit did not (Sep 5)
+
+With the measure from section 42 in place, made the change it was built to
+test. The persona prompt now says, in the cached prefix every reply is built
+from:
+
+> You are the person this message was sent to. If it asks you to do something,
+> decide something, or send something, then you are the one who has to act on
+> it: reply with what you will do, what you have decided, or what you genuinely
+> still need before you can act. Do not answer a request by putting the same
+> request back to the sender. Asking for something is fine when the message
+> truly did not give you what you need — it is not a way of handing the task
+> back.
+
+**The wording deliberately never mentions words, vocabulary, or repetition.**
+The measure is lexical, so an instruction like "do not reuse the sender's
+wording" would optimize the measure directly and the result would prove
+nothing. This instruction describes the behavior; the measure is left to
+notice or not.
+
+All 183 pairs were regenerated — same stimuli, same personas, same local
+model, one added paragraph. This is the fifth time the response cache has been
+invalidated, for the usual reason: the persona prompt is part of the text the
+cache keys on.
+
+**The failure it targeted did not move.**
+
+| | Before | After | Change | |
+|---|---:|---:|---:|---|
+| Mean share of the reply's words taken from the sender | 0.579 | 0.565 | −0.014 | p=.61 |
+| Replies built mostly from the sender's words | 25.7% | 19.1% | −6.6 pts | p=.12 |
+
+Paired reply by reply on the same stimuli — 31 replies stopped being flagged,
+19 started. The flagged rate moved in the right direction and the mean did not
+move at all; neither is distinguishable from noise.
+
+**Two things did move, and both are significant.**
+
+| | Before | After | |
+|---|---:|---:|---|
+| Replies phrased as a request | 49.7% | 38.8% | **p=.02** |
+| Reply length | 19.8 words | 22.7 words | **p=.0002** |
+
+![The instruction moved how replies are phrased, but not what they are built
+from.](docs/figures/act_instruction_before_after.png)
+
+So the model **did** read the instruction and **did** respond to it. It stopped
+phrasing so many replies as requests, and wrote a little more. It did not stop
+handing the task back — it learned to hand it back in a different grammatical
+costume:
+
+> **Before** — "Send the list to Richard."
+> **After** — "Can you pass this along to Richard? Thanks."
+
+That is the second reply scoring *lower* on the measure while doing exactly the
+same thing, which is worth stating plainly: **part of the 6.6-point drop is
+rephrasing, not improvement.** The lexical blind spot section 42 named as a
+limitation is not hypothetical — it is active in this very comparison, and it
+means the real improvement is smaller than the already-insignificant number
+suggests.
+
+Some replies did genuinely improve:
+
+> **Before** — "I'll take your 1 and 3 for my 1 and 4"
+> **After** — "I'll take my 1 and 4, but I need to check the numbers with legal
+> before finalizing."
+
+And some got worse — one reply went from asking a reasonable question to
+issuing the sender's own instruction back at them almost verbatim ("Please
+e-mail the agreement to your customer. If not, give me a name and phone
+number.").
+
+**This is the same finding as section 32, in a second domain.** There, the
+model ignored an explicit instruction about reply length. Here it half-follows
+an explicit instruction about who acts: it complies with the surface form the
+instruction names and not with the behavior the instruction is about. Two
+independent instructions, the same pattern. For a thesis about whether LLM
+agents can simulate organizational roles, **that is a more useful result than a
+prompt fix that worked would have been** — it says something about the limits
+of prompt-level control over a 3B open-weights model, which is a finding, where
+"we fixed it by asking nicely" would only have been housekeeping.
+
+**What this does not settle.** A larger model may well follow this instruction
+properly; that is decision 2 in the supervisor questions, not something this
+run can answer. And the honest reading of the negative result is bounded by the
+measure: a semantic version of it — the same reply meaning, not the same reply
+words — would catch the costume-change cases this one misses, and the embedding
+vectors for that are already cached.
+
+**Kept both generations.** The before and after pair files sit side by side in
+`data/interim/`, so this comparison can be re-run, and any future prompt change
+can be measured against either.
+
+---
+
 ## What's next
 
 *(Rewritten Aug 31 — the previous version was written before the corpus
@@ -2282,31 +2378,30 @@ memo, none blocking other work):
 41) — every result flagged stale after the corpus rebuild has been redone
 against it. There is no more re-analysis backlog from section 37 left.
 
-**The mirroring check now exists (section 42), so the persona
-act-instruction fix is next.** The measure needs no model call, agrees
-with the reader's codes closely at the group level, and already puts a
-baseline on the board: **25.7% of generated replies are built mostly from
-the sender's own words, against 7.1% of real replies of the same length.**
-That is the "before" number the prompt fix has to move.
+**The mirroring measure exists (section 42) and the prompt fix it was
+built to test has been run (section 43). The fix did not work.** Telling
+the persona it is the one who has to act moved how replies are phrased
+(fewer are worded as requests, p=.02) and made them slightly longer
+(p=.0002), but did not move the habit itself (mean unchanged, p=.61;
+flagged rate 25.7% to 19.1%, p=.12). That is the same pattern as section
+32's length instruction: the model complies with the surface form an
+instruction names and not with the behavior it is about.
+
+**Next priority: a semantic version of the mirroring measure**, which
+section 43 turned from a nice-to-have into the thing blocking a clean
+answer. The lexical measure demonstrably scores a reply lower for saying
+the same thing in different words ("Send the list to Richard." became "Can
+you pass this along to Richard?"), so part of even the small improvement
+it reports is rephrasing rather than change.
 
 **Ready to do:**
 
-- **Give the persona an explicit instruction that it is the one who must
-  act.** A quarter of replies hand the request back to the sender
-  (sections 35 and 42), which is the cheapest large improvement visible
-  anywhere in this project right now — and probably the reason replies are
-  one sentence long, which is what section 34 shows is breaking Q1's
-  outcome measure. The before/after is now measurable: re-run the pairs
-  with the changed persona prompt and compare against section 42's 0.579
-  mean and 25.7% flagged rate. Note that changing the persona prompt
-  invalidates the response cache again, so this is a fresh generation run
-  rather than a re-analysis.
-- **Extend the mirroring measure past vocabulary**, if the prompt fix
-  moves the lexical number but the replies still read wrong. Section 42's
-  measure misses mirroring that reuses the meaning without the words
-  ("Send the email to him", answering a request for an email address).
-  The embedding vectors are already cached, so a semantic version costs
-  nothing extra to try.
+- **Extend the mirroring measure past vocabulary.** Compare what the reply
+  *means* to what the incoming message means, not which words it reuses.
+  The embedding vectors are already cached, so this costs nothing, and it
+  is the only way to know how much of section 43's 6.6-point drop is real.
+  Re-scoring both generations with it is then a re-analysis, not a new
+  generation run.
 - **Re-code the 100-item review packet yourself** (section 35). The codes
   currently in `outputs/tables/manual_review_coded_first_pass.csv` are one
   reader's; two independent codings give an agreement statistic, which is

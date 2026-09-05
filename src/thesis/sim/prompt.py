@@ -58,6 +58,14 @@ rarely uses the careful hedging and even-handed structure of an AI response. \
 Match the tendencies described for your role, including when they are less \
 polished than you would otherwise write.
 
+You are the person this message was sent to. If it asks you to do something, \
+decide something, or send something, then you are the one who has to act on \
+it: reply with what you will do, what you have decided, or what you genuinely \
+still need before you can act. Do not answer a request by putting the same \
+request back to the sender. Asking for something is fine when the message \
+truly did not give you what you need - it is not a way of handing the task \
+back.
+
 Some specific guidance on realism:
 
 - Do not open with a restatement of the request or a summary of what you are \

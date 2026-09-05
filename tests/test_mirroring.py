@@ -16,6 +16,7 @@ import pytest
 
 from thesis.analysis.mirroring import (
     SIGNALS,
+    compare_runs,
     contains_request,
     features_for,
     load_nlp,
@@ -139,3 +140,48 @@ def test_validate_scores_a_signal_pointing_the_wrong_way_below_chance() -> None:
     """A signal that ranks mirrored replies lowest must not be reported as good."""
     scored = pd.DataFrame({signal: [0.1, 0.1, 0.9, 0.9] for signal in SIGNALS})
     assert validate(scored, [True, True, False, False])["borrowed_words"] == 0.0
+
+
+# ------------------------------------------------------------- before/after
+
+
+def _run_frame(replies: list[str]) -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "cell_id": [f"c{i}" for i in range(len(replies))],
+            "stimulus_text": [STIMULUS] * len(replies),
+            "generated_reply": replies,
+        }
+    )
+
+
+HANDS_BACK = "Can you get the most current swap form from Tana and check it against the EEI form?"
+ACTS = "I pulled both forms this morning. The indemnity wording differs, so I have asked outside counsel to look at it."
+
+
+def test_comparison_detects_a_prompt_change_that_helps() -> None:
+    result = compare_runs(_run_frame([HANDS_BACK, HANDS_BACK]), _run_frame([ACTS, ACTS]), nlp=nlp)
+    assert result.borrowed_words.after < result.borrowed_words.before
+    assert result.borrowed_words.change < 0
+
+
+def test_comparison_pairs_on_cell_id_rather_than_row_order() -> None:
+    """Row order differing between runs must not silently misalign the pairs."""
+    before = _run_frame([HANDS_BACK, ACTS])
+    after = _run_frame([HANDS_BACK, ACTS]).iloc[::-1].reset_index(drop=True)
+    result = compare_runs(before, after, nlp=nlp)
+    assert result.borrowed_words.change == 0.0
+
+
+def test_comparison_reports_no_change_when_the_replies_are_identical() -> None:
+    frame = _run_frame([HANDS_BACK, ACTS])
+    result = compare_runs(frame, frame.copy(), nlp=nlp)
+    assert result.borrowed_words.change == 0.0
+    assert result.borrowed_words.p_value == 1.0
+
+
+def test_comparison_refuses_two_runs_with_no_shared_cells() -> None:
+    before = _run_frame([HANDS_BACK])
+    after = _run_frame([ACTS]).assign(cell_id=["different"])
+    with pytest.raises(ValueError, match="not the same design"):
+        compare_runs(before, after, nlp=nlp)

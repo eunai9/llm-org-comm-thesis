@@ -1,0 +1,58 @@
+{
+  "auc_vs_hand_codes": {
+    "borrowed_words": 0.834,
+    "longest_repeat": 0.786,
+    "returned_request": 0.667
+  },
+  "compared_with_previous_prompt": {
+    "borrowed_words": {
+      "after": 0.565,
+      "before": 0.579,
+      "change": -0.014,
+      "p_value": 0.6088
+    },
+    "flagged_share": {
+      "after": 0.191,
+      "before": 0.257,
+      "change": -0.066,
+      "p_value": 0.1189
+    },
+    "n_paired": 183,
+    "newly_flagged": 19,
+    "no_longer_flagged": 31,
+    "reply_words": {
+      "after": 22.7,
+      "before": 19.8,
+      "change": 2.9,
+      "p_value": NaN
+    }
+  },
+  "flagged_rate_by_direction": {
+    "down": {
+      "n": 51,
+      "rate": 0.196
+    },
+    "lateral": {
+      "n": 95,
+      "rate": 0.179
+    },
+    "up": {
+      "n": 37,
+      "rate": 0.216
+    }
+  },
+  "headline_signal": "borrowed_words",
+  "mean_borrowed_words": {
+    "generated": 0.565,
+    "real": 0.301,
+    "real_length_matched": 0.294
+  },
+  "n_hand_coded": 100,
+  "n_pairs": 183,
+  "share_over_threshold": {
+    "generated": 0.191,
+    "real_length_matched": 0.098
+  },
+  "threshold": 0.8,
+  "threshold_chosen_on_the_coded_sample": true
+}

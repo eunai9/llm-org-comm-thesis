@@ -50,6 +50,7 @@ from pathlib import Path
 
 import pandas as pd
 import spacy
+from scipy import stats
 from sklearn.metrics import roc_auc_score
 from spacy.language import Language
 from spacy.tokens import Doc, Span
@@ -216,6 +217,105 @@ def validate(scored: pd.DataFrame, is_mirrored: Sequence[bool]) -> dict[str, flo
     return {signal: round(float(roc_auc_score(labels, scored[signal])), 3) for signal in SIGNALS}
 
 
+@dataclass(frozen=True, slots=True)
+class MeasureChange:
+    """One quantity, before and after, with the paired test on the difference."""
+
+    before: float
+    after: float
+    change: float
+    p_value: float
+
+
+@dataclass(frozen=True, slots=True)
+class RunComparison:
+    """What a prompt change did to the mirroring measure, on the same stimuli."""
+
+    n_paired: int
+    borrowed_words: MeasureChange
+    flagged_share: MeasureChange
+    newly_flagged: int
+    no_longer_flagged: int
+    reply_words: MeasureChange
+
+
+def compare_runs(
+    before: pd.DataFrame, after: pd.DataFrame, *, nlp: Language | None = None
+) -> RunComparison:
+    """Did a prompt change move the measure, on the same stimuli?
+
+    Paired by ``cell_id``: the same persona answering the same real message
+    under two prompts, so the comparison holds everything except the prompt
+    fixed and the test can be a signed-rank on the per-reply difference rather
+    than a two-sample test that throws that pairing away.
+
+    Reported alongside it is McNemar's test on the flagged/not-flagged pairs,
+    which is the right test for "did the *rate* move" when the same items are
+    counted twice -- a chi-square would treat the two runs as independent
+    samples and overstate the evidence.
+    """
+    nlp = nlp or load_nlp()
+    merged = before.merge(after, on="cell_id", suffixes=("_before", "_after"))
+    if merged.empty:
+        msg = "no cell_id appears in both runs; the two files are not the same design"
+        raise ValueError(msg)
+
+    scores = {
+        arm: score_texts(merged[f"stimulus_text_{arm}"], merged[f"generated_reply_{arm}"], nlp=nlp)[
+            HEADLINE_SIGNAL
+        ]
+        for arm in ("before", "after")
+    }
+    difference = scores["after"] - scores["before"]
+    # Every reply identical would make the signed-rank test undefined; that is
+    # a real outcome (the prompt changed nothing), not an error to raise on.
+    p_value = (
+        float(stats.wilcoxon(scores["after"], scores["before"]).pvalue) if difference.any() else 1.0
+    )
+
+    flagged = {arm: scores[arm] >= HIGH_OVERLAP for arm in ("before", "after")}
+    moved_up = int((~flagged["before"] & flagged["after"]).sum())
+    moved_down = int((flagged["before"] & ~flagged["after"]).sum())
+    mcnemar = (
+        float(stats.binomtest(moved_down, moved_down + moved_up, 0.5).pvalue)
+        if moved_down + moved_up
+        else 1.0
+    )
+
+    words = {
+        arm: float(merged[f"generated_reply_{arm}"].str.split().str.len().mean())
+        for arm in ("before", "after")
+    }
+
+    return RunComparison(
+        n_paired=len(merged),
+        borrowed_words=MeasureChange(
+            before=round(float(scores["before"].mean()), 3),
+            after=round(float(scores["after"].mean()), 3),
+            change=round(float(difference.mean()), 3),
+            p_value=round(p_value, 4),
+        ),
+        flagged_share=MeasureChange(
+            before=round(float(flagged["before"].mean()), 3),
+            after=round(float(flagged["after"].mean()), 3),
+            change=round(float(flagged["after"].mean() - flagged["before"].mean()), 3),
+            p_value=round(mcnemar, 4),
+        ),
+        newly_flagged=moved_up,
+        no_longer_flagged=moved_down,
+        # No test on length: it is reported because a prompt that cures
+        # mirroring by making replies longer is a different result from one
+        # that cures it at the same length, not because length is an outcome
+        # this comparison is designed to test.
+        reply_words=MeasureChange(
+            before=round(words["before"], 1),
+            after=round(words["after"], 1),
+            change=round(words["after"] - words["before"], 1),
+            p_value=float("nan"),
+        ),
+    )
+
+
 def run(
     pairs: pd.DataFrame, coded: pd.DataFrame, *, nlp: Language | None = None
 ) -> tuple[pd.DataFrame, dict[str, object]]:
@@ -282,8 +382,14 @@ def run(
     return scored, summary
 
 
-def plot(scored: pd.DataFrame, summary: dict[str, object]) -> list[Path]:
-    """Three figures: what the measure detects, what it finds, and where."""
+def plot(
+    scored: pd.DataFrame, summary: dict[str, object], *, figure_prefix: str = "mirroring_"
+) -> list[Path]:
+    """Three figures: what the measure detects, what it finds, and where.
+
+    ``figure_prefix`` keeps a re-run on a different generation from overwriting
+    the figures an already-written section points at.
+    """
     aucs: dict[str, float] = summary["auc_vs_hand_codes"]  # type: ignore[assignment]
     paths = [
         plot_discrimination_auc(
@@ -293,7 +399,7 @@ def plot(scored: pd.DataFrame, summary: dict[str, object]) -> list[Path]:
                 "both sides ask\nfor something",
             ),
             (aucs["borrowed_words"], aucs["longest_repeat"], aucs["returned_request"]),
-            path=DOCS_FIGURES_DIR / "mirroring_signal_auc.png",
+            path=DOCS_FIGURES_DIR / f"{figure_prefix}signal_auc.png",
             title="Which signal finds the replies a reader called mirroring?",
             subtitle=(
                 "Checked against 100 hand-coded replies. 0.5 = the signal tells them apart "
@@ -309,7 +415,7 @@ def plot(scored: pd.DataFrame, summary: dict[str, object]) -> list[Path]:
                     "real_length_matched_borrowed_words"
                 ].tolist(),
             },
-            path=DOCS_FIGURES_DIR / "mirroring_generated_vs_real.png",
+            path=DOCS_FIGURES_DIR / f"{figure_prefix}generated_vs_real.png",
             title="How much of a reply is built from the sender's own words?",
             subtitle=(
                 "Share of the reply's distinct content words that already appeared in the "
@@ -329,7 +435,7 @@ def plot(scored: pd.DataFrame, summary: dict[str, object]) -> list[Path]:
                 for key in order
             ],
             [round(by_direction[key]["rate"] * 100) for key in order],
-            DOCS_FIGURES_DIR / "mirroring_rate_by_direction.png",
+            DOCS_FIGURES_DIR / f"{figure_prefix}rate_by_direction.png",
             title="Replies built mostly from the sender's own words, by who is written to",
             subtitle=(
                 f"Share scoring at or above {HIGH_OVERLAP:.2f}. That cut-off was chosen by "
@@ -347,18 +453,37 @@ def main() -> None:
     parser.add_argument("--pairs", default=str(PAIRS_PATH))
     parser.add_argument("--coded", default=str(CODED_PATH))
     parser.add_argument("--out", default=str(TABLES_DIR / "mirroring_scores.csv"))
+    parser.add_argument(
+        "--figure-prefix",
+        default="mirroring_",
+        help="Filename prefix for the figures, so a re-run does not overwrite reported ones.",
+    )
+    parser.add_argument(
+        "--manifest",
+        default=str(MANIFESTS_DIR / "mirroring.json"),
+        help="Where to write the summary. Give a re-run its own file, as with the figures.",
+    )
+    parser.add_argument(
+        "--compare-to",
+        default=None,
+        metavar="PAIRS",
+        help="A second pairs file to compare against, paired by cell_id.",
+    )
     args = parser.parse_args()
 
     configure_logging()
     ensure_dirs()
 
-    scored, summary = run(pd.read_parquet(args.pairs), pd.read_csv(args.coded))
+    pairs = pd.read_parquet(args.pairs)
+    scored, summary = run(pairs, pd.read_csv(args.coded))
+    if args.compare_to:
+        summary["compared_with_previous_prompt"] = asdict(
+            compare_runs(pd.read_parquet(args.compare_to), pairs)
+        )
     scored.to_csv(args.out, index=False)
-    for path in plot(scored, summary):
+    for path in plot(scored, summary, figure_prefix=args.figure_prefix):
         log.info("wrote %s", path)
-    (MANIFESTS_DIR / "mirroring.json").write_text(
-        json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8"
-    )
+    Path(args.manifest).write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
     log.info("mirroring summary: %s", json.dumps(summary))
 
 

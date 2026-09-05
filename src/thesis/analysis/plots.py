@@ -658,6 +658,27 @@ def main() -> None:
         y_label="predicted probability (sentence-level)",
     )
 
+    # Section 43: what the "you are the one who has to act" instruction moved.
+    # Two lines rather than one, because the finding is the difference between
+    # them -- the model changed how it phrases a reply and did not change what
+    # the reply does. A single line would show a drop and imply the fix worked.
+    plot_factor_interaction(
+        ("before the instruction", "after it"),
+        {
+            "phrased as a request (p=.02)": (49.7, 38.8),
+            "built from the sender's words (p=.12)": (25.7, 19.1),
+        },
+        path=DOCS_FIGURES_DIR / "act_instruction_before_after.png",
+        title="Telling the persona it is the one who must act",
+        subtitle=(
+            "Same 183 stimuli, same model, one added instruction. Phrasing moved; "
+            "the underlying habit did not."
+        ),
+        x_label="what the persona was told",
+        y_label="% of replies",
+        legend_loc="lower left",
+    )
+
     # Section 35's guessing test, pinned to the values that section reports.
     # It cannot be regenerated from live data any more: the corpus it measured
     # was rebuilt on Aug 31, so its middle row -- the one that removes quoted
