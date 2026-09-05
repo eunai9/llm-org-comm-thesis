@@ -168,48 +168,68 @@ def _view(
     return result, real_vectors, generated_vectors
 
 
-def run(frame: pd.DataFrame, *, embed_model: str = DEFAULT_EMBED_MODEL) -> dict[str, object]:
+def run(
+    frame: pd.DataFrame,
+    *,
+    embed_model: str = DEFAULT_EMBED_MODEL,
+    figure_prefix: str = "embedding_",
+) -> dict[str, object]:
     """Produce the maps, the separability bars, and the topical-tracking check.
 
-    Three successively fairer versions of the same comparison, so that whatever
-    separability remains at the end cannot be attributed to the two obvious
-    formatting confounds:
+    Successively fairer versions of the same comparison, so that whatever
+    separability remains at the end cannot be attributed to a formatting
+    confound rather than to how the two actually write:
 
-    1. the real reply exactly as the corpus stores it, quoted ancestors and all;
-    2. the same reply with quoted material removed by the current cleaner;
+    1. the real reply exactly as the corpus stores it;
+    2. the same reply with any quoted ancestor removed by the current cleaner;
     3. that, truncated to the generated reply's own word count.
+
+    **Step 2 disappears once the corpus itself is clean**, and that is the
+    normal case after the Aug 31 rebuild: re-cleaning already-clean text is the
+    identity, so drawing it as a separate bar would invite the reader to
+    compare two numbers that are the same measurement twice. It is reported as
+    skipped instead.
+
+    ``figure_prefix`` names the figures. Re-running this against new data must
+    not overwrite the figures a written-up section already points at -- the
+    same reason the judge figures carry a per-run suffix.
     """
     stored_texts = list(frame["real_reply_body"])
     real_texts = list(frame["real_reply_body_recleaned"])
     generated_texts = list(frame["generated_reply"])
+    quotes_already_stripped = stored_texts == real_texts
+    n_pairs = len(frame)
 
-    stored, _, _ = _view(
+    stored, real_vectors, generated_vectors = _view(
         frame,
         stored_texts,
         generated_texts,
         view="as stored",
         embed_model=embed_model,
-        figure_path=DOCS_FIGURES_DIR / "embedding_map_stored.png",
+        figure_path=DOCS_FIGURES_DIR / f"{figure_prefix}map_stored.png",
         title="Real and generated replies to the same messages, embedded",
         subtitle=(
-            "Real replies as the corpus stores them, quoted ancestors included. "
-            "t-SNE, n=190 pairs; read for overlap only."
+            f"Real replies as the corpus stores them. t-SNE, n={n_pairs} pairs; "
+            "read for overlap only."
         ),
     )
 
-    cleaned, real_vectors, generated_vectors = _view(
-        frame,
-        real_texts,
-        generated_texts,
-        view="quotes removed",
-        embed_model=embed_model,
-        figure_path=DOCS_FIGURES_DIR / "embedding_map_quotes_removed.png",
-        title="The same comparison once quoted ancestors are removed",
-        subtitle=(
-            "Real replies re-cleaned with the current quote stripper. "
-            "60% of them carried a quoted chain before this."
-        ),
-    )
+    views = [stored]
+    bars: list[tuple[str, float]] = [("1. real reply as stored", stored.separability_auc)]
+
+    if not quotes_already_stripped:
+        cleaned, real_vectors, generated_vectors = _view(
+            frame,
+            real_texts,
+            generated_texts,
+            view="quotes removed",
+            embed_model=embed_model,
+            figure_path=DOCS_FIGURES_DIR / f"{figure_prefix}map_quotes_removed.png",
+            title="The same comparison once quoted ancestors are removed",
+            subtitle="Real replies re-cleaned with the current quote stripper.",
+        )
+        views.append(cleaned)
+        bars.append(("2. old quoted email cut off", cleaned.separability_auc))
 
     truncated = [
         truncate_words(real, len(generated.split()))
@@ -219,25 +239,31 @@ def run(frame: pd.DataFrame, *, embed_model: str = DEFAULT_EMBED_MODEL) -> dict[
         frame,
         truncated,
         generated_texts,
-        view="quotes removed, length-matched",
+        view="length-matched",
         embed_model=embed_model,
-        figure_path=DOCS_FIGURES_DIR / "embedding_map_length_matched.png",
-        title="The same comparison with reply length also held equal",
+        figure_path=DOCS_FIGURES_DIR / f"{figure_prefix}map_length_matched.png",
+        title="The same comparison with reply length held equal",
         subtitle=(
-            "Each real reply truncated to its own pair's generated word count. "
-            "Separation surviving this is neither quoting nor length."
+            "Each real reply cut to its own pair's generated word count. "
+            "Separation surviving this is not about length."
         ),
+    )
+    views.append(matched)
+    bars.append(
+        (f"{len(bars) + 1}. also cut to the same\nlength as the AI reply", matched.separability_auc)
     )
 
     plot_discrimination_auc(
-        ("as stored", "quotes removed", "quotes removed,\nlength-matched"),
-        (stored.separability_auc, cleaned.separability_auc, matched.separability_auc),
-        path=DOCS_FIGURES_DIR / "embedding_separability_auc.png",
-        title="Separability in embedding space under successively fairer comparisons",
+        [label for label, _ in bars],
+        [value for _, value in bars],
+        path=DOCS_FIGURES_DIR / f"{figure_prefix}separability_auc.png",
+        title="Can a program tell a real reply from an AI one?",
         subtitle=(
-            "Linear classifier on sentence embeddings, 5-fold cross-validation "
-            "grouped by thread."
+            "How often it guesses right. Each row takes away one clue that is not about "
+            "writing style."
         ),
+        x_label="how often the program guessed right",
+        chance_note="0.5 = pure guessing",
     )
 
     matched_cos, mismatched_cos = matched_vs_mismatched_cosine(real_vectors, generated_vectors)
@@ -246,9 +272,9 @@ def run(frame: pd.DataFrame, *, embed_model: str = DEFAULT_EMBED_MODEL) -> dict[
             "generated vs. its own real reply": matched_cos.tolist(),
             "generated vs. another thread's real reply": mismatched_cos.tolist(),
         },
-        path=DOCS_FIGURES_DIR / "embedding_topical_tracking.png",
+        path=DOCS_FIGURES_DIR / f"{figure_prefix}topical_tracking.png",
         title="Does a generated reply track the message it was answering?",
-        subtitle="Cosine similarity in embedding space, n=190 each.",
+        subtitle=f"Cosine similarity in embedding space, n={n_pairs} each.",
         x_label="cosine similarity",
         annotate_distinct=False,
     )
@@ -256,7 +282,8 @@ def run(frame: pd.DataFrame, *, embed_model: str = DEFAULT_EMBED_MODEL) -> dict[
     return {
         "embedding_model": embed_model,
         "seed": SEED,
-        "views": [asdict(stored), asdict(cleaned), asdict(matched)],
+        "quotes_already_stripped": quotes_already_stripped,
+        "views": [asdict(view) for view in views],
         "topical_tracking": {
             "mean_cosine_matched": round(float(np.mean(matched_cos)), 3),
             "mean_cosine_mismatched": round(float(np.mean(mismatched_cos)), 3),
@@ -269,6 +296,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pairs", default=str(PAIRS_PATH))
     parser.add_argument("--embed-model", default=DEFAULT_EMBED_MODEL)
+    parser.add_argument(
+        "--figure-prefix",
+        default="embedding_",
+        help="Filename prefix for the figures, so a re-run does not overwrite reported ones.",
+    )
     parser.add_argument("--out", default=str(MANIFESTS_DIR / "embedding_map.json"))
     args = parser.parse_args()
 
@@ -276,7 +308,7 @@ def main() -> None:
     ensure_dirs()
 
     frame = pd.read_parquet(args.pairs)
-    summary = run(frame, embed_model=args.embed_model)
+    summary = run(frame, embed_model=args.embed_model, figure_prefix=args.figure_prefix)
 
     out = Path(args.out)
     out.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")

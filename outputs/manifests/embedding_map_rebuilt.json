@@ -1,0 +1,26 @@
+{
+  "embedding_model": "nomic-embed-text",
+  "quotes_already_stripped": true,
+  "seed": 20260830,
+  "topical_tracking": {
+    "mean_cosine_matched": 0.582,
+    "mean_cosine_mismatched": 0.465,
+    "share_matched_higher": 0.858
+  },
+  "views": [
+    {
+      "mean_generated_words": 19.8,
+      "mean_real_words": 65.0,
+      "n_pairs": 183,
+      "separability_auc": 0.882,
+      "view": "as stored"
+    },
+    {
+      "mean_generated_words": 19.8,
+      "mean_real_words": 19.0,
+      "n_pairs": 183,
+      "separability_auc": 0.813,
+      "view": "length-matched"
+    }
+  ]
+}

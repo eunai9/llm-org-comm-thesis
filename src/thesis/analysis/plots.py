@@ -249,8 +249,16 @@ def plot_discrimination_auc(
     *,
     title: str = "Model-free discrimination: can a word-count classifier tell them apart?",
     subtitle: str = "",
+    x_label: str = "AUC",
+    chance_note: str = "0.5 = indistinguishable",
 ) -> Path:
     """Horizontal bars measuring distance above chance.
+
+    ``x_label`` and ``chance_note`` are settable because the same chart serves
+    two audiences. "AUC" is the right word in a methods chapter and the wrong
+    one in a memo for a reader meeting the measure for the first time, who
+    needs "how often it guessed right" and an explicit "0.5 = pure guessing".
+    The picture is identical either way; only the words change.
 
     **Anchored at 0.5, not 0.** An AUC of 0 is not "no separation" -- 0.5
     is, and a bar drawn from zero encodes half its length as meaning that
@@ -282,7 +290,7 @@ def plot_discrimination_auc(
     ax.barh(y, [a - 0.5 for a in aucs], left=0.5, height=0.34, color=SERIES_1, zorder=2)
     ax.axvline(0.5, color=BASELINE, linewidth=1.5, zorder=3)
     ax.annotate(
-        "0.5 = indistinguishable",
+        chance_note,
         (0.5, max(y) + 0.55),
         textcoords="offset points",
         xytext=(6, 0),
@@ -305,7 +313,7 @@ def plot_discrimination_auc(
     ax.set_yticks(y, list(labels))
     ax.set_xlim(0.5, 1.0)
     ax.set_ylim(-0.6, max(y) + 0.9)
-    ax.set_xlabel("AUC", color=INK_SECONDARY, fontsize=9.5)
+    ax.set_xlabel(x_label, color=INK_SECONDARY, fontsize=9.5)
     return _finish(fig, ax, title, subtitle, path)
 
 
@@ -648,6 +656,29 @@ def main() -> None:
         subtitle="Sentence-level predicted probability of an imperative sentence. 'Writing up' now differs from lateral at p=.046.",
         x_label="who the persona is writing to",
         y_label="predicted probability (sentence-level)",
+    )
+
+    # Section 35's guessing test, pinned to the values that section reports.
+    # It cannot be regenerated from live data any more: the corpus it measured
+    # was rebuilt on Aug 31, so its middle row -- the one that removes quoted
+    # text -- no longer exists as a distinct condition. Pinning it here is the
+    # same choice the figures above make, and it is what keeps the picture and
+    # the section's own table saying the same thing.
+    plot_discrimination_auc(
+        (
+            "1. real reply as stored",
+            "2. old quoted email cut off",
+            "3. also cut to the same\nlength as the AI reply",
+        ),
+        (0.963, 0.844, 0.812),
+        path=DOCS_FIGURES_DIR / "embedding_separability_auc.png",
+        title="Can a program tell a real reply from an AI one?",
+        subtitle=(
+            "How often it guesses right. Each row takes away one clue that is not about "
+            "writing style."
+        ),
+        x_label="how often the program guessed right",
+        chance_note="0.5 = pure guessing",
     )
 
     # Section 41: the judge-swap self-preference pilot (section 23),

@@ -1469,32 +1469,42 @@ center.
 ![Real and generated replies to the same 190 messages, embedded and
 projected with t-SNE. The clouds overlap substantially.](docs/figures/embedding_map_quotes_removed.png)
 
-**A t-SNE plot cannot answer the question it appears to answer.** Overlap
-in two dimensions does not mean the groups cannot be told apart in the
-original 768, and here they demonstrably can be: a plain linear classifier
-fitted on the same vectors, cross-validated with each real/generated pair
-kept inside one fold, separates them at **AUC 0.844** — nowhere near the
-0.5 the picture suggests. So the map is reported *with* the classifier
-number beside it, and the honest reading is "the model writes email that
-lives in the same neighborhood, in a recognizably different dialect."
+**The picture cannot answer the question it looks like it answers.** Here
+is a harder test. Hide the labels, hand all 380 replies to a simple
+program, and ask it to guess which ones a person wrote. The score is how
+often it guesses right: **0.5 means it is guessing blindly, 1.0 means it
+is right every time.** On these replies it scores **0.844** — far from
+blind guessing, even though the picture above makes the two groups look
+mixed together. So the map is only ever reported *with* that number next
+to it. The honest reading: the model writes email that belongs to the same
+world, in a noticeably different voice.
 
-That number is also the fairest of three, and the sequence itself is the
-finding:
+The test was run three times. Each round takes away one clue that has
+nothing to do with how the writer writes, so each round is fairer than the
+one before:
 
-| Comparison | AUC | Mean real-reply length |
+| What the program was shown | How often it guessed right | Length of the real reply |
 |---|---:|---:|
-| Real reply as the corpus stores it | 0.963 | 79.3 words |
-| Quoted ancestors removed | 0.844 | 54.4 words |
-| Quotes removed **and** length matched | 0.812 | 17.9 words |
+| 1. The real reply exactly as the corpus stores it | 0.963 | 79.3 words |
+| 2. With the old quoted email cut off the bottom | 0.844 | 54.4 words |
+| 3. Also cut to the same length as its AI partner | 0.812 | 17.9 words |
 
-![Separability under three successively fairer comparisons.](docs/figures/embedding_separability_auc.png)
+![Three rounds of the guessing test, each fairer than the last: 0.963, then 0.844, then 0.812.](docs/figures/embedding_separability_auc.png)
 
-The same recalculation on the *model-free* TF-IDF classifier this log has
-quoted before moves it from **0.969 to 0.906**, and length alone from
-0.931 to **0.809**. The earlier conclusion — real and generated replies
-are highly separable, largely on length — still holds. Its size was
-overstated, and section 32's "nearly perfectly separable" should be read
-as 0.91, not 0.98.
+Round 1 is easy for the wrong reason. Real replies still had the earlier
+email quoted underneath them, and an AI reply never has that — so the
+program was partly spotting "this one has an old email stuck to it", not
+"a person wrote this". Round 2 cuts that off. Real replies are also much
+longer, and length by itself is a giveaway, so round 3 cuts every real
+reply down to the length of its AI partner.
+
+**What is left at 0.81 is a real difference in how the two write.** But
+the first number oversold how big that difference is. The older version of
+this test in this log moves the same way when recalculated — from **0.969
+to 0.906**, and length alone from 0.931 to **0.809**. The earlier
+conclusion still holds: real and AI replies are easy to tell apart, mostly
+by length. Its size was overstated, and section 32's "nearly perfectly
+separable" should be read as 0.91, not 0.98.
 
 #### The replies really are answering their own stimulus
 
@@ -1981,6 +1991,45 @@ feature-extraction glue — the model-fitting itself is already tested in
 `test_hierarchy.py`. The next corpus or persona change can be checked
 with one command instead of redoing this archaeology again. 505 tests
 pass, ruff/black/mypy clean.
+
+---
+
+### 40. The embedding check, re-run on the rebuilt corpus (Sep 4)
+
+Section 35's embedding check was the one part of that session never re-run
+after the corpus rebuild. Re-ran it. It costs nothing — the replies come
+from cache and the embedding model is local.
+
+**It is now a two-round test, not three.** Round 2 in section 35 was "cut
+the old quoted email off the real reply". The rebuild (section 37) does
+that to the corpus itself, so re-cleaning the stored text now changes
+nothing at all — the code checks this and skips the round instead of
+drawing the same measurement twice as two bars.
+
+| What the program was shown | How often it guessed right | Length of the real reply |
+|---|---:|---:|
+| 1. The real reply as the corpus now stores it | 0.882 | 65.0 words |
+| 2. Also cut to the same length as its AI partner | 0.813 | 19.0 words |
+
+![Two rounds of the guessing test on the rebuilt corpus: 0.882, then 0.813.](docs/figures/embedding_rebuilt_separability_auc.png)
+
+Read against section 35's 0.963 / 0.844 / 0.812, this is the same story
+with the middle step already done for us. The first number falls from
+0.963 to 0.882 because the corpus no longer hands the program a free clue,
+and **the number that matters barely moves: 0.812 → 0.813**. That was the
+point of that round — it was already the fair one — so the corpus fix
+changed how the test looks, not what it says.
+
+**Topical tracking holds and improves slightly.** A generated reply is
+still closer to the real reply it was matched with (mean cosine 0.582)
+than to a real reply from another thread (0.465), and now **86% of replies
+are closer to their own**, up from 81%.
+
+Figures from this run are prefixed `embedding_rebuilt_`, and section 35's
+keep their own names. Re-running the analysis can no longer overwrite a
+figure that a written-up section points at, which is how the picture above
+section 35's table came to disagree with the table itself for a few
+minutes today.
 
 ---
 
