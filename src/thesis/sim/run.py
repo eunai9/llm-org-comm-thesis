@@ -301,8 +301,14 @@ def run_grid(
     cache: ResponseCache,
     ledger: CostLedger,
     manifest: RunManifest,
+    progress_every: int = 100,
 ) -> list[dict[str, Any]]:
-    """Generate every cell, serving from cache where possible."""
+    """Generate every cell, serving from cache where possible.
+
+    ``progress_every`` sets how often a progress line is logged. A short run
+    that never reaches the default would otherwise log nothing at all, which
+    looks the same as a hung run to anyone watching the log.
+    """
     rows: list[dict[str, Any]] = []
     totals = Usage()
 
@@ -358,7 +364,7 @@ def run_grid(
         if is_stub_model(response.model) or is_local_model(response.model):
             manifest.offline = True
 
-        if index % 100 == 0:
+        if progress_every > 0 and index % progress_every == 0:
             log.info(
                 "%d/%d cells (%d cached, %d generated)",
                 index,

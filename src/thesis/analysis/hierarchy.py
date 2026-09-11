@@ -52,6 +52,15 @@ actually has: one binary observation per *sentence* (is this sentence
 imperative?) in a logistic mixed model with a random intercept per persona,
 rather than dividing a small integer by a smaller one first and losing most
 of the sample's information to rounding.
+
+**Every factor above is categorical. One question needs a continuous one.**
+A dose-response design states a number in the prompt and asks how much the
+output moves. Coding five target lengths as five unordered levels throws
+away the ordering and gives four contrasts instead of one slope.
+:func:`fit_dose_response_model` fits the dose as a continuous predictor, so
+the answer is a single number. With both sides logged that number is an
+elasticity: 1 means the output tracks the instruction exactly, 0 means the
+instruction does nothing.
 """
 
 from __future__ import annotations
@@ -310,6 +319,86 @@ def fit_sentence_level_model(
         posterior_sd=posterior_sd,
         p_values=p_values,
         group_sd=float(np.exp(fit.vcp_mean[0])),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class DoseResponseResult:
+    """One fitted ``outcome ~ dose`` model, random intercept per item.
+
+    ``slope`` is how much the outcome moves when the dose moves by one unit.
+    Log both sides before fitting and the slope is an elasticity: 1 means the
+    outcome tracks the dose exactly, 0 means the dose does nothing, and 0.2
+    means a doubling of the dose buys about a 15% rise in the outcome.
+
+    ``conf_low`` and ``conf_high`` are the 95% interval for the slope. They
+    are reported because the headline claim is usually "the slope is near
+    zero", and a point estimate alone cannot say how near.
+    """
+
+    outcome: str
+    dose: str
+    n_observations: int
+    n_groups: int
+    intercept: float
+    slope: float
+    slope_se: float
+    p_value: float
+    conf_low: float
+    conf_high: float
+    group_variance: float
+    converged: bool
+
+
+def fit_dose_response_model(
+    df: pd.DataFrame,
+    outcome_col: str,
+    dose_col: str,
+    *,
+    cluster_col: str = "cell_id",
+) -> DoseResponseResult:
+    """Fit ``outcome ~ dose`` with the dose continuous and a random intercept
+    per ``cluster_col``.
+
+    Use this when the manipulated factor is a number the design chose, not a
+    category. Every other model in this module treats its factor as unordered
+    levels, which costs one contrast per level and never yields a slope.
+
+    ``cluster_col`` defaults to ``cell_id`` rather than ``persona_id`` because
+    the repeated unit in a dose-response run is the item: the same stimulus is
+    answered once per dose level, so the item is what observations pair on.
+    """
+    working = df[[outcome_col, dose_col, cluster_col]].dropna()
+    n_groups = working[cluster_col].nunique()
+    n_doses = working[dose_col].nunique()
+    if len(working) < 3 or n_groups < 2:
+        msg = (
+            f"need at least 2 groups and 3 observations to fit a mixed model; "
+            f"got {len(working)} observation(s) across {n_groups} group(s)"
+        )
+        raise InsufficientDataError(msg)
+    if n_doses < 2:
+        msg = f"need at least 2 distinct {dose_col!r} values to estimate a slope; got {n_doses}"
+        raise InsufficientDataError(msg)
+
+    formula = f"{outcome_col} ~ {dose_col}"
+    model = MixedLM.from_formula(formula, groups=working[cluster_col], data=working)
+    fit = _fit_with_fallback(model, label=formula)
+
+    interval = fit.conf_int()
+    return DoseResponseResult(
+        outcome=outcome_col,
+        dose=dose_col,
+        n_observations=len(working),
+        n_groups=n_groups,
+        intercept=float(fit.params["Intercept"]),
+        slope=float(fit.params[dose_col]),
+        slope_se=float(fit.bse[dose_col]),
+        p_value=float(fit.pvalues[dose_col]),
+        conf_low=float(interval.loc[dose_col].iloc[0]),
+        conf_high=float(interval.loc[dose_col].iloc[1]),
+        group_variance=float(fit.cov_re.iloc[0, 0]),
+        converged=bool(fit.converged),
     )
 
 

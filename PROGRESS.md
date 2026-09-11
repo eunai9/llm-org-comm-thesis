@@ -33,6 +33,7 @@ you to read, not for a computer to run. Updated after each work session.
 | Validation pass: embedding map, 100 replies read by hand | Done — see section 35 |
 | Measure the mirroring failure automatically | Done — see section 42 |
 | Fix the mirroring failure by instructing the persona | Tried and did not work — phrasing moved, behavior did not, see section 43 |
+| Does the model follow an instructed reply length? | Measured — the slope is 0.157, weak but real, see section 47 |
 | Measure mirroring by meaning rather than by words | Tried and does not work — every variant scores worse, see section 44 |
 | Measure mirroring by asking a model directly | Tried and does not work — both local models score near chance, see section 46 |
 | Quoted text left inside "cleaned" message bodies | **Fixed in code and rebuilt — see section 37** |
@@ -2389,6 +2390,120 @@ into numbers with a known error bar.
 
 ---
 
+### 47. The length instruction does work. The slope is 0.157. (Sep 11)
+
+Section 32 measured the length instruction with two conditions and called the
+result ignoring. This is the designed version of that test. One factor, five
+levels: the persona is told to aim for 20, 50, 100, 200 or 400 words. Same 40
+stimuli in every condition, same personas, same memories, same model. 200 local
+generations.
+
+**The instruction moves the output. It moves it very little.**
+
+The elasticity of reply length on stated target is **0.157** (95% CI 0.099 to
+0.216, p=1.5e-07). That is log(words written) fitted on log(words asked for),
+with a random intercept per item. 200 replies, 40 items, and all 40 items
+appear in all five conditions.
+
+In plain words: double the number you ask for and the reply gets about 11%
+longer. Ask for 20 times more and you get about 60% more. Following the
+instruction would mean a slope of 1. This model gives about one sixth of that.
+
+| Words asked for | Mean written | Median | SD | Replies reaching 80% of target |
+|---:|---:|---:|---:|---:|
+| 20 | 14.1 | 13.0 | 7.5 | 27.5% |
+| 50 | 19.4 | 18.5 | 8.7 | 5.0% |
+| 100 | 18.4 | 17.0 | 8.3 | 0% |
+| 200 | 20.3 | 17.0 | 12.5 | 0% |
+| 400 | 24.1 | 23.0 | 10.0 | 0% |
+
+![Two lines on a log axis. The stated target climbs from 20 to 400. What the
+model writes stays between 14 and 24 words.](docs/figures/length_dose_response.png)
+
+**The response is asymmetric. The model can be made shorter, not longer.** The
+one clear move is at the bottom of the range. Going from 20 to 50 raises the
+mean from 14.1 to 19.4 words, which is a local elasticity of about 0.35 (paired
+Wilcoxon p=.0015). Going from 50 to 400, an 8x step, raises it from 19.4 to
+24.1, a local elasticity of about 0.10. Most of the measured slope comes from
+the shortest condition. Telling this model to be brief works. Telling it to be
+long barely does.
+
+This is also the first evidence that the instruction can push in either
+direction. The live prompt tells each persona 62 to 93 words and gets 22.7
+(section 43). Asking for 20 gets 14.1. Section 32 could not see this, because
+both of its conditions were above the model's own habitual length.
+
+**The curve is not a clean rise.** 50 words gives 19.4 and 100 words gives
+18.4. The middle of the range is flat, and it dips. The slope above is a fit
+through a bumpy line, not a description of a smooth one.
+
+![The same output line on its own, linear scale. A step up from 20 to 50, then
+a flat middle with a dip at 100.](docs/figures/length_dose_output_curve.png)
+
+**No reply ever reaches a target of 100 or more.** 27.5% of replies reach 80%
+of the target when the target is 20. At 50 it is 5%. At 100, 200 and 400 it is
+zero. The longest reply in the whole run was 51 words, against a target of 200.
+At a target of 400 the longest was 44 words. `MAX_OUTPUT_TOKENS` is 2048, which
+is roughly 1,500 words, so the cap is nowhere near binding. The ceiling is the
+model, not the setting.
+
+**The spread does not change.** Levene's test across the five conditions gives
+W=1.65, p=0.164. Reply lengths are about as varied at 400 as at 20. So the
+model is not responding by occasionally writing a long reply. It writes short
+replies everywhere.
+
+**This confirms section 32's numbers and corrects its wording.** Section 32 saw
+the stated target rise 46% and the output rise 7.6%. A slope of 0.157 predicts
+a 6.1% rise for a 46% rise in the target. Those agree. Section 32's two points
+were too close together to tell a slope of 0.157 from a slope of zero, so it
+read the small move as noise and said the model ignores the instruction. The
+data was right. The word was too strong. The model responds, weakly.
+
+That matters for how section 43 reads. Section 43 put the length instruction
+and the act instruction together as one pattern: the model obeys the surface
+form an instruction names and not the behavior it is about. The length half is
+now sharper than that. Instruction-following is not absent here. It is damped
+by a factor of about six, and it works in one direction more than the other.
+
+#### How it was run
+
+`src/thesis/analysis/length_dose.py`, run with
+`python -m thesis.analysis.length_dose --local llama3.2:3b`. It overrides
+`style.mean_tokens` on every persona, which is the one field the prompt renders
+as "Typical message length: about N words", and leaves everything else alone.
+Each condition renders different prompt text, so each gets its own cache
+entries and no condition can be served another condition's replies.
+
+The slope is fitted by `fit_dose_response_model`, added to
+`analysis/hierarchy.py`. It is that module's first model with a continuous
+predictor; every other one treats its factor as unordered levels, which would
+give four contrasts here instead of one slope. Its test injects a known slope
+and checks it comes back, which is the standing practice for every model in
+that module (section 36).
+
+**Three design choices worth stating.**
+
+1. **20 words is in the grid on purpose.** The model writes about 20 to 23
+   words on its own. A grid that only rises cannot tell "the instruction does
+   nothing" from "the model cannot write long".
+2. **Every persona gets the same target inside a condition.** The live prompt
+   gives each persona its own corpus-derived number, 62 to 93 words. A
+   dose-response design needs one dose per condition, so that spread is removed
+   here. The cost is that no condition reproduces the live prompt exactly.
+3. **The run used the current prompt**, including the act instruction added in
+   section 43. So these numbers describe the pipeline as it stands, not the one
+   section 32 measured.
+
+**What this does not settle.** One model, 3 billion parameters, running
+locally. 40 items. One phrasing of the instruction. This measures how
+llama3.2:3b responds to this sentence. A larger model may follow the number. A
+blunter sentence ("Write about 400 words.") may work better than a described
+tendency. Neither is tested here, and neither can be read off this slope.
+
+**Cost was zero.** 200 local generations, about 85 minutes on the laptop.
+
+---
+
 ## What's next
 
 *(Rewritten Aug 31 — the previous version was written before the corpus
@@ -2458,6 +2573,17 @@ a better mirroring measure have now failed, and the plainest one still
 wins.** The only route left is a second hand-coded sample, which is the
 November human coding round already in the plan.
 
+**The length instruction now has a measured slope (section 47), and it is
+not zero.** Five stated targets from 20 to 400 words give an elasticity of
+0.157 (p=1.5e-07). Doubling the number asked for buys about 11% more words.
+The response is asymmetric: asking for 20 words does make replies shorter
+(14.1 words against 22.7 in the live prompt), while asking for 400 barely
+moves them (24.1). No reply ever reaches 80% of a target of 100 or more. This
+confirms section 32's numbers and corrects its wording. Its two conditions
+were too close together to tell this slope from zero, so it called the
+behavior ignoring. The behavior is weak following, not ignoring. This closes
+the dose-response item that sat on this list.
+
 **The power score is also split now (section 45), and splitting it did not
 help.** Layer A alone (Spearman +0.0018) and Layer B alone (+0.0649) are
 both as flat as the combined score (−0.0695), and neither is monotonic by
@@ -2491,10 +2617,6 @@ and the better automatic measure, and the four supervisor questions.
   on the simulator. The research plan expected needing a fallback here,
   though in the opposite direction — it expected the simulated hierarchy
   to be the *stronger* arm. Worth raising with your supervisor.
-- **A proper dose-response test of the length instruction** (section 32).
-  State several target lengths, hold everything else fixed, measure the
-  response curve. Turns a two-point observation into a real result about
-  instruction-following.
 - **Build the contamination probe and anonymized-stimulus arm.** Named in
   the research plan, and still the strongest objection an examiner can
   raise; both are cheap and turn an unanswerable question into a table.

@@ -193,6 +193,8 @@ def plot_factor_interaction(
     x_label: str = "",
     y_label: str = "mean rubric score (1-5)",
     legend_loc: LegendLoc = "upper left",
+    y_scale: Literal["linear", "log"] = "linear",
+    y_ticks: Sequence[float] | None = None,
 ) -> Path:
     """Interaction plot: one line per series across the levels of one factor.
 
@@ -203,6 +205,13 @@ def plot_factor_interaction(
     ``legend_loc`` exists because which corner is empty depends on the data:
     the default suits series that rise left-to-right, but a series that
     starts high collides with it, so the caller picks.
+
+    ``y_scale="log"`` covers one case: two series whose scales differ so much
+    that the flatter one is drawn as a straight line and loses all shape.
+    Section 47's dose-response run is that case. One series runs 20 to 400,
+    the other stays near 20. ``y_ticks`` sets the tick values, because
+    matplotlib's own log ticks are powers of ten and the values worth
+    labelling here are the design's own levels.
     """
     if not 1 <= len(series) <= 2:
         msg = f"expected 1 or 2 series for an interaction plot, got {len(series)}"
@@ -241,6 +250,13 @@ def plot_factor_interaction(
             fontsize=9.5,
             fontweight="600",
         )
+
+    if y_scale == "log":
+        ax.set_yscale("log")
+    if y_ticks is not None:
+        ax.set_yticks(list(y_ticks))
+        ax.set_yticklabels([f"{value:g}" for value in y_ticks])
+        ax.minorticks_off()
 
     ax.set_xticks(x, list(x_levels))
     ax.set_xlim(-0.35, len(x_levels) - 0.35)
@@ -873,6 +889,49 @@ def main() -> None:
         ),
         x_label="how well the check separates them",
         chance_note="0.5 = no better than chance",
+    )
+
+    # Section 47: the designed version of section 32's accidental two-point
+    # test. Five stated targets over a 20x range against what the model
+    # actually wrote. A log y-axis, because a linear one would draw the
+    # output line flat on the floor and the reader could not see it at all.
+    plot_factor_interaction(
+        ("20", "50", "100", "200", "400"),
+        {
+            "words asked for": (20.0, 50.0, 100.0, 200.0, 400.0),
+            "words written": (14.1, 19.4, 18.4, 20.3, 24.1),
+        },
+        path=DOCS_FIGURES_DIR / "length_dose_response.png",
+        title="Does the model write the length it is told to write?",
+        subtitle=(
+            "40 stimuli, answered once per target. Elasticity 0.157 "
+            "(95% CI 0.099 to 0.216). Log scale."
+        ),
+        x_label="words the persona was told to aim for",
+        y_label="words per reply (log scale)",
+        y_scale="log",
+        y_ticks=(10, 20, 50, 100, 200, 400),
+        # Both lines rise, and the direct labels take the right margin, so
+        # the top-left corner is the empty one here.
+        legend_loc="upper left",
+    )
+
+    # The same output line on its own, linear scale. The figure above shows
+    # how small the response is; this one shows its shape, which the log
+    # axis squashes: a clear step from 20 to 50, then a flat middle with a
+    # dip at 100. One series, so the reader reads a curve rather than a gap.
+    plot_factor_interaction(
+        ("20", "50", "100", "200", "400"),
+        {"words written": (14.1, 19.4, 18.4, 20.3, 24.1)},
+        path=DOCS_FIGURES_DIR / "length_dose_output_curve.png",
+        title="What the model actually wrote, at each stated target",
+        subtitle=(
+            "The response is not a clean rise. Asking for 20 makes it shorter; "
+            "the middle of the range is flat."
+        ),
+        x_label="words the persona was told to aim for",
+        y_label="mean words per reply",
+        legend_loc="lower right",
     )
 
 

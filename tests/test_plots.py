@@ -132,3 +132,21 @@ def test_value_spread_handles_a_single_valued_group(tmp_path: Path) -> None:
 def test_value_spread_requires_exactly_two_groups(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="exactly 2 groups"):
         plot_value_spread({"only": [1.0, 2.0]}, tmp_path / "bad.png", title="t")
+
+
+def test_interaction_plot_accepts_a_log_axis_with_explicit_ticks(tmp_path: Path) -> None:
+    """Section 47 plots a series running 20 to 400 against one that stays
+    near 20. On a linear axis the second line loses all shape."""
+    out = plot_factor_interaction(
+        ("20", "50", "100", "200", "400"),
+        {
+            "instructed target": (20.0, 50.0, 100.0, 200.0, 400.0),
+            "actual output": (14.0, 15.0, 16.0, 17.0, 18.0),
+        },
+        path=tmp_path / "log_axis.png",
+        title="t",
+        y_scale="log",
+        y_ticks=(10, 20, 50, 100, 200, 400),
+    )
+    assert out.exists()
+    assert out.stat().st_size > 0

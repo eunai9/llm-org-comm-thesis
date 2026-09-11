@@ -77,6 +77,7 @@ def build_pair_table(
     stores: Mapping[str, Sequence[MemoryItem]] | None = None,
     cache_only: bool = True,
     limit: int | None = None,
+    progress_every: int = 100,
 ) -> PairTable:
     """Generate (or serve from cache) one reply per real stimulus and return the table."""
     config = load_config()
@@ -110,6 +111,7 @@ def build_pair_table(
         cache=ResponseCache(CACHE_DIR, cache_only=cache_only),
         ledger=CostLedger(COST_LEDGER),
         manifest=manifest,
+        progress_every=progress_every,
     )
 
     records: list[dict[str, Any]] = []

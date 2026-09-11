@@ -17,12 +17,14 @@ import pytest
 
 from thesis.analysis.hierarchy import (
     AssociationResult,
+    DoseResponseResult,
     InsufficientDataError,
     InteractionModelResult,
     MixedModelResult,
     SentenceModelResult,
     direction_decision_association,
     fit_direction_mixed_model,
+    fit_dose_response_model,
     fit_interaction_model,
     fit_sentence_level_model,
     summarize_by_direction,
@@ -467,3 +469,74 @@ def test_mixed_model_result_is_frozen() -> None:
     assert isinstance(result, MixedModelResult)
     with pytest.raises(AttributeError):
         result.n_observations = 999  # type: ignore[misc]
+
+
+# --------------------------------------------------------- dose-response
+
+
+def _dose_data(
+    slope: float,
+    *,
+    n_items: int = 30,
+    doses: tuple[float, ...] = (1.0, 2.0, 3.0, 4.0),
+    seed: int = 5,
+) -> pd.DataFrame:
+    """Synthetic data with a known slope on a continuous dose, clustered by item."""
+    rng = np.random.default_rng(seed)
+    rows = []
+    for index in range(n_items):
+        cell_id = f"item{index}"
+        offset = rng.normal(0.0, 0.3)
+        for dose in doses:
+            rows.append(
+                {
+                    "cell_id": cell_id,
+                    "dose": dose,
+                    "outcome": 0.5 + slope * dose + offset + rng.normal(0.0, 0.2),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def test_dose_response_recovers_a_known_slope() -> None:
+    """A slope injected at 0.4 must come back near 0.4, with an interval that
+    contains it -- the same standard every other model here is held to."""
+    result = fit_dose_response_model(_dose_data(0.4), "outcome", "dose")
+
+    assert isinstance(result, DoseResponseResult)
+    assert result.converged
+    assert result.slope == pytest.approx(0.4, abs=0.03)
+    assert result.conf_low < 0.4 < result.conf_high
+    assert result.p_value < 0.001
+    assert result.n_observations == 30 * 4
+    assert result.n_groups == 30
+
+
+def test_dose_response_recovers_a_zero_slope() -> None:
+    """A dose that does nothing must not produce an effect."""
+    result = fit_dose_response_model(_dose_data(0.0), "outcome", "dose")
+    assert result.slope == pytest.approx(0.0, abs=0.03)
+    assert result.p_value > 0.05
+
+
+def test_dose_response_recovers_a_negative_slope() -> None:
+    result = fit_dose_response_model(_dose_data(-0.25), "outcome", "dose")
+    assert result.slope == pytest.approx(-0.25, abs=0.03)
+
+
+def test_dose_response_needs_two_dose_levels() -> None:
+    """One dose level cannot identify a slope, and must fail loudly."""
+    with pytest.raises(InsufficientDataError, match="distinct"):
+        fit_dose_response_model(_dose_data(0.4, doses=(2.0,)), "outcome", "dose")
+
+
+def test_dose_response_needs_enough_data() -> None:
+    tiny = pd.DataFrame({"cell_id": ["a"], "dose": [1.0], "outcome": [0.5]})
+    with pytest.raises(InsufficientDataError):
+        fit_dose_response_model(tiny, "outcome", "dose")
+
+
+def test_dose_response_result_is_frozen() -> None:
+    result = fit_dose_response_model(_dose_data(0.4), "outcome", "dose")
+    with pytest.raises(AttributeError):
+        result.slope = 999.0  # type: ignore[misc]

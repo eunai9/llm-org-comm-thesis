@@ -1,0 +1,87 @@
+{
+  "elasticity": {
+    "conf_int": [
+      0.0986,
+      0.2162
+    ],
+    "converged": true,
+    "n_items": 40,
+    "n_observations": 200,
+    "p_value": 1.52e-07,
+    "slope": 0.1574,
+    "std_error": 0.03
+  },
+  "fully_paired": true,
+  "model": "llama3.2:3b",
+  "n_items_dropped": 0,
+  "n_items_in_every_condition": 40,
+  "n_rows": 200,
+  "per_condition": [
+    {
+      "instructed_target": 20,
+      "iqr_words": 8.5,
+      "max_words": 36,
+      "mean_words": 14.1,
+      "median_words": 13.0,
+      "min_words": 2,
+      "n_replies": 40,
+      "sd_words": 7.5,
+      "share_reaching_target": 0.275
+    },
+    {
+      "instructed_target": 50,
+      "iqr_words": 9.2,
+      "max_words": 41,
+      "mean_words": 19.4,
+      "median_words": 18.5,
+      "min_words": 7,
+      "n_replies": 40,
+      "sd_words": 8.7,
+      "share_reaching_target": 0.05
+    },
+    {
+      "instructed_target": 100,
+      "iqr_words": 12.5,
+      "max_words": 36,
+      "mean_words": 18.4,
+      "median_words": 17.0,
+      "min_words": 5,
+      "n_replies": 40,
+      "sd_words": 8.3,
+      "share_reaching_target": 0.0
+    },
+    {
+      "instructed_target": 200,
+      "iqr_words": 13.0,
+      "max_words": 51,
+      "mean_words": 20.3,
+      "median_words": 17.0,
+      "min_words": 3,
+      "n_replies": 40,
+      "sd_words": 12.5,
+      "share_reaching_target": 0.0
+    },
+    {
+      "instructed_target": 400,
+      "iqr_words": 11.8,
+      "max_words": 44,
+      "mean_words": 24.1,
+      "median_words": 23.0,
+      "min_words": 4,
+      "n_replies": 40,
+      "sd_words": 10.0,
+      "share_reaching_target": 0.0
+    }
+  ],
+  "spread_across_conditions": {
+    "levene_p_value": 0.1642,
+    "levene_statistic": 1.646
+  },
+  "targets": [
+    20,
+    50,
+    100,
+    200,
+    400
+  ]
+}
