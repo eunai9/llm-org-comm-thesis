@@ -1,0 +1,27 @@
+{
+  "auc": 0.561,
+  "cost_usd": 0.0,
+  "draws_per_item": 3,
+  "lexical_auc_for_reference": 0.834,
+  "mean_score": {
+    "coded_as_mirroring": 4.2,
+    "coded_sound": 4.049
+  },
+  "model": "llama3.2:3b",
+  "n_invalid_draws": 0,
+  "n_items": 100,
+  "n_mirrored": 25,
+  "on_the_replies_the_lexical_measure_misses": {
+    "lexical_threshold": 0.8,
+    "mean_gap": 0.284,
+    "mean_model_score_on_missed": 4.333,
+    "mean_model_score_on_sound": 4.049,
+    "n_missed": 7
+  },
+  "self_consistency": {
+    "exact_agreement": 0.17,
+    "mean_spread": 1.08,
+    "n": 100,
+    "within_one_point": 0.8
+  }
+}

@@ -34,6 +34,7 @@ you to read, not for a computer to run. Updated after each work session.
 | Measure the mirroring failure automatically | Done — see section 42 |
 | Fix the mirroring failure by instructing the persona | Tried and did not work — phrasing moved, behavior did not, see section 43 |
 | Measure mirroring by meaning rather than by words | Tried and does not work — every variant scores worse, see section 44 |
+| Measure mirroring by asking a model directly | Tried and does not work — both local models score near chance, see section 46 |
 | Quoted text left inside "cleaned" message bodies | **Fixed in code and rebuilt — see section 37** |
 | Get API keys / decide on budget | **Decided: staying free — see note below** |
 
@@ -2280,6 +2281,114 @@ three, because splitting it did not turn up a hidden one that works.
 
 ---
 
+### 46. Asking a model the mirroring question does not work either (Sep 11)
+
+Section 44 left one route open. Ask a model the narrow question directly,
+with the incoming message shown, and check it against the same 100 hand
+codes. I did that with both local models. **Neither one works.**
+
+| Check | How well it finds the replies a reader called mirroring |
+|---|---:|
+| **Words borrowed from the sender** (section 42) | **0.834** |
+| Asking qwen2.5:3b | 0.591 |
+| Asking llama3.2:3b | 0.561 |
+
+![Asking a model directly does not beat counting words.](docs/figures/mirroring_model_vs_lexical.png)
+
+**The check is not adopted.** Counting borrowed words stays the measure.
+
+#### What the check does
+
+`src/thesis/analysis/mirroring_model.py` shows the model two things: the
+message that came in, and the reply. It asks one question. Does this reply
+act on what the sender asked for, or does it hand the same task back? The
+answer is a score from 1 to 5 with all five levels written out. 1 means the
+reply acts. 5 means it hands the request straight back. The model must also
+quote a short piece of the reply before it gives the score.
+
+The scale is graded and not yes/no on purpose. AUC needs a ranking. A yes/no
+answer gives one point on the curve and throws away every ordering the model
+could express.
+
+Each reply is scored three times. Each draw is its own cache entry, so the
+three answers are three real answers and not one answer served three times.
+That bug is recorded in section 10 and it would have made the spread zero by
+construction.
+
+The model call lives in its own module. `mirroring.py` still calls no model.
+
+#### Why it fails
+
+Both models answer near the top of the scale for almost every reply.
+
+| Mean score, 1 to 5 | qwen2.5:3b | llama3.2:3b |
+|---|---:|---:|
+| Coded as mirroring by a reader | 4.693 | 4.200 |
+| Coded sound by a reader | 4.516 | 4.049 |
+| Gap | 0.18 | 0.15 |
+
+97 of the 100 replies score 4 or higher with qwen. 28 of the 75 sound
+replies get a flat 5, which means "hands the request straight back" on the
+scale the model was given. One of them is this:
+
+> **Sender** — "Attached is a draft of the Master Firm Purchase / Sale
+> Agreement for Turlock. I trust you will e-mail same to your customer."
+> **Reply** — "Debra, I'll send it to our customer now."
+
+That reply does the thing it was asked to do. The model scored it 5.
+
+**The failure is not noise, and that is the strongest part of this result.**
+qwen agrees with itself. Its three draws give the same number 63% of the
+time and land within one point 97% of the time, with a mean spread of 0.45.
+So the model gives a stable answer. The stable answer is just the same for
+both groups.
+
+llama fails twice over. Its three draws agree exactly 17% of the time and
+the mean spread is 1.08 points. It is unstable *and* it cannot separate.
+
+I also checked the seven replies the lexical measure misses, the way section
+44 did. qwen gives them 4.619 against 4.516 for sound replies. llama gives
+4.333 against 4.049. Both gaps are about a tenth to a quarter of a point on
+seven items. **That is not separation.** These are the cases a model-based
+check was supposed to catch, and it does not catch them.
+
+#### This is section 35 again, in a narrower form
+
+Section 35 showed the judge every incoming message and every rubric score
+rose by 0.4 to 0.7 points. It got more generous, not sharper. That was six
+broad questions about a whole email.
+
+Here the question is as narrow as it can be. One thing, about one reply,
+with the message in view, with all five levels spelled out and two worked
+examples. The model still agrees with almost every proposition put to it.
+So the problem in section 35 was not that the rubric asked too much. A 3B
+model asked "is this reply bad in this specific way" says yes.
+
+#### Where the mirroring measure stands now
+
+Three attempts at something better than counting words have now failed:
+
+1. Meaning-level embedding signals (section 44). Best was 0.706.
+2. Asking qwen2.5:3b directly. 0.591.
+3. Asking llama3.2:3b directly. 0.561.
+
+`borrowed_words` at 0.834 is still the best measure this project has, and it
+is the simplest one. The decision in section 43 stands on it and does not
+change.
+
+**The one route left is a second hand coding.** That is the November human
+coding round already in the plan. It is also what would fix the limit under
+all of these numbers.
+
+**That limit has not moved.** The hand codes are one reader's first pass.
+Every AUC in this section is measured against one person's judgement, and so
+is the 0.834 it is compared to. A second coder's sheet is what turns these
+into numbers with a known error bar.
+
+**Cost was zero.** 600 local calls, two models, no paid API.
+
+---
+
 ## What's next
 
 *(Rewritten Aug 31 — the previous version was written before the corpus
@@ -2338,11 +2447,16 @@ instruction names and not with the behavior it is about.
 borrowed words (0.71 and below, against 0.83), and it fails hardest on
 exactly the replies the lexical measure misses. It does confirm section
 43's reading — nothing moved on any measure — but as support, not proof.
-**There is no free automatic measure left to build here.** The two
-remaining routes both cost something: a model asked the narrow question
-with the incoming message shown, which needs its own validation first
-(section 35's follow-up shows what goes wrong otherwise), or a second
-hand-coded sample, which is the November round already in the plan.
+
+**Asking a model the question directly was the last free route, and it
+does not work either (section 46).** qwen2.5:3b scores 0.591 and
+llama3.2:3b scores 0.561, against 0.834 for counting borrowed words. Both
+models answer near the top of the scale for almost every reply, mirrored
+or not. qwen is stable across its three draws (63% exact agreement) and
+still cannot separate, so this is not a noise problem. **Three attempts at
+a better mirroring measure have now failed, and the plainest one still
+wins.** The only route left is a second hand-coded sample, which is the
+November human coding round already in the plan.
 
 **The power score is also split now (section 45), and splitting it did not
 help.** Layer A alone (Spearman +0.0018) and Layer B alone (+0.0649) are
@@ -2358,17 +2472,11 @@ and the better automatic measure, and the four supervisor questions.
 
 **Ready to do:**
 
-- **A model-based mirroring check, validated against the hand codes.** Ask
-  the judge model the narrow question — "does this reply ask the sender to
-  do the thing they asked?" — with the incoming message shown, and score
-  the same 100 coded replies to see whether it beats 0.834 before
-  trusting it anywhere. Not free in runtime, and section 35's follow-up is
-  the reason it needs validating rather than adopting. Scoring both
-  generations with it afterwards is a re-analysis, not a new generation
-  run.
-- **Re-code the 100-item review packet yourself** (section 35). The codes
-  currently in `outputs/tables/manual_review_coded_first_pass.csv` are one
-  reader's; two independent codings give an agreement statistic, which is
+- **Re-code the 100-item review packet yourself** (section 35). This is now
+  the only open route to a better mirroring measure, after section 46 closed
+  the model-based one. The codes currently in
+  `outputs/tables/manual_review_coded_first_pass.csv` are one reader's;
+  two independent codings give an agreement statistic, which is
   what makes the qualitative half of this defensible — and it is a dry run
   for the November human-coding round, with none of its ethics overhead.
 - **Decide how Q1 proceeds.** After the rebuild (section 39), the

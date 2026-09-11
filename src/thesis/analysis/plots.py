@@ -853,6 +853,28 @@ def main() -> None:
         legend_loc="upper right",
     )
 
+    # Section 46: asking a model the mirroring question directly, with the
+    # incoming message shown. Pinned here rather than drawn inside
+    # mirroring_model.py, which scores one model per run and so never holds
+    # both numbers at once. Same chart as sections 42 and 44, so all three
+    # attempts at a mirroring measure read on one scale.
+    plot_discrimination_auc(
+        (
+            "words borrowed from the sender\n(counting words)",
+            "asking qwen2.5:3b\n(1 to 5, 3 draws)",
+            "asking llama3.2:3b\n(1 to 5, 3 draws)",
+        ),
+        (0.834, 0.591, 0.561),
+        path=DOCS_FIGURES_DIR / "mirroring_model_vs_lexical.png",
+        title="Asking a model directly does not beat counting words",
+        subtitle=(
+            "How well each check finds the 25 replies a reader called mirroring, out of 100. "
+            "Both models are shown the incoming message."
+        ),
+        x_label="how well the check separates them",
+        chance_note="0.5 = no better than chance",
+    )
+
 
 if __name__ == "__main__":
     main()
