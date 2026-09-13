@@ -315,7 +315,7 @@ class MeasureChange:
 
 @dataclass(frozen=True, slots=True)
 class RunComparison:
-    """What a prompt change did to the mirroring measure, on the same stimuli."""
+    """What a change of prompt or model did to the mirroring measure, on the same stimuli."""
 
     n_paired: int
     borrowed_words: MeasureChange
@@ -325,15 +325,27 @@ class RunComparison:
     reply_words: MeasureChange
 
 
+def _pair_key(cell_ids: pd.Series) -> pd.Series:
+    """The cell id without its leading role label.
+
+    Every cell id starts with ``<role_label>__``. The rest names the persona
+    and the message, so it matches the same cell across models. An id with no
+    role label is returned unchanged.
+    """
+    return cell_ids.str.split("__", n=1).str[-1]
+
+
 def compare_runs(
     before: pd.DataFrame, after: pd.DataFrame, *, nlp: Language | None = None
 ) -> RunComparison:
-    """Did a prompt change move the measure, on the same stimuli?
+    """Did a change of prompt or model move the measure, on the same stimuli?
 
-    Paired by ``cell_id``: the same persona answering the same real message
-    under two prompts, so the comparison holds everything except the prompt
-    fixed and the test can be a signed-rank on the per-reply difference rather
-    than a two-sample test that throws that pairing away.
+    Paired by persona and message: the same persona answering the same real
+    message in both runs. The pairing ignores the role label at the start of
+    ``cell_id``, because two models get different labels for the same cell.
+    The comparison holds everything except the change fixed, and the test can
+    be a signed-rank on the per-reply difference rather than a two-sample test
+    that throws that pairing away.
 
     Reported alongside it is McNemar's test on the flagged/not-flagged pairs,
     which is the right test for "did the *rate* move" when the same items are
@@ -341,9 +353,13 @@ def compare_runs(
     samples and overstate the evidence.
     """
     nlp = nlp or load_nlp()
-    merged = before.merge(after, on="cell_id", suffixes=("_before", "_after"))
+    merged = before.assign(pair_key=_pair_key(before["cell_id"])).merge(
+        after.assign(pair_key=_pair_key(after["cell_id"])),
+        on="pair_key",
+        suffixes=("_before", "_after"),
+    )
     if merged.empty:
-        msg = "no cell_id appears in both runs; the two files are not the same design"
+        msg = "no persona and message appear in both runs; the two files are not the same design"
         raise ValueError(msg)
 
     scores = {
@@ -578,7 +594,7 @@ def main() -> None:
         "--compare-to",
         default=None,
         metavar="PAIRS",
-        help="A second pairs file to compare against, paired by cell_id.",
+        help="A second pairs file to compare against, paired by persona and message.",
     )
     args = parser.parse_args()
 

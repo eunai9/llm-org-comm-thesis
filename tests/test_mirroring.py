@@ -237,3 +237,16 @@ def test_comparison_refuses_two_runs_with_no_shared_cells() -> None:
     after = _run_frame([ACTS]).assign(cell_id=["different"])
     with pytest.raises(ValueError, match="not the same design"):
         compare_runs(before, after, nlp=nlp)
+
+
+def test_comparison_pairs_the_same_cell_across_models() -> None:
+    """Two models get different role labels for the same persona and message."""
+    before = _run_frame([HANDS_BACK, ACTS]).assign(
+        cell_id=["sim_local__real_t1__r1", "sim_local__real_t2__r2"]
+    )
+    after = _run_frame([ACTS, HANDS_BACK]).assign(
+        cell_id=["sim_nvidia__real_t2__r2", "sim_nvidia__real_t1__r1"]
+    )
+    result = compare_runs(before, after, nlp=nlp)
+    assert result.n_paired == 2
+    assert result.borrowed_words.change == 0.0
