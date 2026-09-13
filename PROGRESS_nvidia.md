@@ -277,7 +277,8 @@ Only time is lost.
 **Result first.** With the same prompt, DeepSeek mirrors less than Llama,
 even when both replies have the same length. Length explains about one third
 of the gap. DeepSeek still takes more of the sender's words than real people
-do. Its highest-scoring replies do not hand the request back when read.
+do. Claude read its highest-scoring replies, and none of them hands the
+request back. No person has checked this yet.
 
 **Correction.** The first version of this section compared DeepSeek with the
 wrong Llama replies. Since section 43 of `PROGRESS.md` (Sep 5), the persona
@@ -302,7 +303,8 @@ reads the saved replies, so it needs no new generation.
   already appear in the incoming email. 0 means none of them, 1 means all
   of them.
 - **Flagged**: a reply with borrowed words of 0.80 or more. Section 42 chose
-  this cut-off by looking at 100 hand-coded Llama replies.
+  this cut-off by looking at 100 coded Llama replies. Those codes are
+  Claude's first pass from section 35, not a person's.
 
 **A code fix first.** `compare_runs` in `mirroring.py` compares two runs
 reply by reply: the same persona answering the same email. It matched the
@@ -365,13 +367,14 @@ What the table shows:
 The length check numbers come from a one-off script. The pipeline does not
 save them yet.
 
-**Reading the top replies.** The 5 highest-scoring DeepSeek replies were
-read by hand. None of them hands the request back. The top one (0.93) gives
+**Reading the top replies.** Claude read the 5 highest-scoring DeepSeek
+replies. No person has checked them yet. None of them hands the request back. The top one (0.93) gives
 a clear instruction, using the sender's names for the deal. Others make the
 confirmation the sender asked for, or acknowledge the message and say what
 happens next. They score high because they reuse the sender's topic words,
-such as names, deals and forms. This is one reader and 5 replies. The
-measure was checked against hand codes of Llama replies only. So for
+such as names, deals and forms. This is one reader, an AI, and 5 replies.
+The measure was checked against codes of Llama replies only, and those codes
+are Claude's first pass from section 35, not a person's. So for
 DeepSeek, a high score may mean "stays on topic" rather than "mirrors".
 
 **By direction.** Only 2 DeepSeek replies are flagged, both writing down to
@@ -381,8 +384,10 @@ left out.
 **What this means.** Mirroring looks mainly like a weakness of the small
 model, not a general LLM behaviour. Two checks are still missing:
 
-- **Hand-coding a sample of DeepSeek replies,** as section 35 did for Llama.
-  That would show whether the measure means the same thing for both models.
+- **Hand-coding a sample of DeepSeek replies by a person.** Section 35 coded
+  100 Llama replies, but Claude did that first pass. No person has coded any
+  reply yet. Codes from a person would show whether the measure means the
+  same thing for both models.
 - **A DeepSeek run without the act instruction.** Section 43 found that the
   instruction barely changed Llama's mirroring. It left open whether a
   larger model follows it better. There is no DeepSeek run without the
@@ -518,9 +523,13 @@ giveaway from length to word choice.
 
 ## 10. Next steps
 
-1. **Hand-code a sample of DeepSeek replies.** The mirroring measure was
-   checked on Llama replies only. Section 8 suggests that a high score means
-   something different for DeepSeek. A hand-coded sample would settle this.
+1. **Hand-code a sample of DeepSeek replies.** Hand-coding means a person
+   reads each reply and picks a label from the section 35 codebook. The
+   mirroring measure was checked on Llama replies only, against Claude's
+   first-pass codes. No person has coded any reply yet. Section 8 suggests
+   that a high score means something different for DeepSeek. Codes from a
+   person would settle this. The codebook needs one fix first: the first
+   pass used a label, `wrong_register`, that the codebook does not define.
 2. **A DeepSeek run without the act instruction.** This answers the question
    section 43 left open: does a larger model follow the instruction better?
    The instruction is always on in `prompt.py` now, so this first needs a
