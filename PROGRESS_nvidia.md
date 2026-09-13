@@ -16,6 +16,7 @@ Nothing here replaces a result in `PROGRESS.md` yet.
 | Test run: 10 replies | Done, see section 4 |
 | Full run: all 183 reply pairs with DeepSeek | Done, see section 6 |
 | Mirroring measure on the DeepSeek replies | Done, see section 8 |
+| Can DeepSeek replies be told apart by length or words? | Done, see section 9 |
 | Hand-code a sample of DeepSeek replies | Not started |
 | DeepSeek run without the act instruction | Not started |
 | Judge study with a second model family | Not started |
@@ -402,7 +403,120 @@ The Llama results and figures were not touched.
 
 ---
 
-## 9. Next steps
+## 9. Can DeepSeek replies be told apart from real ones? (Sep 13)
+
+**Result first.** Length alone no longer gives DeepSeek away. A classifier
+that sees only word counts separates DeepSeek from real replies at 0.57,
+close to guessing. For Llama with the same prompt it is 0.84. But DeepSeek's
+words give it away almost perfectly, at 0.98. This does not come from
+leftover signature lines in the real emails. It comes from DeepSeek's own
+stock phrases. For example, it writes "I'll" in 74% of its replies, against
+6% of real replies.
+
+**Why this step.** `PROGRESS.md` found that Llama replies are easy to tell
+from real ones, and that length explains most of it. DeepSeek writes much
+closer to real length: 38 words against 44 at the median. So the question
+was whether length still separates them, and if not, whether anything else
+does.
+
+**How separation is measured.**
+
+- **AUC**: shown one real and one AI reply, how often the classifier ranks
+  the real one as more likely real. 0.5 means pure guessing. 1 means always
+  right.
+- **Length-only classifier**: sees only each reply's word count.
+- **Text classifier**: sees which words a reply uses. It is the model-free
+  classifier from `fidelity.py` (TF-IDF word features with logistic
+  regression).
+- **Cross-validated**: each classifier is trained on part of the pairs and
+  scored on pairs it has not seen, in 5 rounds.
+- **Same length**: each real reply is cut to the length of its AI partner.
+  Whatever separation remains cannot be length.
+
+The length-only result for Llama without the instruction is 0.910. That
+matches the 0.908 in `PROGRESS.md`, so the method is the same.
+
+**Leftover lines in the real replies.** In the first text run, many words
+pointing to "real" were not writing at all: Enron, Corp, North America,
+Houston, 1400, Smith, ECT. They come from signature blocks ("Enron North
+America Corp.", "1400 Smith Street", "Houston, Texas 77002") and from copied
+email headers ("To: Kim Ward/HOU/ECT@ECT"). The corpus cleaner does not
+remove these lines.
+
+So a one-off rule removed them. It removes a line when the line:
+
+- starts with To:, cc:, bcc:, Subject:, Sent by: or From:
+- contains an Enron routing address, such as /HOU/ or @ECT
+- holds only an Enron company name
+- contains the street address or the Houston city line
+- is a phone or fax line
+- consists mostly of email addresses
+
+The rule was applied to real and AI replies alike. It changed 59 of the 183
+real replies and removed 280 lines. Mean real length fell from 65.0 to 58.9
+words. No reply became empty. It changed 1 AI reply in total. Sentences that
+mention Enron were kept, such as a note about "Enron's Domestic Affiliates".
+
+**Results.** Cross-validated AUC, before and after removing the lines.
+
+| Run | Length only | Full text | Text, same length |
+|---|---|---|---|
+| Llama, no instruction | 0.910 → 0.879 | 0.912 → 0.903 | 0.840 → 0.841 |
+| Llama, instruction | 0.879 → 0.837 | 0.928 → 0.919 | 0.883 → 0.881 |
+| DeepSeek, instruction | 0.603 → 0.571 | 0.981 → 0.978 | 0.978 → 0.977 |
+
+![Length only, full text and text at the same length, for Llama and DeepSeek with the same prompt.](docs/figures/nvidia_length_vs_text_auc.png)
+
+What the table shows:
+
+- **Length no longer gives DeepSeek away.** After cleaning, the length-only
+  AUC is 0.571 for DeepSeek, against 0.837 for Llama with the same prompt.
+- **DeepSeek's words give it away almost perfectly.** The text AUC is 0.978,
+  and 0.977 at the same length.
+- **Removing the leftover lines changed almost nothing.** DeepSeek's text
+  AUC moved from 0.981 to 0.978. The idea that these lines drove the result
+  was wrong.
+- **DeepSeek is easier to spot by its words than Llama.** At the same
+  length, 0.977 against 0.881.
+
+**Which words give DeepSeek away.** After cleaning, with real replies cut to
+the same length:
+
+| Word | DeepSeek replies containing it | Real replies containing it |
+|---|---:|---:|
+| "I'll" | 74% | 6% |
+| "let" | 45% | 10% |
+| "know" | 42% | 12% |
+| "review" | 29% | 3% |
+| "confirm" | 19% | 1% |
+| "today" | 14% | 3% |
+| "flag" | 11% | 0% |
+
+These come from stock phrases such as "I'll review ...", "Let me know ..."
+and "I'll flag ...". Llama writes "I'll" in 29% of its replies. The words
+that now point to real replies are sign-off names (Kim, Sara, Perlingiere,
+Shackleton) and words like "attached", "department" and "office". Real people
+sign with their name and refer to attachments. DeepSeek rarely does.
+
+**Limits.**
+
+- The line-removal rule is a one-off script. The corpus cleaner does not use
+  it yet.
+- The text classifier splits its rounds by pair, not by thread, as in the
+  original `fidelity.py`. The length classifier splits by thread.
+- One number is unexplained. The full-text AUC for Llama without the
+  instruction is 0.912 here, while `PROGRESS.md` reports 0.927. The
+  length-only numbers match. The uncleaned real text also gives 0.912.
+
+**What this means.** "Real and AI replies are separable, mostly by length"
+was true for Llama. It is not true for DeepSeek. DeepSeek writes at a
+realistic length and is still easy to spot, by its stock phrases. So the
+stronger model does not make the replies harder to tell apart. It moves the
+giveaway from length to word choice.
+
+---
+
+## 10. Next steps
 
 1. **Hand-code a sample of DeepSeek replies.** The mirroring measure was
    checked on Llama replies only. Section 8 suggests that a high score means
@@ -427,3 +541,7 @@ The Llama results and figures were not touched.
    Enron text.
 8. **Commit the code.** The NVIDIA client and the `compare_runs` fix are not
    committed yet.
+9. **Move the line removal into the corpus cleaner.** Section 9 removed
+   signature, address and header lines with a one-off script. If the cleaner
+   in `thesis.data.rfc822` did this, every analysis would use the same clean
+   text. Earlier results that use the real replies would then need a re-run.
