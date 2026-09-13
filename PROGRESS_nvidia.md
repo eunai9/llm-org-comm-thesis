@@ -15,7 +15,8 @@ Nothing here replaces a result in `PROGRESS.md` yet.
 | Find which models work on this account | Done, see section 3 |
 | Test run: 10 replies | Done, see section 4 |
 | Full run: all 183 reply pairs with DeepSeek | Done, see section 6 |
-| Mirroring measure on the DeepSeek replies | Next, see section 8 |
+| Mirroring measure on the DeepSeek replies | Done, see section 8 |
+| Hand-code a sample of DeepSeek replies | Not started |
 | Judge study with a second model family | Not started |
 | Commit the client code | Not done yet |
 | Back up the reply cache | Not done yet |
@@ -269,25 +270,136 @@ Only time is lost.
 
 ---
 
-## 8. Next steps
+## 8. Mirroring measure on the DeepSeek replies (Sep 13)
 
-1. **Mirroring measure on the DeepSeek replies.** Mirroring means a reply is
-   built mostly from the sender's own words. `PROGRESS.md` section 42
-   measures it with **borrowed words**: the share of a reply's content words
-   that already appear in the incoming email. For Llama, the mean was 0.579,
-   against 0.278 for real replies cut to the same length. 25.7% of Llama
-   replies were flagged as mirroring, against 7.1% of real replies. The
-   question is whether DeepSeek behaves like Llama or like the real replies.
-   This needs no new generation and runs in seconds.
-2. **A small code fix first.** `compare_runs` in `mirroring.py` pairs two
-   runs by the full `cell_id`. That id starts with the role label
-   (`sim_local` for Llama, `sim_nvidia` for DeepSeek), so no pairs would
-   match. It should match on the part after the role label.
+**Result first.** DeepSeek mirrors less than Llama, even when both replies
+have the same length. Length explains about one third of the gap. DeepSeek
+still takes more of the sender's words than real people do. Its
+highest-scoring replies do not hand the request back when read.
+
+**Why this step.** Mirroring was the main failure of the local Llama model
+(`PROGRESS.md` section 42). A reply mirrors when it is built mostly from the
+sender's own words, often handing the request back to the sender. The
+question is whether DeepSeek does it too. If not, mirroring is a weakness of
+the small model. If yes, it is a general LLM behaviour. The measure only
+reads the saved replies, so it needs no new generation.
+
+**How mirroring is measured.**
+
+- **Borrowed words**: the share of a reply's distinct content words that
+  already appear in the incoming email. 0 means none of them, 1 means all
+  of them.
+- **Flagged**: a reply with borrowed words of 0.80 or more. Section 42 chose
+  this cut-off by looking at 100 hand-coded Llama replies.
+
+**A code fix first.** `compare_runs` in `mirroring.py` compares two runs
+reply by reply: the same persona answering the same email. It matched the
+runs on the full `cell_id`. That id begins with the role label, which is
+`sim_local` for Llama and `sim_nvidia` for DeepSeek. So Llama and DeepSeek
+matched 0 pairs. It now ignores the role label, and all 183 pairs match. A
+new test covers this. This code change is not committed yet.
+
+**Same inputs.** In all 183 matched pairs, the incoming email, the real
+reply, the persona and the direction are identical. Only the generated reply
+differs.
+
+**First result.**
+
+| | Mean borrowed words | Flagged | Mean length |
+|---|---:|---:|---:|
+| Llama 3.2 3B | 0.579 | 25.7% | 19.8 words |
+| DeepSeek V4 Flash | 0.413 | 1.1% | 40.1 words |
+| Real replies, cut to DeepSeek's length | 0.277 | 9.8% | |
+
+![How much of a reply is built from the sender's own words, DeepSeek against real replies.](docs/figures/mirroring_deepseek_generated_vs_real.png)
+
+The top panel is DeepSeek ("AI replies" in the figure). The bottom panel is
+the real replies, each cut to the length of its DeepSeek partner. Almost no
+DeepSeek reply reaches 0.80.
+
+**Length check.** DeepSeek's replies are about twice as long as Llama's.
+Borrowed words is a share of a reply's distinct words. A longer reply has
+more room for words the sender never used, so it scores lower even if it
+copies just as much. So each DeepSeek reply was cut to the length of its
+Llama partner and scored again.
+
+| | Mean borrowed words | Flagged | Mean length |
+|---|---:|---:|---:|
+| Llama 3.2 3B | 0.579 | 25.7% | 19.8 words |
+| DeepSeek, full reply | 0.413 | 1.1% | 40.1 words |
+| DeepSeek, cut to Llama's length | 0.469 | 9.8% | 19.3 words |
+| Real replies, cut to Llama's length | 0.278 | 7.1% | 19.8 words |
+
+Two paired tests compare each DeepSeek reply with the Llama reply to the
+same email:
+
+- **The score test** (Wilcoxon signed-rank) asks whether the scores moved.
+  At the same length, DeepSeek scores 0.109 lower on average. p < 0.0001.
+- **The flag test** (McNemar) counts only the replies whose flag changed. 40
+  replies stop being flagged and 11 become flagged. p < 0.0001.
+
+What the table shows:
+
+- **The gap is not only length.** The full gap is 0.165. After the cut,
+  0.109 remains. So length explains about one third of it.
+- **The flagged rate depends mostly on length.** At full length, 1.1% of
+  DeepSeek replies are flagged. At Llama's length it is 9.8%, close to the
+  7.1% for real replies.
+- **DeepSeek still borrows more than people do.** At the same length its
+  mean is 0.469, against 0.278 for real replies.
+
+The length check numbers come from a one-off script. The pipeline does not
+save them yet.
+
+**Reading the top replies.** The 5 highest-scoring DeepSeek replies were
+read by hand. None of them hands the request back. The top one (0.93) gives
+a clear instruction, using the sender's names for the deal. Others make the
+confirmation the sender asked for, or acknowledge the message and say what
+happens next. They score high because they reuse the sender's topic words,
+such as names, deals and forms. This is one reader and 5 replies. The
+measure was checked against hand codes of Llama replies only. So for
+DeepSeek, a high score may mean "stays on topic" rather than "mirrors".
+
+**By direction.** Only 2 DeepSeek replies are flagged, both writing down to
+a junior. A split by direction says nothing with 2 replies, so its figure is
+left out.
+
+**What this means.** Mirroring looks mainly like a weakness of the small
+model, not a general LLM behaviour. One check is still missing: hand-coding
+a sample of DeepSeek replies, as section 35 did for Llama. That would show
+whether the measure means the same thing for both models.
+
+**Command.**
+
+```
+python -m thesis.analysis.mirroring --pairs data/interim/pairs_deepseek.parquet \
+  --out outputs/tables/mirroring_scores_deepseek.csv \
+  --figure-prefix mirroring_deepseek_ \
+  --manifest outputs/manifests/mirroring_deepseek.json \
+  --compare-to data/interim/real_vs_generated_pairs.parquet
+```
+
+The Llama results and figures were not touched.
+
+---
+
+## 9. Next steps
+
+1. **Hand-code a sample of DeepSeek replies.** The mirroring measure was
+   checked on Llama replies only. Section 8 suggests that a high score means
+   something different for DeepSeek. A hand-coded sample would settle this.
+2. **Save the length check in code.** Its numbers now come from a one-off
+   script. It should be part of `mirroring.py`, so the numbers can be
+   reproduced.
 3. **Embedding map and review pack on DeepSeek.** These also only read the
    saved replies.
 4. **Judge study (Q3) with a second model family.** For example, Nemotron as
    judge and DeepSeek as writer. This needs new model calls.
-5. **Back up `runs/_cache`.** It holds hours of NVIDIA replies and exists
+5. **Rename one summary key.** `mirroring.py` saves the comparison under
+   `compared_with_previous_prompt`. For a comparison between models, that
+   name is wrong.
+6. **Back up `runs/_cache`.** It holds hours of NVIDIA replies and exists
    only on this laptop. It must not go into git, because the prompts contain
    Enron text.
-6. **Commit the client code.**
+7. **Commit the code.** The NVIDIA client and the `compare_runs` fix are not
+   committed yet.
