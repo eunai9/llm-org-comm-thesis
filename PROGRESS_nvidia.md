@@ -20,7 +20,7 @@ Nothing here replaces a result in `PROGRESS.md` yet.
 | Hand-code a sample of DeepSeek replies | Not started |
 | DeepSeek run without the act instruction | Not started |
 | Judge study with a second model family | Not started |
-| Commit the client code | Not done yet |
+| Commit the client code | Done (Sep 13) |
 | Back up the reply cache | Not done yet |
 
 ---
@@ -539,8 +539,9 @@ giveaway from length to word choice.
 7. **Back up `runs/_cache`.** It holds hours of NVIDIA replies and exists
    only on this laptop. It must not go into git, because the prompts contain
    Enron text.
-8. **Commit the code.** The NVIDIA client and the `compare_runs` fix are not
-   committed yet.
+8. **Commit the code.** Done on Sep 13, in three commits: the NVIDIA client
+   and its tests (`57035ab`), the `compare_runs` fix (`ec0829e`), and the
+   cost ledger with the DeepSeek mirroring manifest (`cac4688`).
 9. **Move the line removal into the corpus cleaner.** Section 9 removed
    signature, address and header lines with a one-off script. If the cleaner
    in `thesis.data.rfc822` did this, every analysis would use the same clean
