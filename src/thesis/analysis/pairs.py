@@ -166,6 +166,12 @@ def main() -> None:
         default=None,
         help="Generate missing replies with a local Ollama model instead of failing.",
     )
+    parser.add_argument(
+        "--nvidia",
+        metavar="MODEL",
+        default=None,
+        help="Generate missing replies with a free NVIDIA-hosted model (needs NVIDIA_API_KEY).",
+    )
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--out", default=str(PAIRS_PATH))
     args = parser.parse_args()
@@ -182,6 +188,11 @@ def main() -> None:
             raise OllamaUnavailableError(msg)
         client: LLMClient = ollama
         model, role_label, cache_only = args.local, "sim_local", False
+    elif args.nvidia:
+        from thesis.llm.nvidia_client import NvidiaClient
+
+        client = NvidiaClient()
+        model, role_label, cache_only = args.nvidia, "sim_nvidia", False
     else:
         from thesis.llm.anthropic_client import AnthropicClient
 

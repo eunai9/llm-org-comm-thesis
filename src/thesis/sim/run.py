@@ -42,6 +42,7 @@ from thesis.config import Config, load_config
 from thesis.llm.base import CompletionRequest, LLMClient, Message, Usage
 from thesis.llm.cache import ResponseCache, cache_key
 from thesis.llm.cost import CostLedger, LedgerEntry, cost_usd, guard_budget
+from thesis.llm.nvidia_client import is_nim_model
 from thesis.llm.ollama_client import is_local_model
 from thesis.llm.stub_client import is_stub_model
 from thesis.logging_setup import configure_logging, get_logger
@@ -200,12 +201,16 @@ def _is_billable(response_model: str, *, from_cache: bool) -> bool:
     """Whether this response actually cost money.
 
     A cache hit never reached the provider, and neither a stub response nor a
-    locally-run model ever left the machine. Pricing any of them would inflate
-    the cost ledger -- the file the thesis's total-spend figure is summed
-    from -- with money that was never spent.
+    locally-run model ever left the machine. The free NVIDIA tier is not
+    billed either. Pricing any of them would inflate the cost ledger -- the
+    file the thesis's total-spend figure is summed from -- with money that was
+    never spent.
     """
     return (
-        not from_cache and not is_stub_model(response_model) and not is_local_model(response_model)
+        not from_cache
+        and not is_stub_model(response_model)
+        and not is_local_model(response_model)
+        and not is_nim_model(response_model)
     )
 
 
