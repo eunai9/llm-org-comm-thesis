@@ -1,0 +1,293 @@
+# NVIDIA Free-Tier Progress Log
+
+A plain-language record of the work that uses NVIDIA's free hosted models.
+It is kept apart from `PROGRESS.md` on purpose. This work is still a trial.
+Nothing here replaces a result in `PROGRESS.md` yet.
+
+---
+
+## Status at a glance
+
+| Stage | Status |
+|---|---|
+| Decide whether the NVIDIA free tier fits the thesis | Done, see section 1 |
+| Build a client for the NVIDIA API | Done, see section 2 |
+| Find which models work on this account | Done, see section 3 |
+| Test run: 10 replies | Done, see section 4 |
+| Full run: all 183 reply pairs with DeepSeek | Done, see section 6 |
+| Mirroring measure on the DeepSeek replies | Next, see section 8 |
+| Judge study with a second model family | Not started |
+| Commit the client code | Not done yet |
+| Back up the reply cache | Not done yet |
+
+---
+
+## A few terms, explained once
+
+- **NVIDIA build (build.nvidia.com)**: a website where NVIDIA runs many
+  open-weight models on its own servers. Anyone in the free NVIDIA Developer
+  Program can call them through an API key.
+- **Client**: the piece of code that sends a prompt to a model service and
+  reads the answer back.
+- **Timeout**: how long the client waits for an answer before it gives up
+  on one try.
+- **Retry**: sending the same request again after a failed try.
+- **Cache**: the folder `runs/_cache`. It stores every model reply this
+  project has received. A later run with the exact same prompt and model
+  reads the saved reply instead of calling the model again.
+- **Valid JSON**: the reply arrives in the fixed structure the analysis
+  expects (subject, body, decision, confidence, short reasoning). An invalid
+  reply cannot be used.
+- **Median**: the middle value when all values are sorted. Half the values
+  are below it and half are above it.
+
+---
+
+## 1. Why try the NVIDIA free tier (Sep 12)
+
+**The problem it solves.** All generated replies so far come from small
+local models such as `llama3.2:3b`. This laptop's Linux system has 8 GB of
+memory, so about 8B parameters is the upper limit. A 3B model on a laptop
+cannot stand in for a named, citable model in a results table. The code
+itself says so in `ollama_client.py`.
+
+**Why NVIDIA.** The thesis will not pay for any LLM API. This was decided
+with the supervisor. NVIDIA's free tier costs nothing and offers much larger
+models. So it keeps the budget decision and removes the small-model problem.
+
+**What the free tier offers.**
+
+- It serves 82 models through an API in the same format as OpenAI's.
+- The address is `https://integrate.api.nvidia.com/v1`.
+- The limit is about 40 requests per minute.
+
+**Limits to keep in mind.**
+
+- NVIDIA's terms allow "testing and evaluation", not "production". NVIDIA's
+  forum says research counts as allowed use.
+- Each prompt contains Enron text, and it goes to NVIDIA's servers. The
+  corpus is public, but the supervisor should know about this.
+- NVIDIA can remove a model at any time. The cache protects replies that
+  were already received.
+
+---
+
+## 2. Building the client (Sep 12)
+
+**Why this step.** The project had clients for Anthropic and for local
+Ollama models only. A new client was needed before any NVIDIA model could
+be called.
+
+**What was built.**
+
+- `src/thesis/llm/nvidia_client.py`: the new client. It asks the model for
+  valid JSON in the same structure as the other clients.
+- `src/thesis/analysis/pairs.py`: a new option, `--nvidia MODEL`. It
+  generates the replies with an NVIDIA model.
+- `src/thesis/sim/run.py`: NVIDIA replies are never priced. Before this
+  change, the run would have crashed on the missing price.
+- `src/thesis/llm/base.py`: `"nvidia"` added to the list of providers.
+- `.env.example`: a new line for `NVIDIA_API_KEY`. The real key goes in
+  `.env`, which git ignores.
+- `tests/test_nvidia.py`: 13 new tests. They need no network and no key.
+
+**How NVIDIA replies are marked.** Each reply is saved with the model name
+`nim/<model>`, for example `nim/deepseek-ai/deepseek-v4-flash-0731`. This
+keeps NVIDIA rows easy to find. The cost ledger records them at $0.
+
+**How the client handles the rate limit and failures.**
+
+| Setting | Value | Reason |
+|---|---:|---|
+| Gap between calls | 1.5 s | 40 requests per minute is one call every 1.5 s |
+| Timeout per try | 120 s | A normal reply takes under 15 s. Changed from 300 s, see section 5 |
+| Retries | 5 | So one request gets 6 tries in total |
+| Wait before each retry | 2, 4, 8, 16, 32 s | The wait doubles each time |
+
+**Checks.** black, ruff, mypy and the full test suite all pass.
+
+---
+
+## 3. Which models work on this account (Sep 12)
+
+**Why this step.** The public list shows 82 models. Not all of them answer
+on a free account. Each candidate got one tiny request.
+
+| Model | Result |
+|---|---|
+| `nvidia/nemotron-3-super-120b-a12b` | Answers |
+| `deepseek-ai/deepseek-v4-flash-0731` | Answers |
+| `openai/gpt-oss-20b` | Answers |
+| `google/gemma-4-31b-it` | No answer within 120 s |
+| `mistralai/mistral-nemotron` | No answer within 120 s |
+| `meta/llama-3.2-90b-vision-instruct` | No answer within 120 s |
+| `mistralai/mistral-large-2-instruct` | Not served (error 404) |
+| `nvidia/llama-3.1-nemotron-70b-instruct` | Not served (error 404) |
+
+**Which of them return valid JSON.** The three working models then got one
+made-up email and the real reply schema.
+
+| Model | Valid JSON | Time | Output tokens |
+|---|---|---:|---:|
+| `deepseek-v4-flash-0731` | Yes | 11.6 s | 213 |
+| `nemotron-3-super-120b-a12b` | Yes | not recorded | 548 |
+| `gpt-oss-20b` | No | 73.9 s | 2,048 |
+
+`gpt-oss-20b` kept writing past the JSON until it hit the 2,048-token limit.
+
+**Choice.** DeepSeek V4 Flash is used as the reply writer. It is the
+fastest, it gives the shortest valid output, and it is a well-known model.
+Nemotron is kept as the backup.
+
+---
+
+## 4. Test run: 10 replies (Sep 12)
+
+**Why this step.** One made-up email does not show how the model handles
+the real prompts. Ten real pairs are a cheap check before a run of several
+hours.
+
+**Command.**
+
+```
+python -m thesis.analysis.pairs --nvidia deepseek-ai/deepseek-v4-flash-0731 --limit 10 --out <test file>
+```
+
+The test output was written outside the repository.
+
+**Results.**
+
+| | Real reply | DeepSeek | Llama 3.2 3B (local) |
+|---|---:|---:|---:|
+| Median length (words) | 32.5 | 40.5 | 17 |
+
+- Valid JSON: 10 of 10.
+- Decisions: 8 accept, 1 defer, 1 none.
+- Placeholders such as `[Manager's Name]`: 0 of 10. The replies use the real
+  names from the incoming email.
+- The replies read like fluent business email. They often invent details
+  that the real replies do not contain.
+
+DeepSeek's length is much closer to the real replies than Llama's.
+
+---
+
+## 5. The free tier stalls often (Sep 12)
+
+**Why this matters.** Speed decides whether a full run is practical.
+
+**What happened.** NVIDIA often holds a request without answering. In the
+10-reply test, 6 of the 8 new requests stalled at least once. Every retry
+worked in the end.
+
+| Seconds per reply (8 new replies) |
+|---|
+| 33, 47, 142, 149, 154, 163, 274, 317 |
+
+- Only 2 replies came back on the first try.
+- The median is about 150 s per reply.
+- The 8 replies took 21 minutes together.
+
+**Fix.** The timeout was cut from 300 s to 120 s. With 300 s and 5 retries,
+one stuck request could block a run for up to 30 minutes. The first test
+attempt was stuck for 9 minutes this way.
+
+---
+
+## 6. Full run: all 183 reply pairs (Sep 12)
+
+**Why this step.** The test showed valid output. The analyses need the full
+set of 183 pairs, the same set used for Llama in `PROGRESS.md`.
+
+**How it was run.** The run takes several hours, so it was started in the
+user's own Ubuntu window inside `tmux`, not from a Claude session. See
+section 7 for why.
+
+**First attempt.** It started at 17:21. It finished 43 pairs and then
+stopped at about 18:40. One request timed out 6 times in a row, so the
+client gave up and the run stopped.
+
+**Nothing was lost.** The 43 finished pairs were in the cache. They needed
+only 35 distinct replies. Some pairs share the exact same prompt: the same
+persona answers the same incoming email, because the thread has two real
+replies. Those pairs share one saved reply.
+
+**Restart loop.** The run was restarted inside a loop. When it stops with an
+error, the loop waits 60 seconds and starts it again. A restart skips every
+saved reply within seconds.
+
+```
+cd ~/projects/thesis && set -a && source .env && set +a
+for i in $(seq 1 30); do
+  .venv/bin/python -m thesis.analysis.pairs --nvidia deepseek-ai/deepseek-v4-flash-0731 \
+    --out data/interim/pairs_deepseek.parquet 2>&1 | tee -a runs/nvidia_full.log
+  [ "${PIPESTATUS[0]}" -eq 0 ] && break
+  echo "restart $i"; sleep 60
+done
+```
+
+**Result.** The run finished at 23:49. It stopped 3 times in total, the
+first attempt included.
+
+| | Value |
+|---|---:|
+| Pairs written | 183 of 183 |
+| Empty replies | 0 |
+| Decisions | 92 accept, 61 none, 30 defer |
+| Median length, real replies (words) | 44 |
+| Median length, DeepSeek replies (words) | 38 |
+| Cost | $0 |
+
+**Where the output is.**
+
+- `data/interim/pairs_deepseek.parquet`: the 183 pairs. Git ignores it.
+- `runs/nvidia_full.log`: the run log. Git ignores it.
+- The Llama pairs file `data/interim/real_vs_generated_pairs.parquet` was
+  not touched.
+
+---
+
+## 7. Running long jobs safely (Sep 12)
+
+**Why this step.** A run of several hours can die for reasons unrelated to
+the code. Two risks were checked.
+
+- **The laptop goes to sleep.** Windows was set to sleep after 30 minutes
+  without use, even on the charger. Sleep stops every run. It was set to
+  "Never" while plugged in.
+- **WSL shuts down.** A run started from a Claude session is attached to
+  that session. If the session or VS Code closes, WSL may shut down and
+  kill the run. So long runs are started in the user's own Ubuntu window,
+  inside `tmux`, with the window left open.
+
+A test with a detached process showed that WSL stayed up while the user's
+Ubuntu window was open. It does not show what happens with no window open.
+
+**The safety net.** Every finished reply is saved to the cache at once. If a
+run is killed for any reason, the same command continues where it stopped.
+Only time is lost.
+
+---
+
+## 8. Next steps
+
+1. **Mirroring measure on the DeepSeek replies.** Mirroring means a reply is
+   built mostly from the sender's own words. `PROGRESS.md` section 42
+   measures it with **borrowed words**: the share of a reply's content words
+   that already appear in the incoming email. For Llama, the mean was 0.579,
+   against 0.278 for real replies cut to the same length. 25.7% of Llama
+   replies were flagged as mirroring, against 7.1% of real replies. The
+   question is whether DeepSeek behaves like Llama or like the real replies.
+   This needs no new generation and runs in seconds.
+2. **A small code fix first.** `compare_runs` in `mirroring.py` pairs two
+   runs by the full `cell_id`. That id starts with the role label
+   (`sim_local` for Llama, `sim_nvidia` for DeepSeek), so no pairs would
+   match. It should match on the part after the role label.
+3. **Embedding map and review pack on DeepSeek.** These also only read the
+   saved replies.
+4. **Judge study (Q3) with a second model family.** For example, Nemotron as
+   judge and DeepSeek as writer. This needs new model calls.
+5. **Back up `runs/_cache`.** It holds hours of NVIDIA replies and exists
+   only on this laptop. It must not go into git, because the prompts contain
+   Enron text.
+6. **Commit the client code.**
