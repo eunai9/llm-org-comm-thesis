@@ -17,6 +17,7 @@ Nothing here replaces a result in `PROGRESS.md` yet.
 | Full run: all 183 reply pairs with DeepSeek | Done, see section 6 |
 | Mirroring measure on the DeepSeek replies | Done, see section 8 |
 | Hand-code a sample of DeepSeek replies | Not started |
+| DeepSeek run without the act instruction | Not started |
 | Judge study with a second model family | Not started |
 | Commit the client code | Not done yet |
 | Back up the reply cache | Not done yet |
@@ -272,10 +273,20 @@ Only time is lost.
 
 ## 8. Mirroring measure on the DeepSeek replies (Sep 13)
 
-**Result first.** DeepSeek mirrors less than Llama, even when both replies
-have the same length. Length explains about one third of the gap. DeepSeek
-still takes more of the sender's words than real people do. Its
-highest-scoring replies do not hand the request back when read.
+**Result first.** With the same prompt, DeepSeek mirrors less than Llama,
+even when both replies have the same length. Length explains about one third
+of the gap. DeepSeek still takes more of the sender's words than real people
+do. Its highest-scoring replies do not hand the request back when read.
+
+**Correction.** The first version of this section compared DeepSeek with the
+wrong Llama replies. Since section 43 of `PROGRESS.md` (Sep 5), the persona
+prompt tells the persona to act on a request, not hand it back. This "act"
+instruction is part of the default prompt, so the DeepSeek run used it. The
+first version compared DeepSeek with Llama replies made before the
+instruction existed. That comparison changed two things at once: the model
+and the prompt. This version compares DeepSeek with the Llama replies made
+with the same instruction (`real_vs_generated_pairs_act.parquet`). The
+conclusion did not change. The numbers changed a little.
 
 **Why this step.** Mirroring was the main failure of the local Llama model
 (`PROGRESS.md` section 42). A reply mirrors when it is built mostly from the
@@ -300,15 +311,15 @@ matched 0 pairs. It now ignores the role label, and all 183 pairs match. A
 new test covers this. This code change is not committed yet.
 
 **Same inputs.** In all 183 matched pairs, the incoming email, the real
-reply, the persona and the direction are identical. Only the generated reply
-differs.
+reply, the persona and the direction are identical. Both runs used the same
+prompt, including the act instruction. Only the model differs.
 
 **First result.**
 
 | | Mean borrowed words | Flagged | Mean length |
 |---|---:|---:|---:|
-| Llama 3.2 3B | 0.579 | 25.7% | 19.8 words |
-| DeepSeek V4 Flash | 0.413 | 1.1% | 40.1 words |
+| Llama 3.2 3B, with the instruction | 0.565 | 19.1% | 22.7 words |
+| DeepSeek V4 Flash, with the instruction | 0.413 | 1.1% | 40.1 words |
 | Real replies, cut to DeepSeek's length | 0.277 | 9.8% | |
 
 ![How much of a reply is built from the sender's own words, DeepSeek against real replies.](docs/figures/mirroring_deepseek_generated_vs_real.png)
@@ -317,7 +328,7 @@ The top panel is DeepSeek ("AI replies" in the figure). The bottom panel is
 the real replies, each cut to the length of its DeepSeek partner. Almost no
 DeepSeek reply reaches 0.80.
 
-**Length check.** DeepSeek's replies are about twice as long as Llama's.
+**Length check.** DeepSeek's replies are almost twice as long as Llama's.
 Borrowed words is a share of a reply's distinct words. A longer reply has
 more room for words the sender never used, so it scores lower even if it
 copies just as much. So each DeepSeek reply was cut to the length of its
@@ -325,28 +336,30 @@ Llama partner and scored again.
 
 | | Mean borrowed words | Flagged | Mean length |
 |---|---:|---:|---:|
-| Llama 3.2 3B | 0.579 | 25.7% | 19.8 words |
+| Llama 3.2 3B, with the instruction | 0.565 | 19.1% | 22.7 words |
 | DeepSeek, full reply | 0.413 | 1.1% | 40.1 words |
-| DeepSeek, cut to Llama's length | 0.469 | 9.8% | 19.3 words |
-| Real replies, cut to Llama's length | 0.278 | 7.1% | 19.8 words |
+| DeepSeek, cut to Llama's length | 0.469 | 8.2% | 22.3 words |
+| Real replies, cut to Llama's length | 0.294 | 9.8% | 21.4 words |
 
 Two paired tests compare each DeepSeek reply with the Llama reply to the
 same email:
 
 - **The score test** (Wilcoxon signed-rank) asks whether the scores moved.
-  At the same length, DeepSeek scores 0.109 lower on average. p < 0.0001.
-- **The flag test** (McNemar) counts only the replies whose flag changed. 40
-  replies stop being flagged and 11 become flagged. p < 0.0001.
+  At full length, DeepSeek scores 0.151 lower on average. At the same
+  length, it scores 0.095 lower. Both p < 0.0001.
+- **The flag test** (McNemar) counts only the replies whose flag changed. At
+  the same length, 32 replies stop being flagged and 12 become flagged.
+  p = 0.004.
 
 What the table shows:
 
-- **The gap is not only length.** The full gap is 0.165. After the cut,
-  0.109 remains. So length explains about one third of it.
+- **The gap is not only length.** The full gap is 0.151. After the cut,
+  0.095 remains. So length explains about one third of it.
 - **The flagged rate depends mostly on length.** At full length, 1.1% of
-  DeepSeek replies are flagged. At Llama's length it is 9.8%, close to the
-  7.1% for real replies.
+  DeepSeek replies are flagged. At Llama's length it is 8.2%, close to the
+  9.8% for real replies.
 - **DeepSeek still borrows more than people do.** At the same length its
-  mean is 0.469, against 0.278 for real replies.
+  mean is 0.469, against 0.294 for real replies.
 
 The length check numbers come from a one-off script. The pipeline does not
 save them yet.
@@ -365,9 +378,15 @@ a junior. A split by direction says nothing with 2 replies, so its figure is
 left out.
 
 **What this means.** Mirroring looks mainly like a weakness of the small
-model, not a general LLM behaviour. One check is still missing: hand-coding
-a sample of DeepSeek replies, as section 35 did for Llama. That would show
-whether the measure means the same thing for both models.
+model, not a general LLM behaviour. Two checks are still missing:
+
+- **Hand-coding a sample of DeepSeek replies,** as section 35 did for Llama.
+  That would show whether the measure means the same thing for both models.
+- **A DeepSeek run without the act instruction.** Section 43 found that the
+  instruction barely changed Llama's mirroring. It left open whether a
+  larger model follows it better. There is no DeepSeek run without the
+  instruction, so this section cannot say how much the instruction helps
+  DeepSeek.
 
 **Command.**
 
@@ -376,7 +395,7 @@ python -m thesis.analysis.mirroring --pairs data/interim/pairs_deepseek.parquet 
   --out outputs/tables/mirroring_scores_deepseek.csv \
   --figure-prefix mirroring_deepseek_ \
   --manifest outputs/manifests/mirroring_deepseek.json \
-  --compare-to data/interim/real_vs_generated_pairs.parquet
+  --compare-to data/interim/real_vs_generated_pairs_act.parquet
 ```
 
 The Llama results and figures were not touched.
@@ -388,18 +407,23 @@ The Llama results and figures were not touched.
 1. **Hand-code a sample of DeepSeek replies.** The mirroring measure was
    checked on Llama replies only. Section 8 suggests that a high score means
    something different for DeepSeek. A hand-coded sample would settle this.
-2. **Save the length check in code.** Its numbers now come from a one-off
+2. **A DeepSeek run without the act instruction.** This answers the question
+   section 43 left open: does a larger model follow the instruction better?
+   The instruction is always on in `prompt.py` now, so this first needs a
+   small code option to switch it off. The run takes about 4 to 5 hours on
+   the free tier.
+3. **Save the length check in code.** Its numbers now come from a one-off
    script. It should be part of `mirroring.py`, so the numbers can be
    reproduced.
-3. **Embedding map and review pack on DeepSeek.** These also only read the
+4. **Embedding map and review pack on DeepSeek.** These also only read the
    saved replies.
-4. **Judge study (Q3) with a second model family.** For example, Nemotron as
+5. **Judge study (Q3) with a second model family.** For example, Nemotron as
    judge and DeepSeek as writer. This needs new model calls.
-5. **Rename one summary key.** `mirroring.py` saves the comparison under
+6. **Rename one summary key.** `mirroring.py` saves the comparison under
    `compared_with_previous_prompt`. For a comparison between models, that
    name is wrong.
-6. **Back up `runs/_cache`.** It holds hours of NVIDIA replies and exists
+7. **Back up `runs/_cache`.** It holds hours of NVIDIA replies and exists
    only on this laptop. It must not go into git, because the prompts contain
    Enron text.
-7. **Commit the code.** The NVIDIA client and the `compare_runs` fix are not
+8. **Commit the code.** The NVIDIA client and the `compare_runs` fix are not
    committed yet.
