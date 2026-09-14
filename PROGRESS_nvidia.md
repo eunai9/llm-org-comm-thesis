@@ -17,6 +17,7 @@ Nothing here replaces a result in `PROGRESS.md` yet.
 | Full run: all 183 reply pairs with DeepSeek | Done, see section 6 |
 | Mirroring measure on the DeepSeek replies | Done, see section 8 |
 | Can DeepSeek replies be told apart by length or words? | Done, see section 9 |
+| Q1 with DeepSeek: does direction change directive language? | Done, see section 10 |
 | Hand-code a sample of DeepSeek replies | Not started |
 | DeepSeek run without the act instruction | Not started |
 | Judge study with a second model family | Not started |
@@ -521,7 +522,133 @@ giveaway from length to word choice.
 
 ---
 
-## 10. Next steps
+## 10. Q1 with DeepSeek: does direction change directive language? (Sep 14)
+
+**Result first.** With DeepSeek, direction matters in one way. Writing down
+to someone more junior gives more imperative sentences than writing to a
+peer: 33.5% against 24.5%. Both measures agree, and both stay significant
+after a correction for four tests. Writing up looks the same as writing to a
+peer. Llama with the same prompt shows no reliable effect in any direction.
+
+**Why this step.** Q1 asks whether a persona's place in the hierarchy
+changes how directive its replies are. Every Llama run so far found no clear
+effect (`PROGRESS.md` sections 33 to 39). Section 39 found one borderline
+result: writing up, at p = .046. The open question was whether a larger
+model shows a pattern that the 3B model does not.
+
+**How Q1 is measured.**
+
+- **The Q1 grid**: 10 personas × 3 directions × 4 incoming tones × 2 task
+  types = 240 replies, one each. This is the design of `PROGRESS.md`
+  section 39.
+- **Imperative sentence**: a sentence that tells the reader to do
+  something, such as "Send me the numbers by Friday."
+- **Reply level**: the share of a reply's sentences that are imperative. A
+  linear mixed model compares writing down and writing up with writing to a
+  peer. It allows for each persona's own habits.
+- **Sentence level**: each sentence is imperative or not. A logistic mixed
+  model makes the same comparison. Its coefficients are also turned into
+  the probability that a sentence is imperative.
+- **Coefficient**: the difference from writing to a peer. Positive means
+  more imperative.
+
+**The fair comparison.** Since Sep 5 the prompt carries the act instruction
+(section 8). Section 39's Llama grid is from Sep 4, before it. So Llama was
+run again with today's prompt: 240 new local replies. DeepSeek got the same
+prompt: 240 replies, overnight on the free tier. One script computed all
+numbers for all three grids. For the Sep 4 grid it gives exactly the numbers
+of section 39, so the method is the same.
+
+**Results.**
+
+| Grid | Reply level, down | Reply level, up | Sentence level, down | Sentence level, up |
+|---|---|---|---|---|
+| Llama, no instruction (section 39) | +0.027 (p = .672) | +0.083 (p = .192) | +0.163 (p = .401) | +0.395 (p = .046) |
+| Llama, instruction | +0.056 (p = .412) | +0.029 (p = .670) | +0.197 (p = .298) | +0.151 (p = .437) |
+| DeepSeek, instruction | **+0.099 (p = .003)** | +0.015 (p = .647) | **+0.438 (p < .001)** | +0.059 (p = .654) |
+
+The probability that a sentence is imperative, from the sentence-level
+model:
+
+| Grid | Writing down | Writing to a peer | Writing up |
+|---|---:|---:|---:|
+| Llama, no instruction (section 39) | 31.7% | 28.3% | 36.9% |
+| Llama, instruction | 40.7% | 36.0% | 39.6% |
+| DeepSeek, instruction | 33.5% | 24.5% | 25.6% |
+
+![Predicted probability of an imperative sentence by direction, for Llama and DeepSeek with the same prompt.](docs/figures/nvidia_q1_direction.png)
+
+The figure shows the two runs with today's prompt. The section 39 line is in
+that section's own figure.
+
+What the tables show:
+
+- **DeepSeek gives more orders downward.** The "down" contrast is
+  significant on both measures. With four tests, a Bonferroni correction
+  needs p below 0.0125. Both p-values pass: 0.003 and 0.0004.
+- **For DeepSeek, writing up looks like writing to a peer.** The "up"
+  contrasts are +0.015 and +0.059, both far from significant.
+- **Llama shows no reliable effect with today's prompt.** All four contrasts
+  are null.
+- **Section 39's borderline result did not hold.** With the act instruction,
+  Llama's "up" contrast fell from +0.395 (p = .046) to +0.151 (p = .437).
+  This supports reading the section 39 result as noise.
+
+**DeepSeek writes more sentences.**
+
+| Grid | Sentences | Sentences per reply | One-sentence replies |
+|---|---:|---:|---:|
+| Llama, instruction | 343 | 1.43 | 59.2% |
+| DeepSeek, instruction | 882 | 3.71 | 0% |
+
+`PROGRESS.md` section 34 warned that one-sentence replies make the
+reply-level measure crude, because the share is then 0 or 1. DeepSeek has no
+one-sentence replies. So its measures rest on far more sentences than
+Llama's.
+
+**Two other results.**
+
+- **The decision depends on direction** for both models: Llama p = .023,
+  DeepSeek p = .002. DeepSeek declines more often when writing down (33 of
+  79 replies) than when writing up (13 of 79). This plain chi-square test
+  ignores that replies from one persona are alike. So it is only a hint, as
+  in section 39.
+- **Hedging.** Writing down has fewer hedges for both models: Llama
+  p = .034, DeepSeek p = .035. But DeepSeek almost never hedges. Its mean
+  hedge rate is at most 0.014 in any direction, against 0.08 to 0.19 for
+  Llama. So DeepSeek's result rests on very few hedges.
+
+**Limits.**
+
+- One reply per cell and 10 personas.
+- 2 DeepSeek replies are missing, one writing up and one writing down. Both
+  came back without valid JSON. So the DeepSeek grid has 238 replies.
+- In the reply-level model, the persona variance is 0 for both runs. The
+  model then works like a plain regression. The fit warned that it sits at
+  the edge of its range.
+- The sentence-level p-values are approximate (a Wald test from a
+  variational Bayes fit), as section 39 noted.
+- This shows that DeepSeek's replies change with direction. It does not yet
+  compare this with how real employees write when they write down.
+
+**Commands.**
+
+```
+python -m thesis.analysis.q1 --nvidia deepseek-ai/deepseek-v4-flash-0731 \
+  --out data/interim/q1_direction_grid_deepseek.parquet
+python -m thesis.analysis.q1 --local llama3.2:3b --ollama-host http://172.20.144.1:11435 \
+  --out data/interim/q1_direction_grid_llama_act.parquet
+```
+
+The `--nvidia` option is new in `q1.py`. The DeepSeek run stopped twice on
+stalls, and the restart loop from section 6 started it again. The Llama run
+reached Ollama on Windows through a temporary second Ollama server, because
+WSL cannot see Windows' localhost. That server was stopped after the run.
+The Sep 4 grid was not touched.
+
+---
+
+## 11. Next steps
 
 1. **Hand-code a sample of DeepSeek replies.** Hand-coding means a person
    reads each reply and picks a label from the section 35 codebook. The
@@ -533,8 +660,8 @@ giveaway from length to word choice.
 2. **A DeepSeek run without the act instruction.** This answers the question
    section 43 left open: does a larger model follow the instruction better?
    The instruction is always on in `prompt.py` now, so this first needs a
-   small code option to switch it off. The run takes about 4 to 5 hours on
-   the free tier.
+   small code option to switch it off. The 183 pairs take about 4 to 5 hours
+   on the free tier. The Q1 grid of section 10 takes about 9 to 13 hours.
 3. **Save the length check in code.** Its numbers now come from a one-off
    script. It should be part of `mirroring.py`, so the numbers can be
    reproduced.
