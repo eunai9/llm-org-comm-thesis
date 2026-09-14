@@ -314,6 +314,25 @@ class MeasureChange:
 
 
 @dataclass(frozen=True, slots=True)
+class SameLengthComparison:
+    """The comparison again, with each after-reply cut to its before partner's length.
+
+    Borrowed words is a share of a reply's distinct words, so a longer reply
+    scores lower even if it copies just as much. Cutting the after-reply to
+    the before-reply's word count removes that advantage. When both runs carry
+    the real reply, it is cut the same way and scored as the reference level.
+    """
+
+    borrowed_words: MeasureChange
+    flagged_share: MeasureChange
+    newly_flagged: int
+    no_longer_flagged: int
+    after_words: float
+    real_borrowed_words: float | None
+    real_flagged_share: float | None
+
+
+@dataclass(frozen=True, slots=True)
 class RunComparison:
     """What a change of prompt or model did to the mirroring measure, on the same stimuli."""
 
@@ -323,9 +342,10 @@ class RunComparison:
     newly_flagged: int
     no_longer_flagged: int
     reply_words: MeasureChange
+    same_length: SameLengthComparison
 
 
-def _pair_key(cell_ids: pd.Series) -> pd.Series:
+def pair_key(cell_ids: pd.Series) -> pd.Series:
     """The cell id without its leading role label.
 
     Every cell id starts with ``<role_label>__``. The rest names the persona
@@ -333,6 +353,76 @@ def _pair_key(cell_ids: pd.Series) -> pd.Series:
     role label is returned unchanged.
     """
     return cell_ids.str.split("__", n=1).str[-1]
+
+
+def _paired_change(
+    before: pd.Series, after: pd.Series
+) -> tuple[MeasureChange, MeasureChange, int, int]:
+    """Signed-rank test on the scores and McNemar's test on the flags, for paired replies."""
+    difference = after - before
+    # Every reply identical would make the signed-rank test undefined; that is
+    # a real outcome (the change moved nothing), not an error to raise on.
+    p_value = float(stats.wilcoxon(after, before).pvalue) if difference.any() else 1.0
+
+    flagged_before, flagged_after = before >= HIGH_OVERLAP, after >= HIGH_OVERLAP
+    moved_up = int((~flagged_before & flagged_after).sum())
+    moved_down = int((flagged_before & ~flagged_after).sum())
+    mcnemar = (
+        float(stats.binomtest(moved_down, moved_down + moved_up, 0.5).pvalue)
+        if moved_down + moved_up
+        else 1.0
+    )
+    borrowed = MeasureChange(
+        before=round(float(before.mean()), 3),
+        after=round(float(after.mean()), 3),
+        change=round(float(difference.mean()), 3),
+        p_value=round(p_value, 4),
+    )
+    flagged = MeasureChange(
+        before=round(float(flagged_before.mean()), 3),
+        after=round(float(flagged_after.mean()), 3),
+        change=round(float(flagged_after.mean() - flagged_before.mean()), 3),
+        p_value=round(mcnemar, 4),
+    )
+    return borrowed, flagged, moved_up, moved_down
+
+
+def _same_length(
+    merged: pd.DataFrame, before_scores: pd.Series, *, nlp: Language
+) -> SameLengthComparison:
+    """Cut each after-reply, and the real reply if present, to the before-reply's length."""
+    before_words = merged["generated_reply_before"].fillna("").str.split().str.len()
+    cut = [
+        truncate_words(str(reply), int(n))
+        for reply, n in zip(merged["generated_reply_after"].fillna(""), before_words, strict=True)
+    ]
+    cut_scores = score_texts(merged["stimulus_text_after"], cut, nlp=nlp)[HEADLINE_SIGNAL]
+    borrowed, flagged, moved_up, moved_down = _paired_change(before_scores, cut_scores)
+
+    real_borrowed: float | None = None
+    real_flagged: float | None = None
+    if "real_reply_body_recleaned_before" in merged:
+        real_cut = [
+            truncate_words(str(real), int(n))
+            for real, n in zip(
+                merged["real_reply_body_recleaned_before"].fillna(""), before_words, strict=True
+            )
+        ]
+        real_scores = score_texts(merged["stimulus_text_before"], real_cut, nlp=nlp)[
+            HEADLINE_SIGNAL
+        ]
+        real_borrowed = round(float(real_scores.mean()), 3)
+        real_flagged = round(float((real_scores >= HIGH_OVERLAP).mean()), 3)
+
+    return SameLengthComparison(
+        borrowed_words=borrowed,
+        flagged_share=flagged,
+        newly_flagged=moved_up,
+        no_longer_flagged=moved_down,
+        after_words=round(float(np.mean([len(text.split()) for text in cut])), 1),
+        real_borrowed_words=real_borrowed,
+        real_flagged_share=real_flagged,
+    )
 
 
 def compare_runs(
@@ -351,10 +441,14 @@ def compare_runs(
     which is the right test for "did the *rate* move" when the same items are
     counted twice -- a chi-square would treat the two runs as independent
     samples and overstate the evidence.
+
+    ``same_length`` repeats both tests with each after-reply cut to its
+    before partner's length. A change that only made replies longer shows up
+    in the full comparison and vanishes there.
     """
     nlp = nlp or load_nlp()
-    merged = before.assign(pair_key=_pair_key(before["cell_id"])).merge(
-        after.assign(pair_key=_pair_key(after["cell_id"])),
+    merged = before.assign(pair_key=pair_key(before["cell_id"])).merge(
+        after.assign(pair_key=pair_key(after["cell_id"])),
         on="pair_key",
         suffixes=("_before", "_after"),
     )
@@ -368,21 +462,7 @@ def compare_runs(
         ]
         for arm in ("before", "after")
     }
-    difference = scores["after"] - scores["before"]
-    # Every reply identical would make the signed-rank test undefined; that is
-    # a real outcome (the prompt changed nothing), not an error to raise on.
-    p_value = (
-        float(stats.wilcoxon(scores["after"], scores["before"]).pvalue) if difference.any() else 1.0
-    )
-
-    flagged = {arm: scores[arm] >= HIGH_OVERLAP for arm in ("before", "after")}
-    moved_up = int((~flagged["before"] & flagged["after"]).sum())
-    moved_down = int((flagged["before"] & ~flagged["after"]).sum())
-    mcnemar = (
-        float(stats.binomtest(moved_down, moved_down + moved_up, 0.5).pvalue)
-        if moved_down + moved_up
-        else 1.0
-    )
+    borrowed, flagged, moved_up, moved_down = _paired_change(scores["before"], scores["after"])
 
     words = {
         arm: float(merged[f"generated_reply_{arm}"].str.split().str.len().mean())
@@ -391,20 +471,11 @@ def compare_runs(
 
     return RunComparison(
         n_paired=len(merged),
-        borrowed_words=MeasureChange(
-            before=round(float(scores["before"].mean()), 3),
-            after=round(float(scores["after"].mean()), 3),
-            change=round(float(difference.mean()), 3),
-            p_value=round(p_value, 4),
-        ),
-        flagged_share=MeasureChange(
-            before=round(float(flagged["before"].mean()), 3),
-            after=round(float(flagged["after"].mean()), 3),
-            change=round(float(flagged["after"].mean() - flagged["before"].mean()), 3),
-            p_value=round(mcnemar, 4),
-        ),
+        borrowed_words=borrowed,
+        flagged_share=flagged,
         newly_flagged=moved_up,
         no_longer_flagged=moved_down,
+        same_length=_same_length(merged, scores["before"], nlp=nlp),
         # No test on length: it is reported because a prompt that cures
         # mirroring by making replies longer is a different result from one
         # that cures it at the same length, not because length is an outcome

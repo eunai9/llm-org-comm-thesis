@@ -365,8 +365,10 @@ What the table shows:
 - **DeepSeek still borrows more than people do.** At the same length its
   mean is 0.469, against 0.294 for real replies.
 
-The length check numbers come from a one-off script. The pipeline does not
-save them yet.
+`compare_runs` in `mirroring.py` computes these same-length numbers. The
+manifest `outputs/manifests/mirroring_deepseek.json` saves them under
+`same_length`. They first came from a one-off script. The code gives the
+same numbers.
 
 **Reading the top replies.** Claude read the 5 highest-scoring DeepSeek
 replies. No person has checked them yet. None of them hands the request back. The top one (0.93) gives
@@ -662,9 +664,10 @@ The Sep 4 grid was not touched.
    The instruction is always on in `prompt.py` now, so this first needs a
    small code option to switch it off. The 183 pairs take about 4 to 5 hours
    on the free tier. The Q1 grid of section 10 takes about 9 to 13 hours.
-3. **Save the length check in code.** Its numbers now come from a one-off
-   script. It should be part of `mirroring.py`, so the numbers can be
-   reproduced.
+3. **Save the length check in code.** Done on Sep 14. `compare_runs` in
+   `mirroring.py` now repeats both paired tests with each reply cut to its
+   partner's length, and the manifest saves the result. It reproduces the
+   numbers of section 8.
 4. **Embedding map and review pack on DeepSeek.** These also only read the
    saved replies.
 5. **Judge study (Q3) with a second model family.** For example, Nemotron as

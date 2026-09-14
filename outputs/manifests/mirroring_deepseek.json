@@ -25,6 +25,25 @@
       "before": 22.7,
       "change": 17.4,
       "p_value": NaN
+    },
+    "same_length": {
+      "after_words": 22.3,
+      "borrowed_words": {
+        "after": 0.469,
+        "before": 0.565,
+        "change": -0.095,
+        "p_value": 0.0001
+      },
+      "flagged_share": {
+        "after": 0.082,
+        "before": 0.191,
+        "change": -0.109,
+        "p_value": 0.0037
+      },
+      "newly_flagged": 12,
+      "no_longer_flagged": 32,
+      "real_borrowed_words": 0.294,
+      "real_flagged_share": 0.098
     }
   },
   "flagged_rate_by_direction": {

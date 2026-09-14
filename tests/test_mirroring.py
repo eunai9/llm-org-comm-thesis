@@ -250,3 +250,28 @@ def test_comparison_pairs_the_same_cell_across_models() -> None:
     result = compare_runs(before, after, nlp=nlp)
     assert result.n_paired == 2
     assert result.borrowed_words.change == 0.0
+
+
+def test_same_length_comparison_removes_a_pure_length_gap() -> None:
+    """A reply that only adds words scores lower in full, and the same once cut."""
+    before = _run_frame([HANDS_BACK, HANDS_BACK])
+    after = _run_frame([f"{HANDS_BACK} {ACTS}", f"{HANDS_BACK} {ACTS}"])
+    result = compare_runs(before, after, nlp=nlp)
+    assert result.borrowed_words.change < 0
+    assert result.same_length.borrowed_words.change == 0.0
+    assert result.same_length.borrowed_words.p_value == 1.0
+    assert result.same_length.after_words == len(HANDS_BACK.split())
+
+
+def test_same_length_comparison_scores_the_real_reply_only_when_present() -> None:
+    before, after = _run_frame([HANDS_BACK, ACTS]), _run_frame([ACTS, HANDS_BACK])
+    without_real = compare_runs(before, after, nlp=nlp)
+    assert without_real.same_length.real_borrowed_words is None
+    real = ["Done, sent both forms to Tana.", "Will check with Tana today."]
+    with_real = compare_runs(
+        before.assign(real_reply_body_recleaned=real),
+        after.assign(real_reply_body_recleaned=real),
+        nlp=nlp,
+    )
+    assert with_real.same_length.real_borrowed_words is not None
+    assert with_real.same_length.real_flagged_share is not None
