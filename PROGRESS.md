@@ -1955,6 +1955,11 @@ was affected, because no earlier level contained a colon.
 | Self-preference interaction, overall rubric mean | +0.42 (p=.065) | +0.32 (p=.134) |
 | Self-preference interaction, `corpus_plausibility` only | p=.20 (coefficient never recorded) | +0.70 (**p=.012**) |
 
+**Corrected Sep 14 (section 48).** A fix to the model-fitting code moved two
+of these p-values slightly. Overall self-preference is now p=.142, not .134.
+Plausibility is now p=.014, not .012. The coefficients are the same, and so is
+every conclusion below.
+
 **Two things moved, in opposite directions.**
 
 qwen still writes replies that score higher than llama's, by both judges. That
@@ -1977,7 +1982,9 @@ signal and this item did not. Now it is the other way round.
 result out of two tests, with no correction for multiple comparisons. It comes
 from the same 120-reply, 240-score pilot section 23 already called a pilot.
 Persona variance in the overall-rubric model came out at exactly zero, which
-is a boundary solution rather than a real pattern. So this is not confirmed
+is a boundary solution rather than a real pattern. (Corrected Sep 14: that
+zero was the old optimizer stopping at a worse fit. The fixed code finds
+0.033. See section 48.) So this is not confirmed
 self-preference. It is also not the flat absence section 23 reported. The
 pattern moved, and it moved toward one specific item.
 
@@ -2716,6 +2723,12 @@ intercept of 0, a sender variance of 0 and an infinite log-likelihood. Powell
 and Nelder-Mead agreed on a sensible fit. The function now tries all three and
 keeps the converged fit with the highest finite log-likelihood. I re-ran
 sections 39 and 47 under the new rule. Every number is unchanged.
+
+Section 41 does change a little, because its interaction model uses the same
+function. The persona variance in its overall-rubric model is now 0.033
+instead of exactly zero. Two p-values move: overall self-preference goes from
+p=.134 to p=.142, and plausibility from p=.012 to p=.014. The coefficients do
+not move, and neither do the conclusions. Section 41 now carries a note.
 
 #### How it was run
 
