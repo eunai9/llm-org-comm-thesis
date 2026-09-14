@@ -20,6 +20,7 @@ from thesis.llm.nvidia_client import (
     NvidiaClient,
     NvidiaUnavailableError,
     is_nim_model,
+    split_reasoning_effort,
 )
 from thesis.sim.schemas import RESPONSE_SCHEMA
 
@@ -204,3 +205,35 @@ def test_retry_count_is_bounded() -> None:
     with pytest.raises(NvidiaUnavailableError):
         _client_with(handler).complete(_request())
     assert len(calls) == MAX_RETRIES + 1
+
+
+def test_reasoning_effort_suffix_is_sent_as_a_setting() -> None:
+    """The API gets the plain model name; the saved reply keeps the full one."""
+    captured: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.update(json.loads(request.content))
+        return httpx.Response(200, json=_completion("{}"))
+
+    response = _client_with(handler).complete(_request(model="openai/gpt-oss-20b@low"))
+    assert captured["model"] == "openai/gpt-oss-20b"
+    assert captured["reasoning_effort"] == "low"
+    assert response.model == f"{NIM_MODEL_PREFIX}openai/gpt-oss-20b@low"
+
+
+def test_a_model_without_suffix_sends_no_reasoning_effort() -> None:
+    captured: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.update(json.loads(request.content))
+        return httpx.Response(200, json=_completion("{}"))
+
+    _client_with(handler).complete(_request())
+    assert captured["model"] == MODEL
+    assert "reasoning_effort" not in captured
+    assert split_reasoning_effort(MODEL) == (MODEL, None)
+
+
+def test_an_unknown_reasoning_effort_is_refused() -> None:
+    with pytest.raises(ValueError, match="unknown reasoning effort"):
+        split_reasoning_effort("openai/gpt-oss-20b@fast")

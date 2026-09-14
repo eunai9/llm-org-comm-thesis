@@ -18,6 +18,7 @@ Nothing here replaces a result in `PROGRESS.md` yet.
 | Mirroring measure on the DeepSeek replies | Done, see section 8 |
 | Can DeepSeek replies be told apart by length or words? | Done, see section 9 |
 | Q1 with DeepSeek: does direction change directive language? | Done, see section 10 |
+| A third model: OpenAI's gpt-oss-20b on the same 183 pairs | Done, see section 11 |
 | Hand-code a sample of DeepSeek replies | Not started |
 | DeepSeek run without the act instruction | Not started |
 | Judge study with a second model family | Not started |
@@ -650,7 +651,136 @@ The Sep 4 grid was not touched.
 
 ---
 
-## 11. Next steps
+## 11. A third model: OpenAI's gpt-oss-20b (Sep 14)
+
+**Result first.** OpenAI's open model gpt-oss-20b runs on the same free
+NVIDIA tier. It writes valid replies once it is asked to think less. It
+generated all 183 pairs in about 6 minutes, against about 6.5 hours for
+DeepSeek. It mirrors the least of the three models. But its words still give
+it away almost as easily as DeepSeek's.
+
+**Why this step.** The simulator had two models: Llama 3B (Meta, local) and
+DeepSeek (through NVIDIA). A model from a third family shows whether the
+patterns of sections 8 and 9 hold beyond two models. OpenAI's paid API is
+ruled out, because the thesis does not pay for APIs. gpt-oss-20b is OpenAI's
+open-weight model, and it is free on NVIDIA.
+
+**Making it work.** In section 3, gpt-oss-20b failed the JSON check. A
+closer test showed why. Sometimes it does not close a text field and keeps
+writing until the 2,048-token limit. Its reasoning comes back in a separate
+field, so the reasoning is not the problem. Asking for low reasoning effort
+fixed it. With that setting, all 12 tries were valid, on a made-up email and
+on real prompts. Without it, 2 of 6 tries on the made-up email ran away.
+
+**Code change.** In `nvidia_client.py`, a model name can now end in `@low`,
+`@medium` or `@high`, for example `openai/gpt-oss-20b@low`. The client sends
+the plain name to NVIDIA and adds the reasoning effort to the request. The
+full name stays on every saved reply and in the cache key, so replies made
+with different settings never mix. An unknown setting is refused. Three new
+tests cover this.
+
+**Same prompt for all three models.** Before the run, today's code rebuilt
+all 139 distinct DeepSeek prompts. Every one matched a DeepSeek reply saved on
+Sep 12. So all three models got the same prompt, including the act
+instruction.
+
+**The run.**
+
+| | Value |
+|---|---:|
+| Pairs written | 183 of 183 |
+| Distinct replies | 139 (129 new, 10 from the test) |
+| Time | 376 seconds |
+| Empty replies | 0 |
+| Replies with a placeholder such as `[Name]` | 3 |
+| Decisions | 136 accept, 33 defer, 9 decline, 5 none |
+| Median length | 30 words (real replies: 44) |
+| Cost | $0 |
+
+**Mirroring.** The same measure and tests as section 8, compared with Llama
+under the same prompt.
+
+| | Mean borrowed words | Flagged | Mean length |
+|---|---:|---:|---:|
+| Llama 3.2 3B | 0.565 | 19.1% | 22.7 words |
+| DeepSeek V4 Flash | 0.413 | 1.1% | 40.1 words |
+| gpt-oss-20b@low | 0.322 | 1.1% | 32.8 words |
+| Real replies, cut to the gpt-oss length | 0.282 | 8.7% | |
+
+With every reply cut to the length of its Llama partner:
+
+| | Mean borrowed words | Flagged |
+|---|---:|---:|
+| Llama 3.2 3B | 0.565 | 19.1% |
+| DeepSeek, cut to the Llama length | 0.469 | 8.2% |
+| gpt-oss, cut to the Llama length | 0.373 | 4.9% |
+| Real replies, cut to the Llama length | 0.294 | 9.8% |
+
+![Mean borrowed words by model, with every reply cut to the Llama length, next to the real replies.](docs/figures/nvidia_three_models_mirroring.png)
+
+- **gpt-oss mirrors the least.** At the same length it scores 0.191 below
+  Llama (signed-rank test, p < 0.0001). 33 replies stop being flagged and 7
+  become flagged (McNemar, p < 0.0001).
+- **It is close to the real replies.** At full length it scores 0.322,
+  against 0.282 for real replies cut to its length.
+- **The same caveat as section 8 applies.** The measure was checked only
+  against Claude's first-pass codes of Llama replies.
+
+**Can it be told apart from real replies?** The same method as section 9,
+after removing signature and header lines.
+
+| Run | Length only | Full text | Text, same length |
+|---|---:|---:|---:|
+| Llama, instruction | 0.837 | 0.919 | 0.881 |
+| DeepSeek, instruction | 0.571 | 0.978 | 0.977 |
+| gpt-oss@low, instruction | 0.687 | 0.974 | 0.970 |
+
+![Length-only and same-length text AUC for the three models.](docs/figures/nvidia_three_models_auc.png)
+
+- **Length gives gpt-oss away a little more than DeepSeek,** 0.687 against
+  0.571, because its replies are shorter than real ones.
+- **Its words give it away almost as easily as DeepSeek's:** 0.970 at the
+  same length.
+- **It uses the same stock phrases.** "I'll" appears in 59% of gpt-oss
+  replies, against 6% of real replies. "let" is in 53% (real: 9%) and "know"
+  in 50% (real: 13%). "team" and "compliance" are each in 14% of gpt-oss
+  replies and in no real reply.
+
+**A counting slip in the section 9 script.** It reported that its cleaning
+rule "changed" 65 gpt-oss replies. A line-by-line check found that the rule
+removed no line from any gpt-oss reply. The script rebuilds each reply from
+its lines, which changes only trailing spaces and line breaks. No words were
+removed, so the numbers above are not affected.
+
+**What this means.** Three models from three families (Meta, DeepSeek,
+OpenAI) now answer the same 183 emails with the same prompt. Both larger
+models mirror much less than Llama 3B, and gpt-oss mirrors the least. Both
+larger models are easy to spot by their stock phrases. So the patterns of
+sections 8 and 9 hold for a third model family.
+
+**Limits.**
+
+- gpt-oss-20b ran with low reasoning effort only. Other settings may write
+  differently.
+- It is a 20B model, smaller than DeepSeek.
+- The separation numbers come from the one-off script of section 9.
+- The Q1 grid has not been run with gpt-oss yet.
+
+**Commands.**
+
+```
+python -m thesis.analysis.pairs --nvidia openai/gpt-oss-20b@low \
+  --out data/interim/pairs_gpt_oss.parquet
+python -m thesis.analysis.mirroring --pairs data/interim/pairs_gpt_oss.parquet \
+  --out outputs/tables/mirroring_scores_gpt_oss.csv \
+  --figure-prefix mirroring_gpt_oss_ \
+  --manifest outputs/manifests/mirroring_gpt_oss.json \
+  --compare-to data/interim/real_vs_generated_pairs_act.parquet
+```
+
+---
+
+## 12. Next steps
 
 1. **Hand-code a sample of DeepSeek replies.** Hand-coding means a person
    reads each reply and picks a label from the section 35 codebook. The
@@ -685,3 +815,7 @@ The Sep 4 grid was not touched.
    signature, address and header lines with a one-off script. If the cleaner
    in `thesis.data.rfc822` did this, every analysis would use the same clean
    text. Earlier results that use the real replies would then need a re-run.
+10. **Run the Q1 grid with gpt-oss@low.** Section 10 found a "writing down"
+    effect for DeepSeek and none for Llama. A third model would show which
+    pattern is the usual one. At gpt-oss speed, the 240 replies take minutes,
+    not hours.

@@ -8,6 +8,13 @@ to find and stops the cost ledger from pricing them as paid calls.
 The free tier allows about 40 requests per minute. The client spaces its calls
 to stay under that limit and retries when the server answers 429 or 5xx.
 
+A model id may end in ``@low``, ``@medium`` or ``@high``, for example
+``openai/gpt-oss-20b@low``. The client then sends the plain id and asks for
+that reasoning effort. The full id stays on every response and in the cache
+key, so replies made with different efforts are never mixed up.
+gpt-oss-20b needs ``@low``: without it, some replies run past the JSON until
+the token limit.
+
 The API key is read from ``NVIDIA_API_KEY``. It belongs in ``.env``, which is
 gitignored.
 """
@@ -47,9 +54,23 @@ RETRY_BASE_SECONDS = 2.0
 RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
 
 
+REASONING_EFFORTS = frozenset({"low", "medium", "high"})
+
+
 def is_nim_model(model: str) -> bool:
     """Whether a model id came from the free NVIDIA catalog."""
     return model.startswith(NIM_MODEL_PREFIX)
+
+
+def split_reasoning_effort(model: str) -> tuple[str, str | None]:
+    """Split ``name@effort`` into the model name the API expects and the effort."""
+    name, separator, effort = model.rpartition("@")
+    if not separator:
+        return model, None
+    if effort not in REASONING_EFFORTS:
+        msg = f"unknown reasoning effort {effort!r} in {model!r}; use one of {sorted(REASONING_EFFORTS)}"
+        raise ValueError(msg)
+    return name, effort
 
 
 class NvidiaUnavailableError(RuntimeError):
@@ -111,12 +132,15 @@ class NvidiaClient:
             messages.append({"role": "system", "content": request.system})
         messages.extend({"role": m.role, "content": m.content} for m in request.messages)
 
+        model, effort = split_reasoning_effort(request.model)
         payload: dict[str, Any] = {
-            "model": request.model,
+            "model": model,
             "messages": messages,
             "max_tokens": request.max_tokens,
             "stream": False,
         }
+        if effort is not None:
+            payload["reasoning_effort"] = effort
         if request.output_schema is not None:
             payload["response_format"] = {
                 "type": "json_schema",
