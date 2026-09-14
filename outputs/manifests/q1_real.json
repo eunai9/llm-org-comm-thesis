@@ -1,0 +1,619 @@
+{
+  "consistency_across_versions": {
+    "hedge_rate:down": {
+      "n_p_below_05": 0,
+      "n_positive": 0,
+      "n_versions": 5
+    },
+    "hedge_rate:up": {
+      "n_p_below_05": 1,
+      "n_positive": 0,
+      "n_versions": 5
+    },
+    "imperative_ratio:down": {
+      "n_p_below_05": 5,
+      "n_positive": 5,
+      "n_versions": 5
+    },
+    "imperative_ratio:up": {
+      "n_p_below_05": 0,
+      "n_positive": 5,
+      "n_versions": 5
+    },
+    "is_imperative:down": {
+      "n_p_below_05": 6,
+      "n_positive": 6,
+      "n_versions": 6
+    },
+    "is_imperative:up": {
+      "n_p_below_05": 1,
+      "n_positive": 5,
+      "n_versions": 6
+    }
+  },
+  "contrasts": [
+    {
+      "coefficient": 0.0177,
+      "level": "up",
+      "n_observations": 2202,
+      "n_senders": 107,
+      "outcome": "imperative_ratio",
+      "p_value": 0.1327,
+      "version": "strict"
+    },
+    {
+      "coefficient": 0.0427,
+      "level": "down",
+      "n_observations": 2202,
+      "n_senders": 107,
+      "outcome": "imperative_ratio",
+      "p_value": 0.001794,
+      "version": "strict"
+    },
+    {
+      "coefficient": 0.0705,
+      "level": "up",
+      "n_observations": 10453,
+      "n_senders": 107,
+      "outcome": "is_imperative",
+      "p_value": 0.09575,
+      "version": "strict"
+    },
+    {
+      "coefficient": 0.2533,
+      "level": "down",
+      "n_observations": 10453,
+      "n_senders": 107,
+      "outcome": "is_imperative",
+      "p_value": 1.032e-06,
+      "version": "strict"
+    },
+    {
+      "coefficient": -0.005,
+      "level": "up",
+      "n_observations": 2202,
+      "n_senders": 107,
+      "outcome": "hedge_rate",
+      "p_value": 0.4293,
+      "version": "strict"
+    },
+    {
+      "coefficient": -0.0046,
+      "level": "down",
+      "n_observations": 2202,
+      "n_senders": 107,
+      "outcome": "hedge_rate",
+      "p_value": 0.5261,
+      "version": "strict"
+    },
+    {
+      "coefficient": 0.0643,
+      "level": "up",
+      "n_observations": 10453,
+      "n_senders": 107,
+      "outcome": "is_imperative",
+      "p_value": 0.1271,
+      "version": "strict_sentence_sender_only"
+    },
+    {
+      "coefficient": 0.242,
+      "level": "down",
+      "n_observations": 10453,
+      "n_senders": 107,
+      "outcome": "is_imperative",
+      "p_value": 2.606e-06,
+      "version": "strict_sentence_sender_only"
+    },
+    {
+      "coefficient": 0.0171,
+      "level": "up",
+      "n_observations": 2202,
+      "n_senders": 107,
+      "outcome": "imperative_ratio",
+      "p_value": 0.1475,
+      "version": "strict_no_rank_control"
+    },
+    {
+      "coefficient": 0.0351,
+      "level": "down",
+      "n_observations": 2202,
+      "n_senders": 107,
+      "outcome": "imperative_ratio",
+      "p_value": 0.008922,
+      "version": "strict_no_rank_control"
+    },
+    {
+      "coefficient": 0.0574,
+      "level": "up",
+      "n_observations": 10453,
+      "n_senders": 107,
+      "outcome": "is_imperative",
+      "p_value": 0.1726,
+      "version": "strict_no_rank_control"
+    },
+    {
+      "coefficient": 0.1941,
+      "level": "down",
+      "n_observations": 10453,
+      "n_senders": 107,
+      "outcome": "is_imperative",
+      "p_value": 0.0001623,
+      "version": "strict_no_rank_control"
+    },
+    {
+      "coefficient": -0.0054,
+      "level": "up",
+      "n_observations": 2202,
+      "n_senders": 107,
+      "outcome": "hedge_rate",
+      "p_value": 0.3908,
+      "version": "strict_no_rank_control"
+    },
+    {
+      "coefficient": -0.0028,
+      "level": "down",
+      "n_observations": 2202,
+      "n_senders": 107,
+      "outcome": "hedge_rate",
+      "p_value": 0.6962,
+      "version": "strict_no_rank_control"
+    },
+    {
+      "coefficient": 0.0185,
+      "level": "up",
+      "n_observations": 2202,
+      "n_senders": 107,
+      "outcome": "imperative_ratio",
+      "p_value": 0.145,
+      "version": "strict_sender_fixed_effects"
+    },
+    {
+      "coefficient": 0.0419,
+      "level": "down",
+      "n_observations": 2202,
+      "n_senders": 107,
+      "outcome": "imperative_ratio",
+      "p_value": 0.005403,
+      "version": "strict_sender_fixed_effects"
+    },
+    {
+      "coefficient": 0.0717,
+      "level": "up",
+      "n_observations": 10418,
+      "n_senders": 102,
+      "outcome": "is_imperative",
+      "p_value": 0.4038,
+      "version": "strict_sender_fixed_effects"
+    },
+    {
+      "coefficient": 0.2491,
+      "level": "down",
+      "n_observations": 10418,
+      "n_senders": 102,
+      "outcome": "is_imperative",
+      "p_value": 0.03421,
+      "version": "strict_sender_fixed_effects"
+    },
+    {
+      "coefficient": -0.009,
+      "level": "up",
+      "n_observations": 2202,
+      "n_senders": 107,
+      "outcome": "hedge_rate",
+      "p_value": 0.1971,
+      "version": "strict_sender_fixed_effects"
+    },
+    {
+      "coefficient": -0.005,
+      "level": "down",
+      "n_observations": 2202,
+      "n_senders": 107,
+      "outcome": "hedge_rate",
+      "p_value": 0.5421,
+      "version": "strict_sender_fixed_effects"
+    },
+    {
+      "coefficient": 0.0049,
+      "level": "up",
+      "n_observations": 2998,
+      "n_senders": 110,
+      "outcome": "imperative_ratio",
+      "p_value": 0.6227,
+      "version": "loose"
+    },
+    {
+      "coefficient": 0.0326,
+      "level": "down",
+      "n_observations": 2998,
+      "n_senders": 110,
+      "outcome": "imperative_ratio",
+      "p_value": 0.00488,
+      "version": "loose"
+    },
+    {
+      "coefficient": -0.0245,
+      "level": "up",
+      "n_observations": 15347,
+      "n_senders": 110,
+      "outcome": "is_imperative",
+      "p_value": 0.4827,
+      "version": "loose"
+    },
+    {
+      "coefficient": 0.181,
+      "level": "down",
+      "n_observations": 15347,
+      "n_senders": 110,
+      "outcome": "is_imperative",
+      "p_value": 2.297e-05,
+      "version": "loose"
+    },
+    {
+      "coefficient": -0.0108,
+      "level": "up",
+      "n_observations": 2998,
+      "n_senders": 110,
+      "outcome": "hedge_rate",
+      "p_value": 0.04329,
+      "version": "loose"
+    },
+    {
+      "coefficient": -0.0033,
+      "level": "down",
+      "n_observations": 2998,
+      "n_senders": 110,
+      "outcome": "hedge_rate",
+      "p_value": 0.5958,
+      "version": "loose"
+    },
+    {
+      "coefficient": 0.0332,
+      "level": "up",
+      "n_observations": 664,
+      "n_senders": 93,
+      "outcome": "imperative_ratio",
+      "p_value": 0.1245,
+      "version": "strict_replies_only"
+    },
+    {
+      "coefficient": 0.0642,
+      "level": "down",
+      "n_observations": 664,
+      "n_senders": 93,
+      "outcome": "imperative_ratio",
+      "p_value": 0.01219,
+      "version": "strict_replies_only"
+    },
+    {
+      "coefficient": 0.2312,
+      "level": "up",
+      "n_observations": 3111,
+      "n_senders": 93,
+      "outcome": "is_imperative",
+      "p_value": 0.005854,
+      "version": "strict_replies_only"
+    },
+    {
+      "coefficient": 0.3606,
+      "level": "down",
+      "n_observations": 3111,
+      "n_senders": 93,
+      "outcome": "is_imperative",
+      "p_value": 8.289e-05,
+      "version": "strict_replies_only"
+    },
+    {
+      "coefficient": -0.0022,
+      "level": "up",
+      "n_observations": 664,
+      "n_senders": 93,
+      "outcome": "hedge_rate",
+      "p_value": 0.8493,
+      "version": "strict_replies_only"
+    },
+    {
+      "coefficient": -0.0213,
+      "level": "down",
+      "n_observations": 664,
+      "n_senders": 93,
+      "outcome": "hedge_rate",
+      "p_value": 0.1161,
+      "version": "strict_replies_only"
+    }
+  ],
+  "corpus": {
+    "n_in_sampling_frame": 45422,
+    "n_ranked_addresses": 164,
+    "n_ranked_people": 127,
+    "token_band": [
+      20,
+      600
+    ]
+  },
+  "measurement": {
+    "imperative_ratio_vs_stored": {
+      "max_abs_diff": 0.0,
+      "n_compared": 2998,
+      "n_missing_from_stored": 0,
+      "pearson_r": 1.0,
+      "share_within_0.001": 1.0
+    },
+    "strict_mean_sentences_per_email": 4.75,
+    "strict_median_sentences_per_email": 4.0,
+    "strict_n_sentences": 10453,
+    "strict_raw_means_by_direction": {
+      "down": {
+        "hedge_rate": 0.0413,
+        "imperative_ratio": 0.1809,
+        "n_sentences": 4.62
+      },
+      "lateral": {
+        "hedge_rate": 0.0389,
+        "imperative_ratio": 0.1549,
+        "n_sentences": 4.56
+      },
+      "up": {
+        "hedge_rate": 0.0359,
+        "imperative_ratio": 0.1634,
+        "n_sentences": 5.0
+      }
+    }
+  },
+  "primary_holm_adjusted_p": {
+    "hedge_rate:down": 0.8586,
+    "hedge_rate:up": 0.8586,
+    "imperative_ratio:down": 0.009,
+    "imperative_ratio:up": 0.3981,
+    "is_imperative:down": 0.0,
+    "is_imperative:up": 0.383
+  },
+  "real_levels_by_direction": {
+    "hedge_rate": {
+      "down": 0.0406,
+      "lateral": 0.0452,
+      "up": 0.0403
+    },
+    "imperative_ratio": {
+      "down": 0.186,
+      "lateral": 0.1433,
+      "up": 0.1609
+    },
+    "is_imperative": {
+      "down": 0.1752,
+      "lateral": 0.1417,
+      "up": 0.1504
+    }
+  },
+  "real_sentence_sender_only_probabilities": {
+    "down": 0.178,
+    "lateral": 0.1454,
+    "up": 0.1535
+  },
+  "samples": {
+    "loose": {
+      "emails_by_direction": {
+        "down": 751,
+        "lateral": 1061,
+        "up": 1186
+      },
+      "emails_by_sender_rank_and_direction": {
+        "1": {
+          "down": 0,
+          "lateral": 536,
+          "up": 352
+        },
+        "2": {
+          "down": 139,
+          "lateral": 66,
+          "up": 149
+        },
+        "3": {
+          "down": 82,
+          "lateral": 96,
+          "up": 257
+        },
+        "4": {
+          "down": 287,
+          "lateral": 265,
+          "up": 358
+        },
+        "5": {
+          "down": 81,
+          "lateral": 25,
+          "up": 70
+        },
+        "6": {
+          "down": 162,
+          "lateral": 73,
+          "up": 0
+        }
+      },
+      "n_emails": 2998,
+      "n_replies": 956,
+      "n_senders": 110,
+      "n_senders_2plus_directions": 88,
+      "n_senders_all_3_directions": 41,
+      "replies_by_direction": {
+        "down": 260,
+        "lateral": 363,
+        "up": 333
+      },
+      "senders_by_direction": {
+        "down": 62,
+        "lateral": 81,
+        "up": 96
+      }
+    },
+    "strict": {
+      "emails_by_direction": {
+        "down": 555,
+        "lateral": 797,
+        "up": 850
+      },
+      "emails_by_sender_rank_and_direction": {
+        "1": {
+          "down": 0,
+          "lateral": 396,
+          "up": 264
+        },
+        "2": {
+          "down": 119,
+          "lateral": 58,
+          "up": 119
+        },
+        "3": {
+          "down": 64,
+          "lateral": 74,
+          "up": 177
+        },
+        "4": {
+          "down": 208,
+          "lateral": 200,
+          "up": 243
+        },
+        "5": {
+          "down": 44,
+          "lateral": 14,
+          "up": 47
+        },
+        "6": {
+          "down": 120,
+          "lateral": 55,
+          "up": 0
+        }
+      },
+      "n_emails": 2202,
+      "n_replies": 664,
+      "n_senders": 107,
+      "n_senders_2plus_directions": 82,
+      "n_senders_all_3_directions": 37,
+      "replies_by_direction": {
+        "down": 174,
+        "lateral": 265,
+        "up": 225
+      },
+      "senders_by_direction": {
+        "down": 58,
+        "lateral": 75,
+        "up": 93
+      }
+    }
+  },
+  "selection_counts": {
+    "loose_final_in_frame": 2998,
+    "loose_self_by_address": 3094,
+    "loose_self_by_person": 3005,
+    "strict_final_in_frame": 2202,
+    "strict_self_by_address": 2292,
+    "strict_self_by_person": 2206
+  },
+  "simulator_section_39": {
+    "contrasts": {
+      "hedge_rate": {
+        "down": [
+          0.027,
+          0.491
+        ],
+        "up": [
+          0.025,
+          0.525
+        ]
+      },
+      "imperative_ratio": {
+        "down": [
+          0.027,
+          0.672
+        ],
+        "up": [
+          0.083,
+          0.192
+        ]
+      },
+      "is_imperative": {
+        "down": [
+          0.163,
+          0.401
+        ],
+        "up": [
+          0.395,
+          0.046
+        ]
+      }
+    },
+    "levels": {
+      "hedge_rate": {
+        "down": 0.094,
+        "lateral": 0.067,
+        "up": 0.092
+      },
+      "imperative_ratio": {
+        "down": 0.317,
+        "lateral": 0.29,
+        "up": 0.373
+      },
+      "is_imperative": {
+        "down": 0.317,
+        "lateral": 0.283,
+        "up": 0.369
+      }
+    }
+  },
+  "simulator_vs_real": {
+    "hedge_rate:down": {
+      "difference": -0.0316,
+      "difference_p": 0.4276,
+      "real": -0.0046,
+      "real_p": 0.5261,
+      "simulator": 0.027,
+      "simulator_p": 0.491
+    },
+    "hedge_rate:up": {
+      "difference": -0.03,
+      "difference_p": 0.4519,
+      "real": -0.005,
+      "real_p": 0.4293,
+      "simulator": 0.025,
+      "simulator_p": 0.525
+    },
+    "imperative_ratio:down": {
+      "difference": 0.0157,
+      "difference_p": 0.8095,
+      "real": 0.0427,
+      "real_p": 0.001794,
+      "simulator": 0.027,
+      "simulator_p": 0.672
+    },
+    "imperative_ratio:up": {
+      "difference": -0.0653,
+      "difference_p": 0.3128,
+      "real": 0.0177,
+      "real_p": 0.1327,
+      "simulator": 0.083,
+      "simulator_p": 0.192
+    },
+    "is_imperative:down": {
+      "difference": 0.0903,
+      "difference_p": 0.653,
+      "real": 0.2533,
+      "real_p": 1.032e-06,
+      "simulator": 0.163,
+      "simulator_p": 0.401
+    },
+    "is_imperative:up": {
+      "difference": -0.3245,
+      "difference_p": 0.109,
+      "real": 0.0705,
+      "real_p": 0.09575,
+      "simulator": 0.395,
+      "simulator_p": 0.046
+    }
+  },
+  "variance_components": {
+    "fixed_effects_logit_senders_dropped": 5,
+    "strict_hedges_per_email_sender_var": 0.00069,
+    "strict_orders_per_email_sender_var": 0.00274,
+    "strict_sentence_email_sd": 0.2838,
+    "strict_sentence_sender_only_sd": 0.3152,
+    "strict_sentence_sender_sd": 0.3007
+  }
+}

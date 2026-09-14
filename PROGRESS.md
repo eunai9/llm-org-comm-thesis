@@ -30,6 +30,7 @@ you to read, not for a computer to run. Updated after each work session.
 | AI replies to a real email, compared to the real reply | Done — 183 pairs on the rebuilt corpus, see section 38 |
 | Does the judge favour its own kind of AI? (Q3) | Re-run against the rebuilt corpus — headline result weaker, one item now significant, see section 41 |
 | Does hierarchy shape what gets written? (Q1) | Re-run against the rebuilt corpus — mostly still null, one contrast now borderline, see section 39 |
+| Does real email show a direction pattern? (benchmark for Q1) | Measured. Writing down gives more orders in every check. The simulator's estimate is the same size but too noisy to detect. See section 48 |
 | Validation pass: embedding map, 100 replies read by hand | Done — see section 35 |
 | Measure the mirroring failure automatically | Done — see section 42 |
 | Fix the mirroring failure by instructing the persona | Tried and did not work — phrasing moved, behavior did not, see section 43 |
@@ -2504,6 +2505,244 @@ tendency. Neither is tested here, and neither can be read off this slope.
 
 ---
 
+### 48. Real email: writing down gives more orders. The simulator is too small to see it. (Sep 14)
+
+Section 39 tested Q1 in the simulator and found almost no direction effect.
+That null had nothing to be compared against. Nobody had measured what
+direction does in real Enron email. So the null could mean two different
+things. The simulator might miss a real pattern. Or real email might have no
+pattern either. This section measures the real pattern with the same measures
+and the same models, and puts the two side by side.
+
+The power score (sections 7 and 45) does not answer this. It compares senders
+by rank. Q1 asks whether the same writer writes differently when writing up,
+to a peer, or down.
+
+**The answer first.** Real email shows one clear pattern. People give more
+orders when they write down. Writing up looks about the same as writing to a
+peer. Hedging does not change with direction. The simulator's estimate for
+writing down is the same size, but 240 replies are too few to detect it. Its
+one borderline effect, writing up, is not in real email.
+
+#### What was measured
+
+Direction needs a rank for both sender and recipient. Rank comes from the
+156-person employee list (section 6). Up means the recipient ranks higher.
+Peer means the same job-title level. Down means lower.
+
+The three measures are the ones section 39 used:
+
+- **Orders per email** (`imperative_ratio`): the share of an email's sentences
+  that give an order, such as "Send me the file." or "Please call him."
+- **Orders per sentence** (`is_imperative`): each sentence counts once, as an
+  order or not. The model gives the chance that a sentence is an order. This
+  is the more trustworthy of the two (section 36).
+- **Hedges per email** (`hedge_rate`): the share of sentences with a softener,
+  such as "maybe" or "I think".
+
+All three were recomputed on the selected emails with the exact calls `q1.py`
+uses on generated replies. As a check, the recomputed orders per email match
+the stored corpus values exactly, for all 2,998 emails.
+
+Decision cannot be measured here. Real email has no decision field.
+
+#### Which emails
+
+| | Emails |
+|---|---:|
+| In the token band, not empty | 155,734 |
+| ...with a ranked sender | 45,601 |
+| Strict: one To recipient, no cc or bcc, recipient ranked | 2,292 |
+| ...minus emails to the sender's own second address | 2,206 |
+| ...inside the sampling frame | **2,202** |
+| Loose: every To recipient ranked, all one direction, cc allowed | 3,094, then 3,005, then **2,998** |
+
+Strict is the primary sample: 850 emails up, 797 to a peer, 555 down, from 107
+senders. 82 senders write in at least two directions and 37 in all three. 664
+of the emails are replies.
+
+Two steps changed the counts. First, 86 strict emails went from a person to
+the same person at another address. By address they looked like mail to a
+peer. The 164 ranked addresses belong to 127 people, and every one is linked to
+its person. So this could be checked for every email. Those 86 are removed.
+Second, the sampling frame (`sampling.eligible_pool`) adds the study dates and
+an internal sender. It removed 4 more strict emails, all for bad dates. The
+frame has no filter for auto-generated mail, so none was applied.
+
+#### The design problem: direction depends on the sender's rank
+
+A rank 1 employee can never write down. A rank 6 executive can never write up.
+In this sample rank 1 writes 264 emails up, 396 to a peer and none down. So a
+plain comparison would partly compare junior writers with senior writers. The
+simulator does not have this problem, because every persona writes in all
+three directions.
+
+Two ways to handle it, reported side by side:
+
+- **Primary:** sender rank as a control, plus a random intercept per sender.
+  The sentence model also gets an intercept per email, because sentences in
+  one email are alike. That fit was stable. The email SD is 0.28 on the logit
+  scale, and the direction numbers barely move against the sender-only
+  version.
+- **Check:** one dummy per sender, with standard errors clustered by sender.
+  Then each contrast uses only differences inside one sender's own email.
+
+#### The result
+
+Each number is the difference from writing to a peer.
+
+| Real email, strict sample | Writing up | Writing down |
+|---|---|---|
+| Orders per email | +0.018 (p=.133) | **+0.043 (p=.002)** |
+| Orders per sentence (logit scale) | +0.070 (p=.096) | **+0.253 (p<.001)** |
+| Hedges per email | −0.005 (p=.43) | −0.005 (p=.53) |
+
+In plain numbers: a sentence written down is an order 17.5% of the time. To a
+peer it is 14.2%. Written up it is 15.0%. Per email, the share of orders is
+0.186 writing down, 0.143 to a peer and 0.161 writing up. So writing down
+gives about 30% more orders than writing to a peer. Both writing-down results
+survive a Holm correction across the six tests (p=.009 and p<.001). None of
+the other four does (p≥.38).
+
+**The writing-down effect holds in every version. Nothing else does.**
+
+| Version | Orders per email, down | Orders per sentence, down | Orders per sentence, up |
+|---|---|---|---|
+| Primary (strict) | +0.043 (p=.002) | +0.253 (p<.001) | +0.070 (p=.096) |
+| Sentence model, sender intercept only | | +0.242 (p<.001) | +0.064 (p=.127) |
+| No rank control | +0.035 (p=.009) | +0.194 (p<.001) | +0.057 (p=.173) |
+| Sender fixed effects | +0.042 (p=.005) | +0.249 (p=.034) | +0.072 (p=.404) |
+| Loose sample, 2,998 emails | +0.033 (p=.005) | +0.181 (p<.001) | −0.025 (p=.483) |
+| Replies only, 664 emails | +0.064 (p=.012) | +0.361 (p<.001) | +0.231 (p=.006) |
+
+Writing down is positive and below p=.05 in all 11 fits. Writing up is
+positive in 10 of 11 fits and below p=.05 once, in the replies-only sentence
+model. With this many tests, one hit is not a finding. Hedges cross p<.05
+once in 10 fits (loose sample, writing up, −0.011, p=.043). That is not a
+finding either.
+
+The rank control does not create the effect. Without it the writing-down
+effect is smaller (+0.194 on the logit scale, against +0.253). The
+fixed-effects version, which uses only differences inside one sender, gives
+the same size (+0.249). Its p-value is weaker (p=.034) for two reasons. It
+spends one parameter on every sender. And it drops 5 senders whose sentences
+are all orders or all not.
+
+#### Side by side with the simulator
+
+The levels differ a lot. The simulator gives an order in 28% to 37% of
+sentences. Real email does in 14% to 18%. Real emails are longer (median 4
+sentences, against 1 in the simulator), and the extra sentences are mostly not
+orders. So the fair comparison is the pattern: the change from writing to a
+peer.
+
+| Change from writing to a peer | Real email | Simulator (section 39) |
+|---|---|---|
+| Orders per email, down | +0.043 (p=.002) | +0.027 (p=.672) |
+| Orders per email, up | +0.018 (p=.133) | +0.083 (p=.192) |
+| Orders per sentence, down (logit) | +0.253 (p<.001) | +0.163 (p=.401) |
+| Orders per sentence, up (logit) | +0.070 (p=.096) | +0.395 (p=.046) |
+| Chance a sentence is an order, down | +3.3 points | +3.4 points |
+| Chance a sentence is an order, up | +0.8 points | +8.6 points |
+| Hedges per email, down and up | −0.005 and −0.005 | +0.027 and +0.025 |
+
+![Chance that a sentence gives an order, by direction. The real line is low
+and peaks at writing down. The simulator line is high and peaks at writing
+up.](docs/figures/q1_real_orders_per_sentence.png)
+
+![Orders per email by direction, real vs simulator. The same shapes as the
+sentence figure.](docs/figures/q1_real_orders_per_email.png)
+
+**Of the three possible conclusions, the one that holds is "something in
+between".** Exactly:
+
+1. **Writing down: real email has a clear effect, and the simulator's estimate
+   is the same size.** +3.3 points against +3.4 points. The simulator is not
+   wrong here. It is too small to tell. Its standard error for this contrast
+   is almost four times the real one (0.19 against 0.05 on the logit scale).
+   So section 39's null for writing down is a power problem. It does not show
+   that the effect is missing.
+2. **Writing up: the simulator shows an effect that real email does not.** +8.6
+   points against +0.8 points. This is the one contrast section 39 called
+   borderline (p=.046). Real email does not support it.
+3. **Hedges: neither side shows anything.** Here the simulator's null is
+   realistic.
+
+So the simulator gets the order of the three directions wrong. In real email,
+writing down is highest, and peer and up are close together. In the
+simulator, writing up is highest, then down, then peer. Both put peer lowest.
+
+None of the real-minus-simulator differences is significant. A rough z-test
+gives p=.11 for writing up and p=.65 for writing down. It is rough because
+both standard errors are backed out of rounded p-values. So the mismatch on
+writing up is not proven either. It is something to check with more data.
+
+**This changes how section 39 reads.** Section 39 said "mostly a null, one
+borderline contrast". Against the benchmark, the null for writing down hides
+a real, small effect. The simulator matches that effect in size but cannot
+detect it. And the borderline contrast is one that real email does not show.
+The next step is more simulated data, not more analysis of the same 240
+replies. For 80% power on writing down, the simulator needs roughly 1,100 to
+2,700 replies at today's reply length. The low end assumes it reproduces the
+real effect on the logit scale (0.25). The high end uses its own estimate
+(0.16). Both figures ignore that 10 personas also limit precision.
+
+#### Limits
+
+- **Observational.** People write up and down about different things. A
+  request for approval goes up. A task goes down. So this shows what hierarchy
+  looks like in real email, not a pure effect of rank. That is still the right
+  benchmark, because the simulator should reproduce what real email looks
+  like.
+- **Same rank means the same job-title level.** It does not mean the same team
+  or the same boss.
+- **A small slice of the corpus.** Rank comes from a 156-person list, so this
+  covers only emails between people on that list: 2,202 of 155,734 eligible
+  emails (1.4%), from 107 senders.
+- **Mostly first messages.** The simulator writes replies. Only 664 strict
+  emails are replies. The replies-only check shows the same pattern, and a
+  stronger one.
+- **Approximate p-values for the sentence model.** It is fitted by variational
+  Bayes, as in sections 36 and 39.
+- **No decision benchmark.** Real email has no decision field. The simulator's
+  decision result in section 39 has nothing real to compare with.
+
+#### A bug found on the way
+
+**The linear mixed model could return a broken fit without any error.**
+`_fit_with_fallback` in `hierarchy.py` kept the first optimizer that reported
+convergence. On this data L-BFGS reported convergence at a broken point: an
+intercept of 0, a sender variance of 0 and an infinite log-likelihood. Powell
+and Nelder-Mead agreed on a sensible fit. The function now tries all three and
+keeps the converged fit with the highest finite log-likelihood. I re-ran
+sections 39 and 47 under the new rule. Every number is unchanged.
+
+#### How it was run
+
+`src/thesis/analysis/q1_real.py`, run with `python -m thesis.analysis.q1_real`.
+No model calls. spaCy ran only on the 2,998 selected emails, never on the
+whole corpus (section 37). The run takes a few minutes. The manifest
+`outputs/manifests/q1_real.json` holds aggregates only. The per-email and
+per-sentence tables go to `data/interim/`, which is not committed.
+
+`hierarchy.py` gained three things, all off by default so every earlier caller
+fits the same model as before:
+
+- `covariates` for the direction and sentence models.
+- `nested_col` for a second random intercept in the sentence model. It is
+  built sparse and fitted with L-BFGS-B. The default BFGS was about 80 times
+  slower with one random effect per email, and gave the same estimates.
+- `fit_direction_fixed_effects`, the sender-dummy check.
+
+The tests follow section 36's practice: each model must recover a known
+injected effect. The rank-control test builds data where rank and direction
+are tied. It checks that the effect comes back with the control and does not
+come back without it. 663 tests pass: the 625 from before, 29 new ones, and 9
+in another session's uncommitted `test_blind_review.py`. black, ruff and mypy
+are clean.
+
+---
+
 ## What's next
 
 *(Rewritten Aug 31 — the previous version was written before the corpus
@@ -2591,6 +2830,14 @@ rank. There is no hidden working half. This closes out supervisor question
 3 on the data side — what is left is a presentational choice, not an
 analysis one.
 
+**Q1 now has a real-email benchmark (section 48).** Real email shows one
+clear pattern. Writing down gives more orders: +3.3 points in the chance that
+a sentence is an order, p<.001, in every check. The simulator's estimate for
+writing down is the same size (+3.4 points) but not significant with 240
+replies. Its borderline writing-up effect (+8.6 points) is not in real email
+(+0.8 points). Hedges show nothing on either side. So section 39's null is
+partly a power problem.
+
 **Next priority is therefore yours to pick**, since the cheap technical
 work in this thread is finished. The strongest candidates are re-coding
 the 100-item packet (below), which unblocks both the reliability figure
@@ -2605,18 +2852,17 @@ and the better automatic measure, and the four supervisor questions.
   two independent codings give an agreement statistic, which is
   what makes the qualitative half of this defensible — and it is a dry run
   for the November human-coding round, with none of its ethics overhead.
-- **Decide how Q1 proceeds.** After the rebuild (section 39), the
-  reply-level and sentence-level models no longer fully agree: one
-  sentence-level contrast (writing up) is now borderline-significant,
-  three of four contrasts are still null. n=10 personas is not much to
-  estimate a random intercept from, so this could be a real effect this
-  design is underpowered to detect cleanly, or noise that crossed a line
-  by chance — a bigger run (more personas, or more replicates) is the only
-  way to tell those apart, not more re-analysis of the same 240 replies.
-  Q1's evidence currently rests as much on the empirical Enron subset as
-  on the simulator. The research plan expected needing a fallback here,
-  though in the opposite direction — it expected the simulated hierarchy
-  to be the *stronger* arm. Worth raising with your supervisor.
+- **Decide how Q1 proceeds.** Section 48 now gives a target. Real email
+  shows a writing-down effect of +3.3 points in the chance that a sentence
+  is an order. The simulator's estimate matches it in size but cannot
+  detect it with 240 replies. The next step is a bigger simulator run, not
+  more analysis of the same replies. It needs roughly 1,100 to 2,700
+  replies for 80% power at today's reply length. Longer replies would lower
+  that, because each sentence adds data. The same run would also show
+  whether the simulator's writing-up effect is real. Real email does not
+  show it. The research plan expected the simulated arm to be the stronger
+  one. For Q1 the real-email arm is now the stronger one. Worth raising
+  with your supervisor.
 - **Build the contamination probe and anonymized-stimulus arm.** Named in
   the research plan, and still the strongest objection an examiner can
   raise; both are cheap and turn an unanswerable question into a table.

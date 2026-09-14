@@ -61,18 +61,28 @@ away the ordering and gives four contrasts instead of one slope.
 the answer is a single number. With both sides logged that number is an
 elasticity: 1 means the output tracks the instruction exactly, 0 means the
 instruction does nothing.
+
+**Real email needs controls the simulator does not.** In the simulator every
+persona writes in all three directions. In real email direction depends on
+the writer's own rank: a junior employee cannot write down. So the direction
+and sentence models take optional ``covariates`` (off by default).
+:func:`fit_direction_fixed_effects` goes further and uses one dummy per
+writer, so each contrast comes only from differences inside one writer.
 """
 
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
 from numpy.linalg import LinAlgError
-from scipy import stats
+from scipy import sparse, stats
 from statsmodels.genmod.bayes_mixed_glm import BinomialBayesMixedGLM
 from statsmodels.regression.mixed_linear_model import MixedLM
 
@@ -81,17 +91,23 @@ from statsmodels.regression.mixed_linear_model import MixedLM
 # the boundary of zero -- i.e. persona genuinely explains ~none of an
 # outcome's variance, which is a real, expected result for some features
 # (hedge_rate showed exactly this in the first Q1 pilot), not a data bug.
-# Powell and Nelder-Mead are derivative-free and don't hit that singularity,
-# so they're a robust fallback rather than the primary choice (they're
-# slower and less precise when the optimization surface is well-behaved).
+# Powell and Nelder-Mead are derivative-free and don't hit that singularity.
 _OPTIMIZER_FALLBACKS: tuple[str, ...] = ("lbfgs", "powell", "nm")
 
 
 def _fit_with_fallback(model: MixedLM, *, label: str) -> Any:
-    """Try each optimizer in :data:`_OPTIMIZER_FALLBACKS` in turn, keeping
-    the first one that both runs and converges. Shared by every model in
-    this module rather than duplicated per function."""
-    fit = None
+    """Fit with every optimizer in :data:`_OPTIMIZER_FALLBACKS` and keep the
+    converged fit with the highest finite log-likelihood. Ties keep the
+    earlier optimizer. If none qualifies, return the last fit that ran.
+
+    Keeping the first fit that reports convergence is not safe. On the
+    real-email Q1 data (PROGRESS.md section 48) L-BFGS reported convergence
+    at a broken point: intercept and group variance both exactly zero, and
+    an infinite log-likelihood. Powell and Nelder-Mead agreed on a finite,
+    sensible fit. So an infinite log-likelihood counts as a failed fit.
+    """
+    best: Any = None
+    last_fit: Any = None
     last_error: Exception | None = None
     for method in _OPTIMIZER_FALLBACKS:
         try:
@@ -99,12 +115,46 @@ def _fit_with_fallback(model: MixedLM, *, label: str) -> Any:
         except (LinAlgError, ValueError) as exc:
             last_error = exc
             continue
-        if fit.converged:
-            break
-    if fit is None:
+        last_fit = fit
+        usable = fit.converged and np.isfinite(fit.llf)
+        if usable and (best is None or fit.llf > best.llf):
+            best = fit
+    if best is not None:
+        return best
+    if last_fit is None:
         msg = f"no optimizer converged for {label}: {last_error}"
         raise InsufficientDataError(msg)
-    return fit
+    return last_fit
+
+
+def _direction_term(name: str, direction_col: str) -> str | None:
+    """The plain ``direction[T.level]`` name for a patsy direction term, or
+    None if ``name`` belongs to another term, such as a covariate.
+
+    Matching on the ``C(direction_col,`` prefix matters once covariates exist.
+    A covariate's own ``rank[T.3]`` term also contains ``[T.``, and must not
+    be read as a direction contrast.
+    """
+    if not name.startswith(f"C({direction_col},"):
+        return None
+    level = name.rsplit("[T.", 1)[1][:-1]
+    return f"direction[T.{level}]"
+
+
+def _covariate_formula(covariates: Sequence[str]) -> str:
+    """Covariates enter the formula as they are. A string or categorical
+    column becomes dummies, a numeric column a slope."""
+    return "".join(f" + {covariate}" for covariate in covariates)
+
+
+def _indicator_matrix(values: pd.Series) -> sparse.csr_matrix:
+    """One sparse 0/1 column per distinct value, in sorted order, as patsy's
+    ``0 + C(col)`` would give densely."""
+    codes, uniques = pd.factorize(values, sort=True)
+    n_rows = len(codes)
+    return sparse.csr_matrix(
+        (np.ones(n_rows), (np.arange(n_rows), codes)), shape=(n_rows, len(uniques))
+    )
 
 
 class InsufficientDataError(ValueError):
@@ -152,14 +202,19 @@ def fit_direction_mixed_model(
     direction_col: str = "direction",
     cluster_col: str = "persona_id",
     reference: str = "lateral",
+    covariates: Sequence[str] = (),
 ) -> MixedModelResult:
     """Fit ``outcome ~ direction`` with a random intercept per ``cluster_col``.
 
     ``reference`` sets which direction level every coefficient is measured
     against -- defaults to "lateral", the design's own no-power-difference
     baseline, not statsmodels' default alphabetical choice.
+
+    ``covariates`` are extra columns added as fixed effects. The default is
+    none, which fits exactly the model this function always fitted. Their
+    coefficients are kept under patsy's own names, e.g. ``rank[T.3]``.
     """
-    working = df[[outcome_col, direction_col, cluster_col]].dropna()
+    working = df[[outcome_col, direction_col, cluster_col, *covariates]].dropna()
     n_groups = working[cluster_col].nunique()
     if len(working) < 3 or n_groups < 2:
         msg = (
@@ -173,7 +228,10 @@ def fit_direction_mixed_model(
         **{direction_col: pd.Categorical(working[direction_col], categories=levels, ordered=False)}
     )
 
-    formula = f"{outcome_col} ~ C({direction_col}, Treatment(reference='{reference}'))"
+    formula = (
+        f"{outcome_col} ~ C({direction_col}, Treatment(reference='{reference}'))"
+        f"{_covariate_formula(covariates)}"
+    )
     model = MixedLM.from_formula(formula, groups=working[cluster_col], data=working)
     fit = _fit_with_fallback(model, label=f"{outcome_col} ~ {direction_col}")
 
@@ -184,19 +242,14 @@ def fit_direction_mixed_model(
     # the level's name quoted in the string, which only ever matches the
     # reference level, present in every term. Renamed to the plain
     # "direction[T.up]" form contrast() expects, so callers never have to
-    # know the formula's exact patsy spelling.
+    # know the formula's exact patsy spelling. Covariate terms keep their
+    # patsy names.
     coefficients: dict[str, float] = {}
     p_values: dict[str, float] = {}
     for name, coef in fit.params.items():
-        if name in ("Intercept", "Group Var"):
-            coefficients[name] = float(coef)
-            p_values[name] = float(fit.pvalues.get(name, float("nan")))
-            continue
-        if "[T." in name and name.endswith("]"):
-            level = name.rsplit("[T.", 1)[1][:-1]
-            clean_name = f"direction[T.{level}]"
-            coefficients[clean_name] = float(coef)
-            p_values[clean_name] = float(fit.pvalues.get(name, float("nan")))
+        clean_name = _direction_term(name, direction_col) or name
+        coefficients[clean_name] = float(coef)
+        p_values[clean_name] = float(fit.pvalues.get(name, float("nan")))
 
     return MixedModelResult(
         outcome=outcome_col,
@@ -233,6 +286,9 @@ class SentenceModelResult:
     posterior_sd: dict[str, float]
     p_values: dict[str, float]
     group_sd: float
+    # SD of the second, nested random intercept (e.g. email within sender).
+    # None when the model was fitted without one.
+    nested_sd: float | None = None
 
     def contrast(self, level: str) -> tuple[float, float]:
         """Posterior mean and approximate p-value for one direction level
@@ -252,6 +308,8 @@ def fit_sentence_level_model(
     direction_col: str = "direction",
     cluster_col: str = "persona_id",
     reference: str = "lateral",
+    covariates: Sequence[str] = (),
+    nested_col: str | None = None,
 ) -> SentenceModelResult:
     """Fit ``outcome ~ direction`` on one row per sentence, ``outcome_col``
     a 0/1 (or boolean) column, with a random intercept per ``cluster_col``.
@@ -263,8 +321,16 @@ def fit_sentence_level_model(
     here has one row per *sentence*, not per reply: build it with
     :func:`thesis.data.features.extract_sentence_features` joined back onto
     each sentence's reply-level ``direction``/``cluster_col``.
+
+    ``covariates`` are extra fixed effects, as in
+    :func:`fit_direction_mixed_model`. ``nested_col`` adds a second random
+    intercept, for example one per email inside each sender. Its matrix is
+    built sparse, because one dummy column per email is too large to hold
+    dense. Both default to off, which fits exactly the model this function
+    always fitted.
     """
-    working = df[[outcome_col, direction_col, cluster_col]].dropna()
+    extra = [nested_col] if nested_col is not None else []
+    working = df[[outcome_col, direction_col, cluster_col, *covariates, *extra]].dropna()
     n_groups = working[cluster_col].nunique()
     if len(working) < 3 or n_groups < 2:
         msg = (
@@ -286,11 +352,30 @@ def fit_sentence_level_model(
         }
     )
 
-    formula = f"{outcome_col} ~ C({direction_col}, Treatment(reference='{reference}'))"
+    formula = (
+        f"{outcome_col} ~ C({direction_col}, Treatment(reference='{reference}'))"
+        f"{_covariate_formula(covariates)}"
+    )
     model = BinomialBayesMixedGLM.from_formula(
         formula, {cluster_col: f"0 + C({cluster_col})"}, data=working
     )
-    fit = model.fit_vb()
+    if nested_col is not None:
+        # Same fixed effects, rebuilt with a sparse matrix holding both
+        # random intercepts: cluster first, nested second.
+        blocks = [_indicator_matrix(working[col]) for col in (cluster_col, nested_col)]
+        model = BinomialBayesMixedGLM(
+            model.endog,
+            pd.DataFrame(model.exog, columns=model.exog_names),
+            sparse.hstack(blocks, format="csr"),
+            np.concatenate([np.full(b.shape[1], i) for i, b in enumerate(blocks)]),
+            vcp_names=[cluster_col, nested_col],
+        )
+        # BFGS keeps a dense matrix over every parameter, and one random
+        # effect per email means thousands of them. L-BFGS-B gives the same
+        # estimates to three decimals on the test fixture, about 80x faster.
+        fit = model.fit_vb(fit_method="L-BFGS-B")
+    else:
+        fit = model.fit_vb()
 
     # Mirrors fit_direction_mixed_model's own renaming: statsmodels/patsy
     # names a fixed-effect parameter after the full formula term, e.g.
@@ -300,11 +385,7 @@ def fit_sentence_level_model(
     posterior_sd: dict[str, float] = {}
     p_values: dict[str, float] = {}
     for name, mean, sd in zip(model.exog_names, fit.fe_mean, fit.fe_sd, strict=True):
-        if name == "Intercept":
-            clean_name = name
-        else:
-            level = name.rsplit("[T.", 1)[1][:-1]
-            clean_name = f"direction[T.{level}]"
+        clean_name = _direction_term(name, direction_col) or name
         z = mean / sd if sd > 0 else float("inf")
         coefficients[clean_name] = float(mean)
         posterior_sd[clean_name] = float(sd)
@@ -319,6 +400,116 @@ def fit_sentence_level_model(
         posterior_sd=posterior_sd,
         p_values=p_values,
         group_sd=float(np.exp(fit.vcp_mean[0])),
+        nested_sd=float(np.exp(fit.vcp_mean[1])) if nested_col is not None else None,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class FixedEffectsResult:
+    """One ``outcome ~ direction + cluster dummies`` fit, with standard
+    errors clustered by the same column.
+
+    The dummies absorb everything constant within a cluster, such as a
+    sender's rank. So each direction contrast uses only differences inside
+    one cluster.
+    """
+
+    outcome: str
+    reference_level: str
+    family: str
+    n_observations: int
+    n_groups: int
+    n_groups_dropped: int
+    coefficients: dict[str, float]
+    std_errors: dict[str, float]
+    p_values: dict[str, float]
+
+    def contrast(self, level: str) -> tuple[float, float]:
+        """Coefficient and p-value for one direction level vs. the reference."""
+        key = f"direction[T.{level}]"
+        if key not in self.coefficients:
+            msg = f"no contrast for {level!r}; available: {sorted(self.coefficients)}"
+            raise KeyError(msg)
+        return self.coefficients[key], self.p_values[key]
+
+
+def fit_direction_fixed_effects(
+    df: pd.DataFrame,
+    outcome_col: str,
+    *,
+    direction_col: str = "direction",
+    cluster_col: str = "persona_id",
+    reference: str = "lateral",
+    family: Literal["linear", "logistic"] = "linear",
+) -> FixedEffectsResult:
+    """Fit ``outcome ~ direction + C(cluster)`` with cluster-robust errors.
+
+    This is the within-cluster check next to the mixed models. A random
+    intercept assumes the cluster effect is unrelated to direction. That
+    fails when direction depends on who the cluster is, as a sender's rank
+    limits which directions they can write in. Cluster dummies make no such
+    assumption.
+
+    ``family="logistic"`` fits a logit with the same dummies. A cluster whose
+    outcome never varies has an infinite dummy and says nothing about
+    direction, so it is dropped first and counted in ``n_groups_dropped``.
+    """
+    working = df[[outcome_col, direction_col, cluster_col]].dropna()
+    n_dropped = 0
+    if family == "logistic":
+        working = working.assign(**{outcome_col: working[outcome_col].astype(int)})
+        cluster_mean = working.groupby(cluster_col)[outcome_col].transform("mean")
+        varies = (cluster_mean > 0) & (cluster_mean < 1)
+        n_dropped = working.loc[~varies, cluster_col].nunique()
+        working = working[varies]
+
+    n_groups = working[cluster_col].nunique()
+    if len(working) < 3 or n_groups < 2:
+        msg = (
+            f"need at least 2 groups and 3 observations to fit a fixed-effects model; "
+            f"got {len(working)} observation(s) across {n_groups} group(s)"
+        )
+        raise InsufficientDataError(msg)
+
+    levels = [reference, *sorted(lv for lv in working[direction_col].unique() if lv != reference)]
+    working = working.assign(
+        **{
+            direction_col: pd.Categorical(working[direction_col], categories=levels),
+            cluster_col: working[cluster_col].astype(str),
+        }
+    )
+    formula = (
+        f"{outcome_col} ~ C({direction_col}, Treatment(reference='{reference}'))"
+        f" + C({cluster_col})"
+    )
+    groups = pd.factorize(working[cluster_col])[0]
+    if family == "logistic":
+        model = smf.glm(formula, data=working, family=sm.families.Binomial())
+    else:
+        model = smf.ols(formula, data=working)
+    fit = model.fit(cov_type="cluster", cov_kwds={"groups": groups})
+
+    coefficients: dict[str, float] = {}
+    std_errors: dict[str, float] = {}
+    p_values: dict[str, float] = {}
+    for name in fit.params.index:
+        clean_name = _direction_term(name, direction_col)
+        if clean_name is None:
+            continue
+        coefficients[clean_name] = float(fit.params[name])
+        std_errors[clean_name] = float(fit.bse[name])
+        p_values[clean_name] = float(fit.pvalues[name])
+
+    return FixedEffectsResult(
+        outcome=outcome_col,
+        reference_level=reference,
+        family=family,
+        n_observations=len(working),
+        n_groups=n_groups,
+        n_groups_dropped=int(n_dropped),
+        coefficients=coefficients,
+        std_errors=std_errors,
+        p_values=p_values,
     )
 
 

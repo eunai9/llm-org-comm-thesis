@@ -14,15 +14,19 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
+from numpy.linalg import LinAlgError
 
 from thesis.analysis.hierarchy import (
     AssociationResult,
     DoseResponseResult,
+    FixedEffectsResult,
     InsufficientDataError,
     InteractionModelResult,
     MixedModelResult,
     SentenceModelResult,
+    _fit_with_fallback,
     direction_decision_association,
+    fit_direction_fixed_effects,
     fit_direction_mixed_model,
     fit_dose_response_model,
     fit_interaction_model,
@@ -540,3 +544,223 @@ def test_dose_response_result_is_frozen() -> None:
     result = fit_dose_response_model(_dose_data(0.4), "outcome", "dose")
     with pytest.raises(AttributeError):
         result.slope = 999.0  # type: ignore[misc]
+
+
+# ------------------------------------------- covariates and fixed effects
+
+# Which directions a sender of each rank writes in. Rank 1 cannot write down
+# and rank 3 cannot write up, as in real email. So direction and rank are
+# confounded: most "up" rows come from low-rank senders.
+_RANK_PLAN: dict[int, list[str]] = {
+    1: ["up", "up", "up", "lateral"],
+    2: ["up", "lateral", "lateral", "down"],
+    3: ["lateral", "down", "down", "down"],
+}
+_DIRECTION_EFFECT: dict[str, float] = {"up": 0.3, "lateral": 0.0, "down": -0.2}
+
+
+def _rank_confounded_data(*, n_senders: int = 600, seed: int = 1) -> pd.DataFrame:
+    """Per-email data where rank moves the outcome a lot (1.5 per step), and
+    each sender has only four noisy emails. A random intercept alone then
+    shrinks each sender toward the mean and leaves part of the rank
+    difference in the direction contrasts."""
+    rng = np.random.default_rng(seed)
+    rows = []
+    for i in range(n_senders):
+        rank = 1 + i % 3
+        offset = rng.normal(0.0, 0.1)
+        for direction in _RANK_PLAN[rank]:
+            rows.append(
+                {
+                    "who": f"s{i}",
+                    "rank": str(rank),
+                    "direction": direction,
+                    "outcome": 1.5 * (rank - 1)
+                    + _DIRECTION_EFFECT[direction]
+                    + offset
+                    + rng.normal(0.0, 1.0),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def test_rank_covariate_recovers_a_known_effect_under_confounding() -> None:
+    """With rank as a covariate the injected +0.3 / -0.2 come back. Without
+    it they do not, which shows the covariate is doing the work."""
+    df = _rank_confounded_data()
+    naive = fit_direction_mixed_model(df, "outcome", cluster_col="who")
+    adjusted = fit_direction_mixed_model(df, "outcome", cluster_col="who", covariates=["rank"])
+
+    assert adjusted.contrast("up")[0] == pytest.approx(0.3, abs=0.15)
+    assert adjusted.contrast("up")[1] < 0.01
+    assert adjusted.contrast("down")[0] == pytest.approx(-0.2, abs=0.15)
+    assert naive.contrast("up")[0] < 0.1
+    assert naive.contrast("down")[0] > 0.0
+
+
+def test_covariate_terms_are_not_read_as_direction_contrasts() -> None:
+    """A covariate's own ``rank[T.2]`` term also contains ``[T.``. It must
+    keep its name and never overwrite a direction contrast."""
+    df = _rank_confounded_data(n_senders=60)
+    result = fit_direction_mixed_model(df, "outcome", cluster_col="who", covariates=["rank"])
+    direction_keys = sorted(k for k in result.coefficients if k.startswith("direction["))
+    assert direction_keys == ["direction[T.down]", "direction[T.up]"]
+    assert "rank[T.2]" in result.coefficients
+    assert "rank[T.3]" in result.coefficients
+
+
+def test_no_covariates_gives_the_same_terms_as_before() -> None:
+    df = _clustered_data({"lateral": 0.0, "up": 0.5, "down": 0.05})
+    result = fit_direction_mixed_model(df, "outcome")
+    assert set(result.coefficients) == {
+        "Intercept",
+        "Group Var",
+        "direction[T.down]",
+        "direction[T.up]",
+    }
+
+
+def test_fixed_effects_recover_a_known_effect_under_confounding() -> None:
+    """Sender dummies absorb rank, so no covariate is needed."""
+    result = fit_direction_fixed_effects(_rank_confounded_data(), "outcome", cluster_col="who")
+    assert isinstance(result, FixedEffectsResult)
+    assert result.contrast("up")[0] == pytest.approx(0.3, abs=0.15)
+    assert result.contrast("up")[1] < 0.01
+    assert result.contrast("down")[0] == pytest.approx(-0.2, abs=0.15)
+    assert set(result.coefficients) == {"direction[T.down]", "direction[T.up]"}
+    assert result.n_groups == 600
+
+
+def _rank_confounded_sentences(*, n_senders: int = 90, seed: int = 11) -> pd.DataFrame:
+    """One row per sentence, six sentences per email, twelve emails per
+    sender. Logit effects: up +1.0, down -0.8, rank +0.8 per step. Each email
+    has its own offset, so sentences inside one email are correlated."""
+    effects = {"up": 1.0, "lateral": 0.0, "down": -0.8}
+    rng = np.random.default_rng(seed)
+    rows = []
+    for i in range(n_senders):
+        rank = 1 + i % 3
+        sender_offset = rng.normal(0.0, 0.3)
+        for k, direction in enumerate(_RANK_PLAN[rank] * 3):
+            email_offset = rng.normal(0.0, 0.5)
+            logit = -0.5 + 0.8 * (rank - 1) + effects[direction] + sender_offset + email_offset
+            prob = 1.0 / (1.0 + np.exp(-logit))
+            for _ in range(6):
+                rows.append(
+                    {
+                        "who": f"s{i}",
+                        "email": f"s{i}e{k}",
+                        "rank": str(rank),
+                        "direction": direction,
+                        "is_imperative": int(rng.random() < prob),
+                    }
+                )
+    return pd.DataFrame(rows)
+
+
+def test_sentence_model_with_covariate_and_nested_intercept_recovers_the_effect() -> None:
+    df = _rank_confounded_sentences()
+    result = fit_sentence_level_model(
+        df, "is_imperative", cluster_col="who", covariates=["rank"], nested_col="email"
+    )
+    assert result.contrast("up")[0] == pytest.approx(1.0, abs=0.35)
+    assert result.contrast("up")[1] < 0.01
+    assert result.contrast("down")[0] == pytest.approx(-0.8, abs=0.35)
+    assert result.nested_sd is not None and result.nested_sd > 0
+    assert "rank[T.3]" in result.coefficients
+
+
+def test_sentence_model_has_no_nested_sd_by_default() -> None:
+    result = fit_sentence_level_model(_sentence_data({"lateral": -0.3, "up": 1.5}), "is_imperative")
+    assert result.nested_sd is None
+
+
+def test_logistic_fixed_effects_recover_the_effect_and_drop_constant_senders() -> None:
+    """A sender whose sentences are never imperative has an infinite dummy.
+    It must be dropped and counted, not break the fit."""
+    df = _rank_confounded_sentences()
+    constant = df[df["who"] == "s0"].assign(who="never", is_imperative=0)
+    result = fit_direction_fixed_effects(
+        pd.concat([df, constant]), "is_imperative", cluster_col="who", family="logistic"
+    )
+    assert result.contrast("up")[0] == pytest.approx(1.0, abs=0.4)
+    assert result.contrast("up")[1] < 0.01
+    assert result.contrast("down")[0] == pytest.approx(-0.8, abs=0.4)
+    assert result.n_groups_dropped == 1
+    assert result.n_groups == 90
+
+
+def test_fixed_effects_contrast_raises_a_clear_error_for_an_unobserved_level() -> None:
+    result = fit_direction_fixed_effects(
+        _rank_confounded_data(n_senders=60), "outcome", cluster_col="who"
+    )
+    with pytest.raises(KeyError, match="no contrast"):
+        result.contrast("sideways")
+
+
+def test_fixed_effects_rejects_too_few_groups() -> None:
+    df = _rank_confounded_data(n_senders=60)
+    with pytest.raises(InsufficientDataError):
+        fit_direction_fixed_effects(df[df["who"] == "s0"], "outcome", cluster_col="who")
+
+
+# ------------------------------------------------------ optimizer choice
+
+
+class _FakeFit:
+    def __init__(self, method: str, converged: bool, llf: float) -> None:
+        self.method = method
+        self.converged = converged
+        self.llf = llf
+
+
+class _FakeModel:
+    """Stands in for MixedLM. Each optimizer either returns a fit with the
+    given convergence flag and log-likelihood, or raises."""
+
+    def __init__(self, outcomes: dict[str, tuple[bool, float] | Exception]) -> None:
+        self.outcomes = outcomes
+
+    def fit(self, *, reml: bool, method: str) -> _FakeFit:
+        outcome = self.outcomes[method]
+        if isinstance(outcome, Exception):
+            raise outcome
+        return _FakeFit(method, *outcome)
+
+
+def test_fit_keeps_the_converged_optimizer_with_the_highest_likelihood() -> None:
+    """L-BFGS can report convergence at a worse point. The better fit from
+    another optimizer must win, as on the real-email Q1 data."""
+    model = _FakeModel({"lbfgs": (True, -10.0), "powell": (True, -5.0), "nm": (True, -5.0)})
+    assert _fit_with_fallback(model, label="x").method == "powell"
+
+
+def test_fit_rejects_an_infinite_likelihood_that_claims_convergence() -> None:
+    """The real-email failure: L-BFGS said converged, with llf = inf."""
+    model = _FakeModel(
+        {"lbfgs": (True, float("inf")), "powell": (True, 297.8), "nm": (True, 297.8)}
+    )
+    assert _fit_with_fallback(model, label="x").method == "powell"
+
+
+def test_fit_ignores_a_better_likelihood_that_did_not_converge() -> None:
+    model = _FakeModel({"lbfgs": (True, -10.0), "powell": (False, 0.0), "nm": (True, -12.0)})
+    assert _fit_with_fallback(model, label="x").method == "lbfgs"
+
+
+def test_fit_skips_an_optimizer_that_raises() -> None:
+    model = _FakeModel(
+        {"lbfgs": LinAlgError("singular"), "powell": (True, -3.0), "nm": (True, -4.0)}
+    )
+    assert _fit_with_fallback(model, label="x").method == "powell"
+
+
+def test_fit_returns_the_last_fit_when_none_converges() -> None:
+    model = _FakeModel({"lbfgs": (False, -1.0), "powell": (False, -2.0), "nm": (False, -3.0)})
+    assert _fit_with_fallback(model, label="x").method == "nm"
+
+
+def test_fit_raises_when_every_optimizer_raises() -> None:
+    model = _FakeModel({m: ValueError("bad") for m in ("lbfgs", "powell", "nm")})
+    with pytest.raises(InsufficientDataError, match="no optimizer"):
+        _fit_with_fallback(model, label="x")
