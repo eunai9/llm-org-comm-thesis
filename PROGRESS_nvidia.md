@@ -782,40 +782,63 @@ python -m thesis.analysis.mirroring --pairs data/interim/pairs_gpt_oss.parquet \
 
 ## 12. Next steps
 
-1. **Hand-code a sample of DeepSeek replies.** Hand-coding means a person
-   reads each reply and picks a label from the section 35 codebook. The
-   mirroring measure was checked on Llama replies only, against Claude's
-   first-pass codes. No person has coded any reply yet. Section 8 suggests
-   that a high score means something different for DeepSeek. Codes from a
-   person would settle this. The codebook needs one fix first: the first
-   pass used a label, `wrong_register`, that the codebook does not define.
-2. **A DeepSeek run without the act instruction.** This answers the question
-   section 43 left open: does a larger model follow the instruction better?
-   The instruction is always on in `prompt.py` now, so this first needs a
-   small code option to switch it off. The 183 pairs take about 4 to 5 hours
-   on the free tier. The Q1 grid of section 10 takes about 9 to 13 hours.
-3. **Save the length check in code.** Done on Sep 14. `compare_runs` in
-   `mirroring.py` now repeats both paired tests with each reply cut to its
-   partner's length, and the manifest saves the result. It reproduces the
-   numbers of section 8.
-4. **Embedding map and review pack on DeepSeek.** These also only read the
-   saved replies.
-5. **Judge study (Q3) with a second model family.** For example, Nemotron as
-   judge and DeepSeek as writer. This needs new model calls.
-6. **Rename one summary key.** `mirroring.py` saves the comparison under
-   `compared_with_previous_prompt`. For a comparison between models, that
-   name is wrong.
-7. **Back up `runs/_cache`.** It holds hours of NVIDIA replies and exists
-   only on this laptop. It must not go into git, because the prompts contain
-   Enron text.
-8. **Commit the code.** Done on Sep 13, in three commits: the NVIDIA client
-   and its tests (`57035ab`), the `compare_runs` fix (`ec0829e`), and the
-   cost ledger with the DeepSeek mirroring manifest (`cac4688`).
-9. **Move the line removal into the corpus cleaner.** Section 9 removed
+Most valuable first.
+
+1. **Compare DeepSeek with the real-email benchmark.** `PROGRESS.md` section
+   48 (Sep 14) measured what direction does in real Enron email. People give
+   more orders when they write down: the chance that a sentence is an order
+   rises by 3.3 points (p < .001). Writing up is flat, and hedging does not
+   change. That section compared real email only with the Llama grid of
+   section 39. Section 10 of this log found the same writing-down effect in
+   DeepSeek, which Llama could not detect. So the open question is how close
+   DeepSeek comes to the real pattern: the size of the effect, and the order
+   of the three directions. Note that the levels differ a lot. The simulator
+   gives an order in 28% to 37% of sentences, real email in 14% to 18%.
+2. **Run the Q1 grid with gpt-oss@low.** Section 10 found a writing-down
+   effect for DeepSeek and none for Llama. A third model would show which
+   pattern is the usual one. At gpt-oss speed the 240 replies take minutes,
+   not hours. Together with step 1, three models could then be held against
+   the real benchmark.
+3. **Hand-code a sample of replies.** A person reads each reply and picks a
+   label from the section 35 codebook. No person has coded any reply yet, so
+   the mirroring measure rests on Claude's first-pass codes of Llama replies
+   only. The coding page is built: 50 emails, two replies each, from two
+   models, in random order, with the model hidden. It is waiting for a coder.
+   The codebook fix is written but not committed: the first pass used a
+   label, `wrong_register`, that the codebook did not define.
+4. **A run without the act instruction.** This answers the question section
+   43 left open: does a larger model follow the instruction better? Since
+   Sep 14 the code has a `--prompt-variant` option with two variants,
+   `default` and `decide_first`. A third variant without the act instruction
+   would fit the same mechanism. The 183 pairs take minutes with gpt-oss and
+   hours with DeepSeek.
+5. **Embedding map and review pack on DeepSeek and gpt-oss.** These only
+   read the saved replies, so they need no new generation.
+6. **Judge study (Q3).** Three model families are now available: Llama,
+   DeepSeek and gpt-oss. One model can write and another can judge, and then
+   the roles can be swapped. This needs new model calls.
+7. **Move the line removal into the corpus cleaner.** Section 9 removed
    signature, address and header lines with a one-off script. If the cleaner
    in `thesis.data.rfc822` did this, every analysis would use the same clean
    text. Earlier results that use the real replies would then need a re-run.
-10. **Run the Q1 grid with gpt-oss@low.** Section 10 found a "writing down"
-    effect for DeepSeek and none for Llama. A third model would show which
-    pattern is the usual one. At gpt-oss speed, the 240 replies take minutes,
-    not hours.
+8. **Rename one summary key.** `mirroring.py` saves the comparison under
+   `compared_with_previous_prompt`. For a comparison between models, that
+   name is wrong.
+9. **Back up `runs/_cache`.** It is 59 MB and holds every model reply this
+   project has received. It exists only on this laptop. It must not go into
+   git, because the prompts contain Enron text.
+10. **Commit the rest of the code.** Still uncommitted: the `--nvidia`
+    option in `q1.py`, the blind coding module with its tests, and the
+    codebook fix in `review_pack.py`.
+
+**Done since this list was written.**
+
+- **Commit the client code.** Sep 13, in three commits: the NVIDIA client
+  and its tests (`57035ab`), the `compare_runs` fix (`ec0829e`), and the
+  cost ledger with the DeepSeek mirroring manifest (`cac4688`).
+- **Save the length check in code.** Sep 14, commit `193117c`.
+  `compare_runs` now repeats both paired tests with each reply cut to its
+  partner's length, and the manifest saves the result. It reproduces the
+  numbers of section 8.
+- **Q1 with DeepSeek.** Sep 14, section 10 and commit `a2c9973`.
+- **A third model, gpt-oss-20b.** Sep 14, section 11 and commit `cfd74f7`.
