@@ -82,6 +82,8 @@ from thesis.sim.scenario import Scenario, Stakes, build_scenarios
 log = get_logger(__name__)
 
 Q1_GRID_PATH: Path = INTERIM_DIR / "q1_direction_grid.parquet"
+# A separate default for NVIDIA runs, so they never overwrite a local grid.
+Q1_NVIDIA_GRID_PATH: Path = INTERIM_DIR / "q1_direction_grid_nvidia.parquet"
 
 # The reconstructed design of the original 240-reply Q1 pilot -- see the
 # module docstring for how this was recovered from the response cache rather
@@ -448,15 +450,19 @@ def format_report(result: Q1Result) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
+    backend = parser.add_mutually_exclusive_group(required=True)
+    backend.add_argument(
         "--local",
         metavar="MODEL",
-        required=True,
         help=(
             "Generate with a local Ollama model (e.g. llama3.2:3b): real "
-            "generated text, no key, no cost. This project does not call a "
-            "paid API -- there is no other way to generate missing cells."
+            "generated text, no key, no cost."
         ),
+    )
+    backend.add_argument(
+        "--nvidia",
+        metavar="MODEL",
+        help="Generate with a free NVIDIA-hosted model (needs NVIDIA_API_KEY).",
     )
     parser.add_argument(
         "--ollama-host",
@@ -466,36 +472,47 @@ def main() -> None:
     parser.add_argument(
         "--cache-only",
         action="store_true",
-        help="Serve only from cache; fail rather than call Ollama.",
+        help="Serve only from cache; fail rather than call a model.",
     )
     parser.add_argument("--limit", type=int, default=None, help="Cap cells, for smoke tests.")
-    parser.add_argument("--out", default=str(Q1_GRID_PATH))
+    parser.add_argument(
+        "--out",
+        default=None,
+        help="Where to write the grid. Each backend has its own default file.",
+    )
     args = parser.parse_args()
 
     configure_logging()
     ensure_dirs()
 
-    from thesis.llm.ollama_client import OllamaClient, OllamaUnavailableError
+    client: LLMClient
+    if args.nvidia:
+        from thesis.llm.nvidia_client import NvidiaClient
 
-    client = (
-        OllamaClient(args.local, host=args.ollama_host)
-        if args.ollama_host
-        else OllamaClient(args.local)
-    )
-    if not client.is_available() and not args.cache_only:
-        msg = (
-            f"no Ollama server reachable at {client.host}. Start it with "
-            f"'ollama serve', and pull the model with 'ollama pull {args.local}'."
+        client, model, default_out = NvidiaClient(), args.nvidia, Q1_NVIDIA_GRID_PATH
+    else:
+        from thesis.llm.ollama_client import OllamaClient, OllamaUnavailableError
+
+        ollama = (
+            OllamaClient(args.local, host=args.ollama_host)
+            if args.ollama_host
+            else OllamaClient(args.local)
         )
-        raise OllamaUnavailableError(msg)
+        if not ollama.is_available() and not args.cache_only:
+            msg = (
+                f"no Ollama server reachable at {ollama.host}. Start it with "
+                f"'ollama serve', and pull the model with 'ollama pull {args.local}'."
+            )
+            raise OllamaUnavailableError(msg)
+        client, model, default_out = ollama, args.local, Q1_GRID_PATH
 
     grid = generate_q1_grid(
         client,
-        model=args.local,
+        model=model,
         cache_only=args.cache_only,
         limit=args.limit,
     )
-    out_path = Path(args.out)
+    out_path = Path(args.out) if args.out else default_out
     out_path.parent.mkdir(parents=True, exist_ok=True)
     grid.frame.to_parquet(out_path, compression="zstd", index=False)
     log.info(
