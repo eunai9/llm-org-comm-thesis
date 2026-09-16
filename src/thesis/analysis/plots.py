@@ -934,6 +934,28 @@ def main() -> None:
         legend_loc="lower right",
     )
 
+    # Section 49: the decide-first prompt, which puts the decision fields
+    # before the email. Two lines, because the two lengths disagree. As
+    # written, fewer replies are flagged. Cut to the act run's length,
+    # slightly more are. One line would report a fix that is only a length
+    # effect.
+    plot_factor_interaction(
+        ("act prompt", "decide-first"),
+        {
+            "as written (p=.18)": (19.1, 14.2),
+            "cut to the same length (p=.51)": (19.1, 21.9),
+        },
+        path=DOCS_FIGURES_DIR / "decide_first_before_after.png",
+        title="Deciding before writing does not cure mirroring",
+        subtitle=(
+            "Share of replies built mostly from the sender's own words. Same 183 stimuli, "
+            "same model. Decide-first replies are 4 words longer."
+        ),
+        x_label="which prompt the persona was given",
+        y_label="% of replies flagged",
+        legend_loc="lower left",
+    )
+
 
 if __name__ == "__main__":
     main()

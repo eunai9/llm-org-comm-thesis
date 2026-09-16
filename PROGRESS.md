@@ -34,6 +34,7 @@ you to read, not for a computer to run. Updated after each work session.
 | Validation pass: embedding map, 100 replies read by hand | Done — see section 35 |
 | Measure the mirroring failure automatically | Done — see section 42 |
 | Fix the mirroring failure by instructing the persona | Tried and did not work — phrasing moved, behavior did not, see section 43 |
+| Fix it by making the persona decide before it writes | Tried and did not work — the gain is only a length effect, and the decision field turns out unstable, see section 49 |
 | Does the model follow an instructed reply length? | Measured — the slope is 0.157, weak but real, see section 47 |
 | Measure mirroring by meaning rather than by words | Tried and does not work — every variant scores worse, see section 44 |
 | Measure mirroring by asking a model directly | Tried and does not work — both local models score near chance, see section 46 |
@@ -2756,6 +2757,185 @@ are clean.
 
 ---
 
+### 49. Deciding before writing does not cure mirroring (Sep 16)
+
+**Result first.** The model now states its decision before it writes the
+email. Mirroring did not go away. The measure looks better, but only because
+the replies got longer. At the same length the measure moves the wrong way.
+One thing did change a lot: the decision itself. Only 41% of replies keep the
+decision they had with the old prompt.
+
+**Why this step follows.** Section 43 told the persona to act on the request.
+The wording of the replies changed and the behaviour did not. That was an
+instruction. This step changes the structure instead. The model writes the
+JSON fields in the order the schema lists them. In every run so far that order
+was `subject`, `body`, `decision`. So the email was written first and the
+decision was added afterwards as a label. The prompt even called the decision
+"separate bookkeeping, recorded alongside your email". If the model decides
+first and then writes, the email has something to carry out. The DeepSeek
+result (`PROGRESS_nvidia.md` section 8) suggests model size matters most: a
+bigger model mirrors much less with the same prompt. This tests whether
+structure can help the small model at all.
+
+#### What changed
+
+A new prompt variant, `decide_first`. The default prompt is untouched, byte
+for byte. Three things differ in the variant:
+
+1. **Field order.** `reasoning_brief`, `decision`, `confidence`, `subject`,
+   `body`. Same field names, so nothing downstream had to change.
+2. **Field descriptions.** The decision is described as "the stance you are
+   taking on what was asked. Your email will carry it out." The body is "the
+   body of the reply, as it would be sent. It does what you decided above."
+3. **Two passages of prompt text.** The taxonomy now says "Before you write,
+   choose one of five stances on whatever was asked. Then write the reply
+   that carries it out." The output instruction now says "Fill the fields in
+   order. First decide what you will do. Then write the email that does it."
+
+Everything else is identical: the task framing, the act instruction from
+section 43, the persona text, the memory, and the incoming email.
+
+**Two checks before the run.**
+
+- **The default did not change.** The act run was rebuilt from the cache
+  alone, with the default variant and no model calls allowed. All 183 replies
+  were cache hits, and every field matched the stored act run. A single
+  changed character in the default prompt would have missed every entry,
+  because the cache is keyed on the exact prompt text. Unit tests now pin the
+  default text and schema by hash as well.
+- **The order really flipped.** The raw text the model returns starts
+  `{ "reasoning_brief": ..., "decision": ...`. Checked on the first replies of
+  the run. Without this the experiment would measure nothing.
+
+#### What mirroring means here
+
+A reply mirrors when it hands the sender's own request back. The measure is
+**borrowed words**: the share of the reply's distinct content words that
+already appear in the email it answers. 0 means none of them, 1 means all of
+them. A reply is **flagged** when it reaches 0.80. Section 42 chose that
+cut-off by looking at 100 coded replies, so read the level with care and the
+differences with more.
+
+Reply length matters for this measure. Borrowed words is a share of a reply's
+own words. A longer reply has more room for words the sender never used, so it
+scores lower even when it copies just as much. That is why every comparison is
+also run with each new reply cut to the length of its old partner.
+
+#### The numbers
+
+Same 183 emails, same personas, same model, paired reply by reply.
+
+| As written | Act prompt | Decide-first | Change | |
+|---|---:|---:|---:|---|
+| Borrowed words | 0.565 | 0.498 | −0.067 | **p=.0009** |
+| Replies flagged | 19.1% | 14.2% | −4.9 pts | p=.18 |
+| Reply length | 22.7 words | 26.9 words | +4.2 | |
+
+| Cut to the same length | Act prompt | Decide-first | Change | |
+|---|---:|---:|---:|---|
+| Borrowed words | 0.565 | 0.546 | −0.018 | p=.29 |
+| Replies flagged | 19.1% | 21.9% | +2.7 pts | p=.51 |
+
+Real human replies, cut to the same length, score 0.294 and are flagged 9.8%
+of the time. Both runs are far above that.
+
+![Replies built mostly from the sender's own words. As written the rate falls.
+Cut to the same length it rises.](docs/figures/decide_first_before_after.png)
+
+**The improvement is a length effect.** As written, 22 replies stop being
+flagged and 13 start. Cut to the same length it reverses: 16 stop and 21
+start. So the model answered a structural change to the prompt by writing
+about four words more. It did not answer it by acting differently. This is
+section 43 again, and it fits section 47: this model responds to prompt
+changes mostly by changing length, with an elasticity of 0.157.
+
+**The section 11 risk did not return.** No reply in either run opens with a
+decision word. That was the worry: the decision now sits directly before the
+body, and an early local run once produced emails beginning "decline.". The
+rule against it was kept in the variant and it held.
+
+#### Reading the replies
+
+The measure counts words, so rephrasing can fool it. Section 43 showed exactly
+that: "Send the list to Richard." became "Can you pass this along to Richard?"
+and scored lower while doing the same thing. So I read the replies whose flag
+changed, in both directions, and the ones still flagged. **This reading is
+Claude's, not a person's.**
+
+35 rows change flag as written; 26 of them are distinct replies, because some
+threads give two repliers the same persona and therefore the same text. In 6
+of the 26 the decide-first reply still hands the task back. Two of those had
+stopped being flagged. Asked to print and return two originals, the reply
+says: "I concur with the requested changes. Please print two originals and
+return them to me." The score fell from 0.86 to 0.62. The behaviour is the
+same.
+
+**The clearest evidence sits inside the new field.** In two replies the plan
+says the persona will act, and the email then hands the task back anyway:
+
+> **Plan** — "I will forward the agreement to the customer with the customer's
+> name and phone number."
+> **Email** — "Please give me the customer's name and phone number so I can
+> forward the agreement to them."
+
+The model wrote the correct plan and did not carry it out. That is the
+strongest form of this negative result. Deciding first is not enough, because
+the email is not built from the decision.
+
+Of the 183 plans, 67 use the words ask, confirm, check with, or request. Most
+are legitimate: "I will call Pan Canadian Energy Services and ask if there are
+any outstanding legal actions" is a real action. The plans rarely say "ask the
+sender to do it". So the plan is usually sound. The email is where it fails.
+
+#### The decision field is not stable
+
+The decision totals barely move. The individual decisions move a lot.
+
+| Act prompt \ decide-first | accept | decline | defer | escalate |
+|---|---:|---:|---:|---:|
+| **accept** (106) | 57 | 3 | 45 | 1 |
+| **decline** (4) | 2 | 0 | 2 | 0 |
+| **defer** (69) | 44 | 7 | 18 | 0 |
+| **escalate** (4) | 3 | 0 | 1 | 0 |
+
+Only 75 of 183 decisions agree, which is 41%. Accept and defer swap in both
+directions, 45 one way and 44 the other. That is why the totals look steady
+while the answers underneath do not.
+
+**Read this carefully.** Two things differ between the runs: the prompt and
+the model's own randomness. So this does not show that the prompt caused the
+instability. It does show that the decision for one email is not stable.
+
+That matters because `decision` is a Q1 outcome, and section 39 reported a
+decision effect at p=.021. **The clean follow-up is named and not run yet:**
+re-run the act prompt with a different draw index (`CompletionRequest.variant`)
+and measure how often the model agrees with itself on the same email. That
+separates the prompt effect from noise. It needs no new design and costs about
+an hour of local generation.
+
+#### Limits
+
+- One model, 3 billion parameters, running locally. One phrasing of the
+  variant.
+- The reading is Claude's first pass, like section 35's codes. No person has
+  checked these replies.
+- The flag cut-off was chosen on 100 coded replies, so the level is optimistic
+  and only the differences should be read closely.
+
+#### How it was run
+
+```
+python -m thesis.analysis.pairs --local llama3.2:3b \
+  --prompt-variant decide_first --progress-every 20 \
+  --out data/interim/real_vs_generated_pairs_decide_first.parquet
+```
+
+About 50 of the 183 prompts were identical to another pair's and came from the
+cache. The rest were generated, in about 65 minutes. **Cost was zero.** The
+act run and its file are untouched, so the comparison can be re-run.
+
+---
+
 ## What's next
 
 *(Rewritten Aug 31 — the previous version was written before the corpus
@@ -2850,6 +3030,24 @@ writing down is the same size (+3.4 points) but not significant with 240
 replies. Its borderline writing-up effect (+8.6 points) is not in real email
 (+0.8 points). Hedges show nothing on either side. So section 39's null is
 partly a power problem.
+
+**Changing the output order did not work either (section 49).** The persona
+now states its decision before it writes the email. Mirroring did not go away.
+As written the flagged rate falls from 19.1% to 14.2% (p=.18), but the replies
+are 4 words longer, and at the same length the rate rises to 21.9%. Reading
+the replies confirms it: in two cases the plan says the persona will act and
+the email still hands the task back. Two prompt fixes have now failed on this
+habit, one by instruction and one by structure. The DeepSeek comparison points
+at model size instead.
+
+**A new problem came out of that run, and it touches Q1.** Between the two
+prompts, only 41% of replies keep the same decision for the same email. Accept
+and defer swap in both directions. The prompt and the model's randomness both
+differ between the runs, so this does not say which caused it. **The cheapest
+next experiment in this log** is the one that separates them: re-run the act
+prompt with a different draw index and measure how often the model agrees with
+itself. It needs no new design, costs about an hour of local generation, and
+it decides how much weight section 39's decision result (p=.021) can carry.
 
 **Next priority is therefore yours to pick**, since the cheap technical
 work in this thread is finished. The strongest candidates are re-coding

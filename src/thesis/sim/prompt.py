@@ -35,6 +35,7 @@ from dataclasses import dataclass
 from thesis.sim.memory import MemoryItem, render_memory_block, retrieve
 from thesis.sim.persona import Persona, render_persona_block
 from thesis.sim.scenario import Scenario, render_scenario_block
+from thesis.sim.schemas import PromptVariant
 
 # The binding constraint is the *largest* minimum across the models this
 # prefix is ever sent to: 512 on claude-opus-5, 1024 on claude-sonnet-5. A
@@ -160,6 +161,39 @@ sentence.
 """
 
 
+def _swap(text: str, old: str, new: str) -> str:
+    """Replace one passage. Fail if it is missing, so a later edit cannot skip it."""
+    if old not in text:
+        msg = f"passage not found: {old[:40]!r}"
+        raise ValueError(msg)
+    return text.replace(old, new)
+
+
+# The decide-first variant. It changes only the passages that describe the
+# order of the fields. The rule against opening with the decision word stays,
+# because the decision is now written right before the body.
+DECISION_TAXONOMY_DECIDE_FIRST = _swap(
+    DECISION_TAXONOMY,
+    "Every reply you write takes one of five stances on whatever was asked. Choose\n"
+    "the one that genuinely matches your reply - do not default to agreeing:",
+    "Before you write, choose one of five stances on whatever was asked. Then\n"
+    "write the reply that carries it out. Do not default to agreeing:",
+)
+
+OUTPUT_INSTRUCTION_DECIDE_FIRST = _swap(
+    _swap(
+        OUTPUT_INSTRUCTION,
+        "The `decision` field is separate bookkeeping, recorded alongside your email\n"
+        "for the study. It is not part of the email and the recipient never sees it.",
+        "Fill the fields in order. First decide what you will do (`reasoning_brief`,\n"
+        "`decision`, `confidence`). Then write the email that does it (`subject`,\n"
+        "`body`). The recipient sees only the email, not the fields before it.",
+    ),
+    "The `reasoning_brief` field is where the rationale goes, as one complete\nsentence.",
+    "The `reasoning_brief` field is your plan, as one complete sentence.",
+)
+
+
 @dataclass(frozen=True, slots=True)
 class AssembledPrompt:
     """A prompt split at the cache breakpoint.
@@ -203,6 +237,7 @@ def build_stable_prefix(
     persona: Persona,
     direction: str,
     memories: Sequence[MemoryItem] = (),
+    variant: PromptVariant = "default",
 ) -> str:
     """Everything that is constant for a (persona, direction) pair.
 
@@ -210,6 +245,7 @@ def build_stable_prefix(
     retrieved per (persona, direction) rather than per scenario -- see
     :func:`memory_query`.
     """
+    taxonomy = DECISION_TAXONOMY_DECIDE_FIRST if variant == "decide_first" else DECISION_TAXONOMY
     sections = [
         TASK_FRAMING.strip(),
         ORGANIZATION_CONTEXT.strip(),
@@ -217,7 +253,7 @@ def build_stable_prefix(
         "",
         render_persona_block(persona),
         HIERARCHY_CONTEXT.strip(),
-        DECISION_TAXONOMY.strip(),
+        taxonomy.strip(),
     ]
     memory_block = render_memory_block(memories)
     if memory_block:
@@ -247,6 +283,7 @@ def assemble(
     persona: Persona,
     scenario: Scenario,
     memories: Sequence[MemoryItem] = (),
+    variant: PromptVariant = "default",
 ) -> AssembledPrompt:
     """Build one prompt, split at the cache breakpoint.
 
@@ -255,9 +292,12 @@ def assemble(
     group must run consecutively, or each one writes a fresh cache entry that
     expires before the next cell needs it.
     """
+    instruction = (
+        OUTPUT_INSTRUCTION_DECIDE_FIRST if variant == "decide_first" else OUTPUT_INSTRUCTION
+    )
     return AssembledPrompt(
-        stable_prefix=build_stable_prefix(persona, scenario.direction, memories),
-        variable_suffix="\n\n".join([render_scenario_block(scenario), OUTPUT_INSTRUCTION.strip()]),
+        stable_prefix=build_stable_prefix(persona, scenario.direction, memories, variant),
+        variable_suffix="\n\n".join([render_scenario_block(scenario), instruction.strip()]),
         cache_group=f"{persona.persona_id}__{scenario.direction}",
     )
 

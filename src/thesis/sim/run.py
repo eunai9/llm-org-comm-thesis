@@ -53,7 +53,12 @@ from thesis.sim.memory_generation import load_frozen_memory
 from thesis.sim.persona import Persona
 from thesis.sim.prompt import assemble, retrieve_for_group
 from thesis.sim.scenario import Scenario
-from thesis.sim.schemas import RESPONSE_SCHEMA, InvalidResponseError, validate_response
+from thesis.sim.schemas import (
+    InvalidResponseError,
+    PromptVariant,
+    response_schema,
+    validate_response,
+)
 
 log = get_logger(__name__)
 
@@ -166,19 +171,21 @@ class RunManifest:
 def build_request(
     cell: GridCell,
     memories: Sequence[MemoryItem],
+    prompt_variant: PromptVariant = "default",
 ) -> CompletionRequest:
     """Assemble the API request for one cell.
 
     ``cache_system=True`` marks the stable prefix as cacheable; without it the
-    ordering work in :mod:`thesis.sim.grid` buys nothing.
+    ordering work in :mod:`thesis.sim.grid` buys nothing. ``prompt_variant``
+    picks the prompt text and the output schema together.
     """
-    prompt = assemble(cell.persona, cell.scenario, memories)
+    prompt = assemble(cell.persona, cell.scenario, memories, variant=prompt_variant)
     return CompletionRequest(
         model=cell.model,
         messages=[Message(role="user", content=prompt.variable_suffix)],
         max_tokens=MAX_OUTPUT_TOKENS,
         system=prompt.stable_prefix,
-        output_schema=RESPONSE_SCHEMA,
+        output_schema=response_schema(prompt_variant),
         cache_system=True,
         # The replicate index is the draw index: without it every replicate of
         # a cell would share one cache entry and the design's variance term
@@ -307,6 +314,7 @@ def run_grid(
     ledger: CostLedger,
     manifest: RunManifest,
     progress_every: int = 100,
+    prompt_variant: PromptVariant = "default",
 ) -> list[dict[str, Any]]:
     """Generate every cell, serving from cache where possible.
 
@@ -318,7 +326,7 @@ def run_grid(
     totals = Usage()
 
     for index, cell in enumerate(cells, start=1):
-        request = build_request(cell, _memories_for(cell, stores))
+        request = build_request(cell, _memories_for(cell, stores), prompt_variant)
         key = cache_key(request, client.provider)
 
         response = cache.get(key)

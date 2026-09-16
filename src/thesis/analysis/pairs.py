@@ -25,7 +25,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -41,6 +41,7 @@ from thesis.sim.memory_generation import load_frozen_memory
 from thesis.sim.persona import Persona, load_frozen_personas
 from thesis.sim.real_stimuli import RealStimulusPair, build_real_stimulus_pairs
 from thesis.sim.run import RunManifest, run_grid
+from thesis.sim.schemas import PROMPT_VARIANTS, PromptVariant
 
 log = get_logger(__name__)
 
@@ -78,6 +79,7 @@ def build_pair_table(
     cache_only: bool = True,
     limit: int | None = None,
     progress_every: int = 100,
+    prompt_variant: PromptVariant = "default",
 ) -> PairTable:
     """Generate (or serve from cache) one reply per real stimulus and return the table."""
     config = load_config()
@@ -99,7 +101,7 @@ def build_pair_table(
         git_dirty=False,
         config_hash="",
         models=[model],
-        design={"kind": "real_stimulus_pairs"},
+        design={"kind": "real_stimulus_pairs", "prompt_variant": prompt_variant},
         n_cells=len(pairs),
     )
     rows: list[dict[str, Any]] = run_grid(
@@ -112,6 +114,7 @@ def build_pair_table(
         ledger=CostLedger(COST_LEDGER),
         manifest=manifest,
         progress_every=progress_every,
+        prompt_variant=prompt_variant,
     )
 
     records: list[dict[str, Any]] = []
@@ -174,6 +177,15 @@ def main() -> None:
     )
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--out", default=str(PAIRS_PATH))
+    parser.add_argument(
+        "--prompt-variant",
+        choices=PROMPT_VARIANTS,
+        default="default",
+        help="Which prompt to generate with. 'decide_first' puts the decision before the email.",
+    )
+    parser.add_argument(
+        "--progress-every", type=int, default=100, help="Log a progress line every N replies."
+    )
     args = parser.parse_args()
 
     configure_logging()
@@ -201,7 +213,13 @@ def main() -> None:
         model, role_label, cache_only = simulator.model_id, simulator.role_label, True
 
     table = build_pair_table(
-        client, model=model, role_label=role_label, cache_only=cache_only, limit=args.limit
+        client,
+        model=model,
+        role_label=role_label,
+        cache_only=cache_only,
+        limit=args.limit,
+        progress_every=args.progress_every,
+        prompt_variant=cast(PromptVariant, args.prompt_variant),
     )
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)

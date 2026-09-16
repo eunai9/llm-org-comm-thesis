@@ -23,7 +23,7 @@ does not have.
 
 from __future__ import annotations
 
-from typing import Any, Final
+from typing import Any, Final, Literal
 
 DECISIONS: Final[tuple[str, ...]] = ("accept", "decline", "defer", "escalate", "none")
 CONFIDENCE_LEVELS: Final[tuple[str, ...]] = ("low", "medium", "high")
@@ -65,6 +65,57 @@ RESPONSE_SCHEMA: Final[dict[str, Any]] = {
     "required": ["subject", "body", "decision", "confidence", "reasoning_brief"],
     "additionalProperties": False,
 }
+
+# Which prompt a reply is generated with. "default" is the prompt every run so
+# far has used. "decide_first" puts the decision fields before the email, so
+# the model states what it will do and then writes the email that does it.
+PromptVariant = Literal["default", "decide_first"]
+PROMPT_VARIANTS: Final[tuple[str, ...]] = ("default", "decide_first")
+
+# Same field names as RESPONSE_SCHEMA, so downstream code reads them unchanged.
+# The model fills fields in the order listed here, which is the point.
+DECIDE_FIRST_RESPONSE_SCHEMA: Final[dict[str, Any]] = {
+    "type": "object",
+    "properties": {
+        "reasoning_brief": {
+            "type": "string",
+            "description": (
+                "Before writing: one sentence on what you will do about this message, "
+                "from your role's point of view."
+            ),
+        },
+        "decision": {
+            "type": "string",
+            "enum": list(DECISIONS),
+            "description": (
+                "The stance you are taking on what was asked. Your email will carry it "
+                "out. Use 'none' when the message asks for nothing decidable."
+            ),
+        },
+        "confidence": {
+            "type": "string",
+            "enum": list(CONFIDENCE_LEVELS),
+            "description": "How firmly you commit to that decision.",
+        },
+        "subject": {
+            "type": "string",
+            "description": "Subject line of the reply.",
+        },
+        "body": {
+            "type": "string",
+            "description": (
+                "The body of the reply, as it would be sent. It does what you decided above."
+            ),
+        },
+    },
+    "required": ["reasoning_brief", "decision", "confidence", "subject", "body"],
+    "additionalProperties": False,
+}
+
+
+def response_schema(variant: PromptVariant = "default") -> dict[str, Any]:
+    """The output schema for one prompt variant."""
+    return DECIDE_FIRST_RESPONSE_SCHEMA if variant == "decide_first" else RESPONSE_SCHEMA
 
 
 class InvalidResponseError(ValueError):
