@@ -47,6 +47,8 @@ that is itself reported, not assumed away.
 from __future__ import annotations
 
 import argparse
+import json
+import math
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
@@ -54,6 +56,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from scipy import stats
 from spacy.tokens import Doc
 
 from thesis.analysis.hierarchy import (
@@ -71,7 +74,7 @@ from thesis.llm.base import LLMClient
 from thesis.llm.cache import ResponseCache
 from thesis.llm.cost import CostLedger
 from thesis.logging_setup import configure_logging, get_logger
-from thesis.paths import CACHE_DIR, COST_LEDGER, INTERIM_DIR, ensure_dirs
+from thesis.paths import CACHE_DIR, COST_LEDGER, INTERIM_DIR, MANIFESTS_DIR, ensure_dirs
 from thesis.sim.grid import GridCell, expand, order_for_cache
 from thesis.sim.memory import MemoryItem
 from thesis.sim.memory_generation import load_frozen_memory
@@ -84,6 +87,20 @@ log = get_logger(__name__)
 Q1_GRID_PATH: Path = INTERIM_DIR / "q1_direction_grid.parquet"
 # A separate default for NVIDIA runs, so they never overwrite a local grid.
 Q1_NVIDIA_GRID_PATH: Path = INTERIM_DIR / "q1_direction_grid_nvidia.parquet"
+
+# The real-email benchmark: what direction does in real Enron email, measured
+# by thesis.analysis.q1_real and written up in PROGRESS.md section 48.
+REAL_MANIFEST_PATH: Path = MANIFESTS_DIR / "q1_real.json"
+
+# The contrasts both sides measure, keyed the way the real manifest keys them.
+REAL_CONTRAST_KEYS: tuple[str, ...] = (
+    "imperative_ratio:down",
+    "imperative_ratio:up",
+    "is_imperative:down",
+    "is_imperative:up",
+    "hedge_rate:down",
+    "hedge_rate:up",
+)
 
 # The reconstructed design of the original 240-reply Q1 pilot -- see the
 # module docstring for how this was recovered from the response cache rather
@@ -448,6 +465,78 @@ def format_report(result: Q1Result) -> str:
     return "\n".join(sections)
 
 
+def grid_contrasts(result: Q1Result) -> dict[str, tuple[float, float]]:
+    """Every direction contrast of one grid, keyed the way the real manifest keys them."""
+    fits: dict[str, MixedModelResult | SentenceModelResult] = {
+        "imperative_ratio": result.reply_model,
+        "is_imperative": result.sentence_model,
+        "hedge_rate": result.hedge_model,
+    }
+    return {
+        f"{outcome}:{level}": fit.contrast(level)
+        for outcome, fit in fits.items()
+        for level in ("down", "up")
+    }
+
+
+def compare_with_real(
+    contrasts: Mapping[str, tuple[float, float]], manifest: Mapping[str, Any]
+) -> dict[str, dict[str, float]]:
+    """Each grid contrast next to real email, with a rough z-test of the difference.
+
+    The real side comes from the manifest :mod:`thesis.analysis.q1_real`
+    writes (PROGRESS.md section 48). Rough for the reason stated there: both
+    standard errors are backed out of a coefficient and a p-value, and the
+    p-values are rounded.
+    """
+    # Imported here, not at module level: q1_real imports this module, so a
+    # module-level import would be circular.
+    from thesis.analysis.q1_real import implied_se
+
+    real_side = manifest["simulator_vs_real"]
+    comparison: dict[str, dict[str, float]] = {}
+    for key, (coefficient, p_value) in contrasts.items():
+        if key not in real_side:
+            msg = f"the real manifest has no contrast {key!r}; it has {sorted(real_side)}"
+            raise KeyError(msg)
+        real_coefficient = float(real_side[key]["real"])
+        real_p = float(real_side[key]["real_p"])
+        difference = coefficient - real_coefficient
+        se = math.hypot(implied_se(coefficient, p_value), implied_se(real_coefficient, real_p))
+        comparison[key] = {
+            "grid": round(coefficient, 4),
+            "grid_p": float(f"{p_value:.4g}"),
+            "real": round(real_coefficient, 4),
+            "real_p": float(f"{real_p:.4g}"),
+            "difference": round(difference, 4),
+            # se is 0 only when a coefficient is 0 with p=1 on both sides,
+            # which is a zero difference, or when a p-value rounded to 0.
+            "difference_p": (
+                round(float(2 * stats.norm.sf(abs(difference) / se)), 4) if se > 0 else 0.0
+            ),
+        }
+    return comparison
+
+
+def format_real_comparison(comparison: Mapping[str, Mapping[str, float]]) -> str:
+    """The comparison as a plain table, in the order the real module reports."""
+    lines = [
+        "Against real email (PROGRESS.md section 48)",
+        "-" * 76,
+        f"{'contrast':24s}{'grid':>9s}{'grid p':>9s}{'real':>9s}{'real p':>9s}"
+        f"{'difference':>12s}{'diff p':>9s}",
+    ]
+    for key in REAL_CONTRAST_KEYS:
+        row = comparison.get(key)
+        if row is None:
+            continue
+        lines.append(
+            f"{key:24s}{row['grid']:>+9.3f}{row['grid_p']:>9.3f}{row['real']:>+9.3f}"
+            f"{row['real_p']:>9.3f}{row['difference']:>+12.3f}{row['difference_p']:>9.3f}"
+        )
+    return "\n".join(lines)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     backend = parser.add_mutually_exclusive_group(required=True)
@@ -463,6 +552,16 @@ def main() -> None:
         "--nvidia",
         metavar="MODEL",
         help="Generate with a free NVIDIA-hosted model (needs NVIDIA_API_KEY).",
+    )
+    backend.add_argument(
+        "--grid",
+        metavar="PATH",
+        help="Analyse a grid file that already exists, without calling any model.",
+    )
+    parser.add_argument(
+        "--compare-real",
+        action="store_true",
+        help="Also print each contrast next to real email (PROGRESS.md section 48).",
     )
     parser.add_argument(
         "--ollama-host",
@@ -484,6 +583,19 @@ def main() -> None:
 
     configure_logging()
     ensure_dirs()
+
+    if args.grid:
+        frame = pd.read_parquet(args.grid)
+        grid = Q1Grid(
+            frame=frame,
+            run_id="from-file",
+            model=str(frame["model"].iloc[0]),
+            n_cells=len(frame),
+            n_from_cache=len(frame),
+            n_generated=0,
+        )
+        _report(grid, compare_real=args.compare_real)
+        return
 
     client: LLMClient
     if args.nvidia:
@@ -523,8 +635,21 @@ def main() -> None:
         grid.n_generated,
     )
 
+    _report(grid, compare_real=args.compare_real)
+
+
+def _report(grid: Q1Grid, *, compare_real: bool) -> None:
+    """Print the Q1 report, and the comparison with real email when asked."""
     result = run_q1_analysis(grid)
     print(format_report(result))
+    if not compare_real:
+        return
+    if not REAL_MANIFEST_PATH.exists():
+        msg = f"no real-email benchmark at {REAL_MANIFEST_PATH}; run thesis.analysis.q1_real first"
+        raise FileNotFoundError(msg)
+    manifest = json.loads(REAL_MANIFEST_PATH.read_text(encoding="utf-8"))
+    print()
+    print(format_real_comparison(compare_with_real(grid_contrasts(result), manifest)))
 
 
 if __name__ == "__main__":

@@ -20,15 +20,19 @@ import pytest
 from thesis.analysis.q1 import (
     HISTORICAL_REPLY_LEVEL,
     Q1_TASK_STAKES,
+    REAL_CONTRAST_KEYS,
     ContrastComparison,
     _tone_from_scenario_id,
     build_q1_cells,
     build_q1_scenarios,
     compare_to_historical,
+    compare_with_real,
     extract_q1_reply_features,
     extract_q1_sentence_features,
     format_comparison_table,
+    format_real_comparison,
     generate_q1_grid,
+    grid_contrasts,
     parse_replies,
     run_q1_analysis,
 )
@@ -337,3 +341,54 @@ def test_run_q1_analysis_produces_a_complete_result(small_grid) -> None:  # type
     assert len(result.sentence_level_comparison) == 2
     assert {c.level for c in result.reply_level_comparison} == {"up", "down"}
     assert result.decision_association.n_observations == len(small_grid.frame)
+
+
+# ------------------------------------------------------- against real email
+
+
+# Two rows of the real-email manifest (PROGRESS.md section 48).
+REAL_MANIFEST = {
+    "simulator_vs_real": {
+        "imperative_ratio:down": {"real": 0.0427, "real_p": 0.001794},
+        "is_imperative:down": {"real": 0.2533, "real_p": 1.032e-06},
+    }
+}
+
+
+def test_compare_with_real_reports_the_difference_and_its_p_value() -> None:
+    comparison = compare_with_real({"imperative_ratio:down": (0.0983, 0.0034)}, REAL_MANIFEST)
+    row = comparison["imperative_ratio:down"]
+
+    assert row["grid"] == 0.0983
+    assert row["real"] == 0.0427
+    assert row["difference"] == round(0.0983 - 0.0427, 4)
+    assert 0.0 < row["difference_p"] <= 1.0
+
+
+def test_a_grid_equal_to_real_email_shows_no_difference() -> None:
+    comparison = compare_with_real({"is_imperative:down": (0.2533, 1.032e-06)}, REAL_MANIFEST)
+
+    assert comparison["is_imperative:down"]["difference"] == 0.0
+    assert comparison["is_imperative:down"]["difference_p"] == 1.0
+
+
+def test_compare_with_real_refuses_a_contrast_the_manifest_lacks() -> None:
+    with pytest.raises(KeyError, match="hedge_rate:up"):
+        compare_with_real({"hedge_rate:up": (0.1, 0.5)}, REAL_MANIFEST)
+
+
+def test_grid_contrasts_uses_the_real_manifest_keys(small_grid) -> None:  # type: ignore[no-untyped-def]
+    contrasts = grid_contrasts(run_q1_analysis(small_grid))
+
+    assert set(contrasts) == set(REAL_CONTRAST_KEYS)
+    assert all(len(value) == 2 for value in contrasts.values())
+
+
+def test_format_real_comparison_lists_the_contrasts_it_was_given() -> None:
+    table = format_real_comparison(
+        compare_with_real({"imperative_ratio:down": (0.0983, 0.0034)}, REAL_MANIFEST)
+    )
+
+    assert "imperative_ratio:down" in table
+    assert "is_imperative:down" not in table
+    assert "+0.098" in table

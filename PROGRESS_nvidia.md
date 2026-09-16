@@ -19,6 +19,7 @@ Nothing here replaces a result in `PROGRESS.md` yet.
 | Can DeepSeek replies be told apart by length or words? | Done, see section 9 |
 | Q1 with DeepSeek: does direction change directive language? | Done, see section 10 |
 | A third model: OpenAI's gpt-oss-20b on the same 183 pairs | Done, see section 11 |
+| DeepSeek against the real-email benchmark | Done, see section 12 |
 | Hand-code a sample of DeepSeek replies | Not started |
 | DeepSeek run without the act instruction | Not started |
 | Judge study with a second model family | Not started |
@@ -780,56 +781,138 @@ python -m thesis.analysis.mirroring --pairs data/interim/pairs_gpt_oss.parquet \
 
 ---
 
-## 12. Next steps
+## 12. DeepSeek against the real-email benchmark (Sep 16)
+
+**Result first.** DeepSeek gets the shape of the real pattern right. In real
+email and in DeepSeek, writing down gives the most orders, and writing up
+looks like writing to a peer. DeepSeek's swing is about two and a half times
+the real one, but that gap is not significant. No contrast differs
+significantly between DeepSeek and real email.
+
+**Why this step.** `PROGRESS.md` section 48 measured what direction does in
+real Enron email. It compared the result only with the Llama grid of section
+39, which found nothing. Section 10 of this log found a clear writing-down
+effect in DeepSeek. So the open question was how close DeepSeek comes to the
+real pattern.
+
+**How the comparison works.** Both sides measure the same three things with
+the same code:
+
+- **Orders per email**: the share of an email's sentences that give an order,
+  such as "Send me the file."
+- **Orders per sentence**: each sentence counts once, as an order or not.
+- **Hedges per email**: the share of sentences with a softener, such as
+  "maybe" or "I think".
+
+Every number is the change from writing to a peer. The difference between the
+two sides is tested with a rough z-test. Rough because both standard errors
+are backed out of a coefficient and a p-value, as section 48 explains.
+
+**New code, not a one-off script.** `q1.py` has two new options. `--grid
+PATH` analyses a grid file that already exists, without calling any model.
+`--compare-real` prints each contrast next to real email. `implied_se` in
+`q1_real.py` is now public, so both modules use the same formula. Five new
+tests cover the comparison, including a grid that equals real email exactly,
+where the difference must be zero.
+
+**Results.**
+
+| Contrast | DeepSeek | Real email | Difference | p |
+|---|---:|---:|---:|---:|
+| Orders per email, down | +0.098 (p=.003) | +0.043 (p=.002) | +0.056 | .125 |
+| Orders per email, up | +0.016 (p=.640) | +0.018 (p=.133) | -0.002 | .955 |
+| Orders per sentence, down | +0.439 (p<.001) | +0.253 (p<.001) | +0.185 | .169 |
+| Orders per sentence, up | +0.059 (p=.654) | +0.070 (p=.096) | -0.011 | .936 |
+| Hedges per email, down | -0.013 (p=.040) | -0.005 (p=.526) | -0.009 | .362 |
+| Hedges per email, up | -0.007 (p=.274) | -0.005 (p=.429) | -0.002 | .809 |
+
+The same thing as a probability:
+
+| Chance a sentence is an order | Writing down | To a peer | Writing up |
+|---|---:|---:|---:|
+| Real email | 17.5% | 14.2% | 15.0% |
+| DeepSeek | 33.5% | 24.5% | 25.6% |
+
+![Chance that a sentence gives an order, by direction, for real email and DeepSeek.](docs/figures/nvidia_q1_deepseek_vs_real.png)
+
+What this shows:
+
+- **The same shape.** Writing down is highest on both lines. Writing up sits
+  close to writing to a peer on both: +0.8 points in real email, +1.1 points
+  in DeepSeek.
+- **A bigger swing.** Down minus peer is +3.3 points in real email and +9.0
+  points in DeepSeek. On the model scale the difference is +0.185, p = .169.
+  So DeepSeek looks stronger than real email, but the gap is not proven.
+- **Different levels.** DeepSeek gives an order in 25% to 34% of sentences.
+  Real email does in 14% to 18%.
+- **Llama with the instruction is not far off either, but detects nothing.**
+  Its down effect is +0.198 against the real +0.253, and its p-value is .298.
+  This repeats section 48's point: 240 short replies are too few to detect an
+  effect of this size. DeepSeek finds it because its replies carry 882
+  sentences against Llama's 343.
+- **One difference is significant, and it is Llama's.** Llama hedges much
+  less when writing down than real writers do: -0.113 against -0.005,
+  p = .044. With 12 tests across the two grids, one result below .05 is
+  expected by chance.
+
+**Limits.**
+
+- The z-test is rough, as in section 48.
+- The two sides are not the same kind of sample. 238 simulator replies from
+  10 personas, one reply per cell, against 2,202 real emails from 107
+  senders.
+- Real email has no decision field, so decisions cannot be compared.
+- The personas are not the real senders, and the simulator writes shorter
+  texts.
+
+**Command.**
+
+```
+python -m thesis.analysis.q1 --grid data/interim/q1_direction_grid_deepseek.parquet \
+  --compare-real
+```
+
+---
+
+## 13. Next steps
 
 Most valuable first.
 
-1. **Compare DeepSeek with the real-email benchmark.** `PROGRESS.md` section
-   48 (Sep 14) measured what direction does in real Enron email. People give
-   more orders when they write down: the chance that a sentence is an order
-   rises by 3.3 points (p < .001). Writing up is flat, and hedging does not
-   change. That section compared real email only with the Llama grid of
-   section 39. Section 10 of this log found the same writing-down effect in
-   DeepSeek, which Llama could not detect. So the open question is how close
-   DeepSeek comes to the real pattern: the size of the effect, and the order
-   of the three directions. Note that the levels differ a lot. The simulator
-   gives an order in 28% to 37% of sentences, real email in 14% to 18%.
-2. **Run the Q1 grid with gpt-oss@low.** Section 10 found a writing-down
+1. **Run the Q1 grid with gpt-oss@low.** Section 10 found a writing-down
    effect for DeepSeek and none for Llama. A third model would show which
    pattern is the usual one. At gpt-oss speed the 240 replies take minutes,
-   not hours. Together with step 1, three models could then be held against
-   the real benchmark.
-3. **Hand-code a sample of replies.** A person reads each reply and picks a
+   not hours. It can then be held against the real-email benchmark with one
+   command, as section 12 did for DeepSeek.
+2. **Hand-code a sample of replies.** A person reads each reply and picks a
    label from the section 35 codebook. No person has coded any reply yet, so
    the mirroring measure rests on Claude's first-pass codes of Llama replies
    only. The coding page is built: 50 emails, two replies each, from two
    models, in random order, with the model hidden. It is waiting for a coder.
    The codebook fix is written but not committed: the first pass used a
    label, `wrong_register`, that the codebook did not define.
-4. **A run without the act instruction.** This answers the question section
+3. **A run without the act instruction.** This answers the question section
    43 left open: does a larger model follow the instruction better? Since
    Sep 14 the code has a `--prompt-variant` option with two variants,
    `default` and `decide_first`. A third variant without the act instruction
    would fit the same mechanism. The 183 pairs take minutes with gpt-oss and
    hours with DeepSeek.
-5. **Embedding map and review pack on DeepSeek and gpt-oss.** These only
+4. **Embedding map and review pack on DeepSeek and gpt-oss.** These only
    read the saved replies, so they need no new generation.
-6. **Judge study (Q3).** Three model families are now available: Llama,
+5. **Judge study (Q3).** Three model families are now available: Llama,
    DeepSeek and gpt-oss. One model can write and another can judge, and then
    the roles can be swapped. This needs new model calls.
-7. **Move the line removal into the corpus cleaner.** Section 9 removed
+6. **Move the line removal into the corpus cleaner.** Section 9 removed
    signature, address and header lines with a one-off script. If the cleaner
    in `thesis.data.rfc822` did this, every analysis would use the same clean
    text. Earlier results that use the real replies would then need a re-run.
-8. **Rename one summary key.** `mirroring.py` saves the comparison under
+7. **Rename one summary key.** `mirroring.py` saves the comparison under
    `compared_with_previous_prompt`. For a comparison between models, that
    name is wrong.
-9. **Back up `runs/_cache`.** It is 59 MB and holds every model reply this
+8. **Back up `runs/_cache`.** It is 59 MB and holds every model reply this
    project has received. It exists only on this laptop. It must not go into
    git, because the prompts contain Enron text.
-10. **Commit the rest of the code.** Still uncommitted: the `--nvidia`
-    option in `q1.py`, the blind coding module with its tests, and the
-    codebook fix in `review_pack.py`.
+9. **Commit the rest of the code.** Still uncommitted: the blind coding
+   module with its tests, and the codebook fix in `review_pack.py`.
 
 **Done since this list was written.**
 
@@ -842,3 +925,8 @@ Most valuable first.
   numbers of section 8.
 - **Q1 with DeepSeek.** Sep 14, section 10 and commit `a2c9973`.
 - **A third model, gpt-oss-20b.** Sep 14, section 11 and commit `cfd74f7`.
+- **The NVIDIA option for the Q1 grid.** Sep 16, commit `75f9e19`. `q1.py`
+  now takes `--local MODEL` or `--nvidia MODEL`.
+- **Compare DeepSeek with the real-email benchmark.** Sep 16, section 12.
+  `q1.py` gained `--grid` and `--compare-real`, so any grid can be held
+  against real email with one command.

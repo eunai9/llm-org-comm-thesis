@@ -458,9 +458,13 @@ def _consistency(rows: Sequence[ContrastRow]) -> dict[str, Any]:
     return summary
 
 
-def _implied_se(coefficient: float, p_value: float) -> float:
+def implied_se(coefficient: float, p_value: float) -> float:
     """The standard error a two-sided normal test implies from a coefficient
-    and its p-value."""
+    and its p-value.
+
+    Public because :mod:`thesis.analysis.q1` compares a simulator grid with
+    the real contrasts stored here, and must use the same formula.
+    """
     return abs(coefficient) / float(stats.norm.isf(p_value / 2))
 
 
@@ -476,7 +480,7 @@ def compare_with_simulator(rows: Sequence[ContrastRow]) -> dict[str, dict[str, f
         sim_coefficient, sim_p = SIMULATOR_CONTRASTS[row.outcome][row.level]
         difference = row.coefficient - sim_coefficient
         se = float(
-            np.hypot(_implied_se(row.coefficient, row.p_value), _implied_se(sim_coefficient, sim_p))
+            np.hypot(implied_se(row.coefficient, row.p_value), implied_se(sim_coefficient, sim_p))
         )
         comparison[f"{row.outcome}:{row.level}"] = {
             "real": round(row.coefficient, 4),
