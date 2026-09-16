@@ -1,0 +1,59 @@
+{
+  "decision_agreement_across_prompts_section_49": 0.41,
+  "decision_stability": {
+    "counts": {
+      "accept": {
+        "accept": 70,
+        "decline": 7,
+        "defer": 29,
+        "escalate": 0
+      },
+      "decline": {
+        "accept": 2,
+        "decline": 1,
+        "defer": 1,
+        "escalate": 0
+      },
+      "defer": {
+        "accept": 27,
+        "decline": 0,
+        "defer": 39,
+        "escalate": 3
+      },
+      "escalate": {
+        "accept": 2,
+        "decline": 1,
+        "defer": 1,
+        "escalate": 0
+      }
+    },
+    "kappa": 0.254,
+    "n": 183,
+    "n_agree": 110,
+    "share_agree": 0.601,
+    "share_expected": 0.465
+  },
+  "noise_floor": {
+    "borrowed_words_change": -0.004,
+    "borrowed_words_correlation": 0.48,
+    "borrowed_words_draw1": 0.565,
+    "borrowed_words_draw2": 0.561,
+    "borrowed_words_p_value": 0.9794,
+    "flagged_draw1": 0.191,
+    "flagged_draw2": 0.262,
+    "flagged_p_value": 0.0789,
+    "imperative_ratio_change": -0.062,
+    "imperative_ratio_correlation": 0.15,
+    "imperative_ratio_draw1": 0.339,
+    "imperative_ratio_draw2": 0.277,
+    "imperative_ratio_p_value": 0.1017,
+    "n_paired": 183,
+    "newly_flagged": 30,
+    "no_longer_flagged": 17,
+    "words_change": -2.4,
+    "words_correlation": 0.526,
+    "words_draw1": 22.7,
+    "words_draw2": 20.3,
+    "words_p_value": 0.0003
+  }
+}

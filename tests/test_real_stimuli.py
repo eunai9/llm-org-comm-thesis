@@ -18,7 +18,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from thesis.sim.persona import Persona, PersonaStyle
-from thesis.sim.real_stimuli import build_real_stimulus_pairs
+from thesis.sim.real_stimuli import RealStimulusPair, build_real_stimulus_pairs
 
 MESSAGE_SCHEMA = pa.schema(
     [
@@ -349,3 +349,67 @@ def test_cell_is_ready_to_build_a_request_through_the_normal_path() -> None:
     )
     request = build_request(cell, [])
     assert "What's the status?" in request.messages[0].content
+
+
+# ----------------------------------------------------------------- draw index
+
+
+def _pairs_at_draw(tmp_path: Path, draw: int) -> list[RealStimulusPair]:
+    messages_path, shots_path, real_eval_path = _write_fixture(
+        tmp_path,
+        [("t1", 2, "junior@enron.com", 2), ("t2", 3, "lawyer@enron.com", 3)],
+    )
+    return build_real_stimulus_pairs(
+        _PERSONAS,
+        _ROLE_BY_ADDRESS,
+        "llama3.2:3b",
+        "sim_local",
+        draw=draw,
+        messages_glob=str(messages_path),
+        s_shots_path=shots_path,
+        s_real_eval_path=real_eval_path,
+    )
+
+
+def test_draw_reaches_every_cell(tmp_path: Path) -> None:
+    pairs = _pairs_at_draw(tmp_path, 2)
+    assert pairs
+    assert {p.cell.replicate for p in pairs} == {2}
+
+
+def test_draw_defaults_to_one(tmp_path: Path) -> None:
+    """Every reply generated before this option existed was generated at draw
+    1. A different default would miss all of them."""
+    messages_path, shots_path, real_eval_path = _write_fixture(
+        tmp_path, [("t1", 2, "junior@enron.com", 2)]
+    )
+    pairs = build_real_stimulus_pairs(
+        _PERSONAS,
+        _ROLE_BY_ADDRESS,
+        "llama3.2:3b",
+        "sim_local",
+        messages_glob=str(messages_path),
+        s_shots_path=shots_path,
+        s_real_eval_path=real_eval_path,
+    )
+    assert {p.cell.replicate for p in pairs} == {1}
+
+
+def test_two_draws_of_the_same_prompt_get_different_cache_keys(tmp_path: Path) -> None:
+    """The whole design rests on this. Draw 2 must not be served draw 1's
+    stored answer, or the two runs would agree by construction."""
+    from thesis.llm.cache import cache_key
+    from thesis.sim.run import build_request
+
+    keys = [
+        [cache_key(build_request(pair.cell, []), "ollama") for pair in _pairs_at_draw(tmp_path, n)]
+        for n in (1, 1, 2)
+    ]
+    assert keys[0] == keys[1]
+    assert all(one != two for one, two in zip(keys[0], keys[2], strict=True))
+
+
+def test_draw_one_is_the_cli_default() -> None:
+    from thesis.analysis.pairs import _build_parser
+
+    assert _build_parser().parse_args([]).draw == 1

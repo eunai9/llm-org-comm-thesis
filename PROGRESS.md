@@ -35,6 +35,7 @@ you to read, not for a computer to run. Updated after each work session.
 | Measure the mirroring failure automatically | Done — see section 42 |
 | Fix the mirroring failure by instructing the persona | Tried and did not work — phrasing moved, behavior did not, see section 43 |
 | Fix it by making the persona decide before it writes | Tried and did not work — the gain is only a length effect, and the decision field turns out unstable, see section 49 |
+| How much does the model disagree with itself? | Measured. Same prompt twice: only 60% of decisions repeat (kappa 0.25). Flag changes are noise; the borrowed-words mean is not. See section 50 |
 | Does the model follow an instructed reply length? | Measured — the slope is 0.157, weak but real, see section 47 |
 | Measure mirroring by meaning rather than by words | Tried and does not work — every variant scores worse, see section 44 |
 | Measure mirroring by asking a model directly | Tried and does not work — both local models score near chance, see section 46 |
@@ -1853,7 +1854,13 @@ Three others did not, including the same contrast measured another way.
   from chi2=5.02, p=.756 to chi2=18.02, **p=.021**. Escalation moves most: 8
   of 80 replies writing down, 4 of 80 to a peer, 17 of 80 writing up. Section
   33 already flagged this test as suggestive only, because it ignores persona
-  clustering. That limit still applies.
+  clustering. That limit still applies. **Note added Sep 16:** section 50
+  measured how stable `decision` is. Given the same email twice, with nothing
+  changed but the draw, the model repeats its own decision 60% of the time
+  (kappa 0.25). So this test runs on a noisy outcome. That kind of noise pulls
+  an effect towards zero rather than creating one, so it is not a reason to
+  think the effect is fake. It is a reason to treat p=.021 as weaker than it
+  looks, and to re-run it with more draws per cell before it carries weight.
 - `hedge_rate ~ direction` stays null (up p=.525, down p=.491).
 - Persona variance stays near zero on the reply-level model (0.0019) and is a
   real 0.276 on the logit scale for the sentence-level model. Both match every
@@ -2936,6 +2943,198 @@ act run and its file are untouched, so the comparison can be re-run.
 
 ---
 
+### 50. The model disagrees with itself about the decision (Sep 16)
+
+**Result first.** The same prompt was run twice over the same 183 emails.
+Nothing changed but the draw. The model kept the same decision for 110 of
+them, which is 60%. Guessing with the same totals would already get 46%. So
+the decision field is unstable on its own. Section 49 saw 41% across two
+prompts, which is lower, so the prompt did move decisions there. Most of that
+gap was noise. For the mirroring measures the answer splits in two. The
+borrowed-words mean is steady across draws. The flag counts are not.
+
+**Why this step follows.** Section 49 compared two prompts on the same 183
+emails and found only 41% of the decisions matched. Two things differed
+between those runs: the prompt, and the model's own randomness. So that
+comparison cannot say which one moved the decisions. This step removes the
+prompt from it. Same emails, same personas, same default prompt, same model.
+Only the draw index differs. Whatever disagreement is left is the model
+alone. That is the noise floor, and every paired comparison in this project
+should be read against it.
+
+#### How a second draw is possible
+
+The cache is keyed on the exact prompt text plus a draw index. Asking for the
+same prompt at draw 2 misses the stored draw-1 entry, so the model is asked
+again and the second answer is stored beside the first.
+
+The draw index is never sent to the model. Ollama gets the identical request
+both times. The answers differ because Ollama samples at its own default
+settings, with no fixed seed.
+
+It worked. None of the 183 replies came back identical to its draw-1 partner.
+
+**The default prompt did not change.** Before the run, the act run was
+rebuilt from the cache alone, at draw 1, with no model calls allowed. All 183
+replies were cache hits and every field matched the stored file. One changed
+character in the prompt would have missed every entry.
+
+#### How often the model agrees with itself
+
+110 of the 183 decisions match, which is 60%.
+
+Plain agreement flatters any measure with one common answer. Both runs say
+"accept" most of the time, so some matches happen by luck. **Cohen's kappa**
+asks how far the agreement gets from that luck level towards perfect
+agreement. 0 means no better than luck. 1 means the two draws always agree.
+Here luck alone would give 46%, and kappa is **0.25**.
+
+For comparison, section 49's two prompts agree 41% of the time, with a kappa
+of **−0.12**. Below zero means those two runs matched slightly less often
+than luck would.
+
+| Draw 1 \ draw 2 | accept | decline | defer | escalate |
+|---|---:|---:|---:|---:|
+| **accept** (106) | 70 | 7 | 29 | 0 |
+| **decline** (4) | 2 | 1 | 1 | 0 |
+| **defer** (69) | 27 | 0 | 39 | 3 |
+| **escalate** (4) | 2 | 1 | 1 | 0 |
+
+The swap is the one section 49 found. 29 accepts become defers and 27 defers
+become accepts. The totals barely move: accept 106 to 101, defer 69 to 70.
+The answers underneath move a lot.
+
+![Three bars. The model repeats its own decision on 60% of emails. Luck alone
+would give 46%. Across two prompts it was
+41%.](docs/figures/test_retest_decision_agreement.png)
+
+**Three readings were possible. The middle one holds.**
+
+1. Self-agreement near 41% would mean the prompt explained nothing. It is not
+   that.
+2. Self-agreement of 80% or more would mean decide-first really did move
+   decisions, and section 49 measured a prompt effect. It is not that either.
+3. In between, which is what happened. Exactly: the same prompt disagrees
+   with itself on 40% of the emails, and two different prompts disagree on
+   59%. So about two thirds of the disagreement section 49 reported is
+   already there with no prompt change at all. The rest is the prompt. One
+   pair of runs cannot split it finer than that.
+
+#### The noise floor for the other measures
+
+The same two runs give the noise floor for everything else this project
+compares. All of it is paired reply by reply.
+
+The measures, in plain words:
+
+- **Borrowed words** — the share of a reply's own distinct content words that
+  already appear in the email it answers. 0 means none of them, 1 means all.
+- **Flagged** — a reply is flagged when borrowed words reaches 0.80. The
+  cut-off was chosen on 100 hand-coded replies (section 42), so read the
+  level with care and the differences with more.
+- **Orders per reply** — the share of a reply's sentences that give an order,
+  such as "Send me the file." Same measure and same code as Q1 uses.
+
+| Measure | Draw 1 | Draw 2 | Change | |
+|---|---:|---:|---:|---|
+| Borrowed words | 0.565 | 0.561 | −0.004 | p=.98 |
+| Replies flagged | 19.1% | 26.2% | +7.1 pts | p=.08 |
+| Reply length | 22.7 words | 20.3 words | −2.4 | p=.0003 |
+| Orders per reply | 0.339 | 0.277 | −0.062 | p=.10 |
+
+A mean hides how far one reply moves. The correlation between the two draws
+says that directly. 1 would mean the draw does not matter for a single reply.
+0 would mean draw 1 tells you nothing about draw 2.
+
+| Measure | Correlation between the two draws |
+|---|---:|
+| Reply length | 0.53 |
+| Borrowed words | 0.48 |
+| Orders per reply | 0.15 |
+
+So no measure here is stable for one reply. Orders per reply is barely
+related to itself across draws.
+
+**Section 49's flag changes were not evidence of anything.** Two draws of the
+same prompt move 47 replies across the flag line: 30 start being flagged and
+17 stop. Section 49's prompt change moved 35 replies as written (13 start, 22
+stop) and 37 at the same length (21 start, 16 stop). Changing the prompt
+moves fewer replies than changing nothing. Those counts cannot support a
+claim about the prompt in either direction.
+
+**The borrowed-words mean is different.** Two draws move it by 0.004, and the
+test says nothing happened (p=.98). Section 49's prompt change moved it by
+0.067 (p=.0009). The noise floor for that mean is near zero, so section 49's
+number survives this check. The aggregate measure is worth using. The
+per-reply flag is not.
+
+**Reply length moved more than it should have.** Draw 2 is 2.4 words shorter,
+and the paired test gives p=.0003. Two draws of one prompt should not differ
+in a fixed direction. I cannot say why this one does. Nothing in the request
+changed, and both runs used the same local server and the same model file.
+The safe reading is that a few words of difference between two runs is not by
+itself evidence that a prompt did anything. Section 49 credited decide-first
+with +4.2 words. Changing nothing moved length by 2.4 words here.
+
+That also explains the flag counts. Borrowed words is a share of a reply's
+own words, so a shorter reply scores higher. Draw 2 is shorter, and 7 points
+more of its replies are flagged. The flag rate tracks length, which is what
+section 49 concluded about this measure in the first place.
+
+#### What this means for section 39
+
+Section 39 reported `decision ~ direction` at chi2=18.02, p=.021. That test
+runs on a field the model reproduces 60% of the time, with one draw per cell.
+
+Two things follow, and no more than two.
+
+1. **The result is weaker than p=.021 looks.** It is measured on an unstable
+   outcome. Section 33 already limited it for a separate reason: the test
+   ignores persona clustering.
+2. **This kind of noise does not invent an effect.** Random error in an
+   outcome pulls a measured association towards zero, not away from it. So
+   this is not a reason to call the decision effect fake. It is a reason to
+   call the estimate imprecise and the p-value untrustworthy on its own.
+
+Q1 was not re-run here. What would settle it is more draws per cell, which is
+generation time rather than analysis. Section 39 now carries a note pointing
+at this section.
+
+#### Limits
+
+- One model, 3 billion parameters, running locally. One prompt. 183 emails.
+- Two draws. Two draws say how often the model repeats itself. They do not
+  give the full spread of what it would say over ten.
+- Ollama's default sampling settings, with no fixed seed. A lower temperature
+  would raise the agreement rate. Nothing here describes what the decision
+  field does under settings this project never set.
+- The length shift above is unexplained.
+
+#### How it was run
+
+```
+python -m thesis.analysis.pairs --local llama3.2:3b --draw 2 \
+  --progress-every 20 \
+  --out data/interim/real_vs_generated_pairs_act_draw2.parquet
+```
+
+139 replies were generated and 44 came from the cache, because some pairs
+send an identical prompt. 54 minutes. **Cost was zero.**
+
+`--draw` is new in `thesis.analysis.pairs` and defaults to 1, so every run
+made before it existed still hits the cache entries it already has. The
+analysis is `src/thesis/analysis/draw_stability.py`, run with
+`python -m thesis.analysis.draw_stability`. It calls no model. As a check on
+that module, running it over section 49's two files reproduces every number
+that section reports.
+
+698 tests pass: the 684 from before and 14 new ones. 9 of that total sit in
+another session's uncommitted `test_blind_review.py`. The new tests cover the
+deterministic half of this change: the draw reaches every cell, two draws get
+different cache keys, and draw 1 is unchanged. black, ruff and mypy are clean.
+
+---
+
 ## What's next
 
 *(Rewritten Aug 31 — the previous version was written before the corpus
@@ -3040,14 +3239,19 @@ the email still hands the task back. Two prompt fixes have now failed on this
 habit, one by instruction and one by structure. The DeepSeek comparison points
 at model size instead.
 
-**A new problem came out of that run, and it touches Q1.** Between the two
-prompts, only 41% of replies keep the same decision for the same email. Accept
-and defer swap in both directions. The prompt and the model's randomness both
-differ between the runs, so this does not say which caused it. **The cheapest
-next experiment in this log** is the one that separates them: re-run the act
-prompt with a different draw index and measure how often the model agrees with
-itself. It needs no new design, costs about an hour of local generation, and
-it decides how much weight section 39's decision result (p=.021) can carry.
+**That run raised a question about Q1, and section 50 answered it.** The act
+prompt was run a second time, with nothing different but the draw index. The
+model repeats its own decision on only 60% of the emails (kappa 0.25). Luck
+alone would give 46%. So the decision field is unstable by itself, and about
+two thirds of the disagreement section 49 blamed on the prompt is there
+without any prompt change. Two consequences. First, section 39's decision
+result (chi2=18.02, p=.021) is measured on a noisy outcome, so it is weaker
+than its p-value looks — though noise of this kind pulls an effect towards
+zero rather than creating one, so it does not make the effect fake. Section 39
+now carries that note. Second, the same two runs give a noise floor for every
+other paired comparison here: the flag counts section 49 reported are smaller
+than what two identical-prompt draws produce, while its borrowed-words mean
+(−0.067, p=.0009) sits far above a noise floor of −0.004.
 
 **Next priority is therefore yours to pick**, since the cheap technical
 work in this thread is finished. The strongest candidates are re-coding
@@ -3074,6 +3278,12 @@ and the better automatic measure, and the four supervisor questions.
   show it. The research plan expected the simulated arm to be the stronger
   one. For Q1 the real-email arm is now the stronger one. Worth raising
   with your supervisor.
+- **Give the decision outcome more draws per cell.** Section 50 showed the
+  model repeats its own decision only 60% of the time. Q1's decision result
+  rests on one draw per cell, so it is measured on an unstable outcome. Three
+  or five draws per cell would average that out and give a spread to report.
+  That is generation time, not analysis, and it costs nothing locally. It fits
+  inside the bigger Q1 run the item above already calls for.
 - **Build the contamination probe and anonymized-stimulus arm.** Named in
   the research plan, and still the strongest objection an examiner can
   raise; both are cheap and turn an unanswerable question into a table.

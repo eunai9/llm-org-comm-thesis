@@ -102,6 +102,7 @@ def build_real_stimulus_pairs(
     model: str,
     role_label: str,
     *,
+    draw: int = 1,
     messages_glob: str = MESSAGES_PARQUET_GLOB,
     s_shots_path: object = S_SHOTS_PATH,
     s_real_eval_path: object = S_REAL_EVAL_PATH,
@@ -112,6 +113,13 @@ def build_real_stimulus_pairs(
     ``derive_personas`` takes, reused here to find the real replier's actual
     department (S_real_eval carries seniority_rank directly, but not
     department).
+
+    ``draw`` becomes each cell's ``replicate``, which ``build_request`` passes
+    on as ``CompletionRequest.variant`` and the cache hashes. So draw 2 of an
+    identical prompt gets its own cache entry instead of returning draw 1's
+    answer. That is how the same prompt can be run twice and the two answers
+    compared. Draw 1 is the default, so every reply generated before this
+    option existed still hits its cache entry.
 
     Returned in a stable order (the query is explicitly ORDER BY'd) rather
     than whatever order the database happens to produce -- DuckDB does not
@@ -202,7 +210,7 @@ def build_real_stimulus_pairs(
             cell_id=f"{role_label}__real_{row['thread_id']}__{row['reply_uid']}",
             persona=persona,
             scenario=scenario,
-            replicate=1,
+            replicate=draw,
             model=model,
             role_label=role_label,
         )

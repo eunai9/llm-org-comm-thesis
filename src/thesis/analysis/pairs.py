@@ -80,14 +80,20 @@ def build_pair_table(
     limit: int | None = None,
     progress_every: int = 100,
     prompt_variant: PromptVariant = "default",
+    draw: int = 1,
 ) -> PairTable:
-    """Generate (or serve from cache) one reply per real stimulus and return the table."""
+    """Generate (or serve from cache) one reply per real stimulus and return the table.
+
+    ``draw`` is the draw index. The same prompt run at a different draw gets
+    its own cache entries, so two draws measure how much the model disagrees
+    with itself. Draw 1 is what every earlier run used.
+    """
     config = load_config()
     personas = personas if personas is not None else load_frozen_personas()
     stores = stores if stores is not None else load_frozen_memory()
 
     pairs: list[RealStimulusPair] = build_real_stimulus_pairs(
-        personas, _role_by_address(), model=model, role_label=role_label
+        personas, _role_by_address(), model=model, role_label=role_label, draw=draw
     )
     if limit is not None:
         pairs = pairs[:limit]
@@ -101,7 +107,7 @@ def build_pair_table(
         git_dirty=False,
         config_hash="",
         models=[model],
-        design={"kind": "real_stimulus_pairs", "prompt_variant": prompt_variant},
+        design={"kind": "real_stimulus_pairs", "prompt_variant": prompt_variant, "draw": draw},
         n_cells=len(pairs),
     )
     rows: list[dict[str, Any]] = run_grid(
@@ -161,7 +167,7 @@ def build_pair_table(
     )
 
 
-def main() -> None:
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--local",
@@ -186,7 +192,20 @@ def main() -> None:
     parser.add_argument(
         "--progress-every", type=int, default=100, help="Log a progress line every N replies."
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--draw",
+        type=int,
+        default=1,
+        help=(
+            "Draw index. The same prompt at a different draw gets its own cache "
+            "entries, so two draws show how much the model disagrees with itself."
+        ),
+    )
+    return parser
+
+
+def main() -> None:
+    args = _build_parser().parse_args()
 
     configure_logging()
     ensure_dirs()
@@ -220,6 +239,7 @@ def main() -> None:
         limit=args.limit,
         progress_every=args.progress_every,
         prompt_variant=cast(PromptVariant, args.prompt_variant),
+        draw=args.draw,
     )
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
