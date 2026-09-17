@@ -137,8 +137,9 @@ def test_the_daily_cap_is_reported_after_the_retries() -> None:
         _client_with(handler).complete(_request())
 
 
-def test_calls_are_spaced_for_thirty_requests_a_minute() -> None:
-    assert MIN_SECONDS_BETWEEN_CALLS == 2.0
+def test_calls_are_spaced_for_the_token_per_minute_cap() -> None:
+    """8,000 tokens a minute at about 1,930 tokens per reply is 4 a minute."""
+    assert MIN_SECONDS_BETWEEN_CALLS == 15.0
     sleeps: list[float] = []
     client = _client_with(_capture({}), sleeps)
     client.min_interval = MIN_SECONDS_BETWEEN_CALLS

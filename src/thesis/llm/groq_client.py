@@ -40,8 +40,12 @@ from thesis.llm.openai_compatible import (
 BASE_URL = "https://api.groq.com/openai/v1"
 API_KEY_ENV = "GROQ_API_KEY"
 GROQ_MODEL_PREFIX = "groq/"
-# 30 requests per minute is one call every 2 seconds.
-MIN_SECONDS_BETWEEN_CALLS = 2.0
+# The tokens-per-minute cap binds long before the requests-per-minute one.
+# The free tier allows 30 requests and 8,000 tokens a minute. A reply of this
+# project costs about 1,930 tokens, so only about 4 fit in a minute. At 2
+# seconds the first 10-reply run drew two 429s; 15 seconds keeps it inside the
+# token pace with room to spare.
+MIN_SECONDS_BETWEEN_CALLS = 15.0
 
 
 class GroqUnavailableError(FreeTierUnavailableError):
