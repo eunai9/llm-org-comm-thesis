@@ -189,6 +189,12 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Generate missing replies with a free NVIDIA-hosted model (needs NVIDIA_API_KEY).",
     )
+    parser.add_argument(
+        "--groq",
+        metavar="MODEL",
+        default=None,
+        help="Generate missing replies with a free Groq-hosted model (needs GROQ_API_KEY).",
+    )
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--out", default=str(PAIRS_PATH))
     parser.add_argument(
@@ -232,6 +238,11 @@ def main() -> None:
 
         client = NvidiaClient()
         model, role_label, cache_only = args.nvidia, "sim_nvidia", False
+    elif args.groq:
+        from thesis.llm.groq_client import GroqClient
+
+        client = GroqClient()
+        model, role_label, cache_only = args.groq, "sim_groq", False
     else:
         from thesis.llm.anthropic_client import AnthropicClient
 

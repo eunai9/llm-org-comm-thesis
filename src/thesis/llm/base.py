@@ -29,7 +29,7 @@ from typing import Any, Literal, Protocol, runtime_checkable
 # families. config.Provider stays restricted to the paid ones on purpose: a
 # local model is a development tool, not something the experimental design may
 # be configured to run on.
-Provider = Literal["anthropic", "openai", "ollama", "nvidia"]
+Provider = Literal["anthropic", "openai", "ollama", "nvidia", "groq"]
 Role = Literal["user", "assistant"]
 
 
