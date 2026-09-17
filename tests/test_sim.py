@@ -26,6 +26,7 @@ from thesis.sim.prompt import (
     assemble,
     build_stable_prefix,
     estimate_prefix_tokens,
+    prompt_text_hash,
 )
 from thesis.sim.scenario import DIRECTIONS, STAKES, TASK_TYPES, TONES, build_scenarios
 from thesis.sim.schemas import (
@@ -383,6 +384,35 @@ def test_output_instruction_stays_out_of_the_cached_prefix() -> None:
     assembled = assemble(_persona(), build_scenarios()[0])
     assert OUTPUT_INSTRUCTION.strip() in assembled.variable_suffix
     assert OUTPUT_INSTRUCTION.strip() not in assembled.stable_prefix
+
+
+# -------------------------------------------------------------- prompt hash
+
+
+def test_prompt_text_hash_is_stable_across_calls() -> None:
+    """It goes into run manifests, so it must not drift between calls."""
+    assert prompt_text_hash() == prompt_text_hash()
+    assert len(prompt_text_hash()) == 16
+
+
+def test_prompt_text_hash_differs_between_variants() -> None:
+    """Two prompts that differ must not share one fingerprint."""
+    assert prompt_text_hash() != prompt_text_hash("decide_first")
+
+
+def test_prompt_text_hash_changes_when_the_prompt_text_changes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The whole point of the hash. PROGRESS.md section 51: commit 8f8df1e
+    added a paragraph to TASK_FRAMING, which changed every generated reply,
+    and no result file recorded that the prompt had moved. A changed template
+    has to give a changed hash, or the same thing happens again."""
+    from thesis.sim import prompt
+
+    before = prompt_text_hash()
+    monkeypatch.setattr(prompt, "TASK_FRAMING", prompt.TASK_FRAMING + "\nOne more line.")
+
+    assert prompt_text_hash() != before
 
 
 # --------------------------------------------------------- persona snapshot

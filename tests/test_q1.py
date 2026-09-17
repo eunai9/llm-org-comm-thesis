@@ -11,14 +11,19 @@ tests/test_run.py uses) stands in for Ollama.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from pathlib import Path
+from typing import ClassVar
 
 import pandas as pd
 import pytest
 
 from thesis.analysis.q1 import (
+    ANALYSIS_PLAN,
     HISTORICAL_REPLY_LEVEL,
+    Q1_FULL_GRID_PATH,
+    Q1_GRID_PATH,
     Q1_TASK_STAKES,
     REAL_CONTRAST_KEYS,
     ContrastComparison,
@@ -27,14 +32,19 @@ from thesis.analysis.q1 import (
     build_q1_scenarios,
     compare_to_historical,
     compare_with_real,
+    contrast_se,
+    design_of_frame,
     extract_q1_reply_features,
     extract_q1_sentence_features,
     format_comparison_table,
     format_real_comparison,
+    full_grid_path,
     generate_q1_grid,
     grid_contrasts,
     parse_replies,
     run_q1_analysis,
+    scenarios_for_design,
+    subset_to_pilot,
 )
 from thesis.llm.base import Capabilities, CompletionRequest, CompletionResponse, Provider, Usage
 from thesis.llm.cache import ResponseCache
@@ -392,3 +402,112 @@ def test_format_real_comparison_lists_the_contrasts_it_was_given() -> None:
     assert "imperative_ratio:down" in table
     assert "is_imperative:down" not in table
     assert "+0.098" in table
+
+
+# ------------------------------------------------------- the full 144 design
+
+
+def test_full_design_gives_1440_cells() -> None:
+    """The run PROGRESS.md section 51 reports: 10 personas x 144 scenarios x
+    1 replicate."""
+    personas = [_persona(f"p{i}") for i in range(10)]
+    cells = build_q1_cells(personas, "llama3.2:3b", "sim_q1", design="full")
+
+    assert len(cells) == 1440
+    assert len({c.scenario.scenario_id for c in cells}) == 144
+    assert len({c.persona.persona_id for c in cells}) == 10
+    assert {c.replicate for c in cells} == {1}
+
+
+def test_the_default_design_is_still_the_240_cell_pilot() -> None:
+    """Adding the flag must not change what an existing caller gets."""
+    personas = [_persona(f"p{i}") for i in range(10)]
+    assert len(build_q1_cells(personas, "llama3.2:3b", "sim_q1")) == 240
+
+
+def test_the_24_pilot_scenarios_are_a_subset_of_the_144() -> None:
+    """This is what lets one full run reuse the pilot's replies and report
+    both numbers from the same grid."""
+    pilot = {s.scenario_id for s in scenarios_for_design("pilot")}
+    full = {s.scenario_id for s in scenarios_for_design("full")}
+
+    assert len(pilot) == 24
+    assert len(full) == 144
+    assert pilot < full
+
+
+def test_the_full_design_crosses_stakes_and_every_task_type() -> None:
+    """What the full grid adds over the pilot: stakes as a real factor, and
+    four task types Q1 has never used."""
+    scenarios = scenarios_for_design("full")
+
+    assert {s.stakes for s in scenarios} == {"routine", "high"}
+    assert len({s.task_type for s in scenarios}) == 6
+
+
+def test_analysis_plan_is_pinned() -> None:
+    """The plan is fixed before the numbers and written into the manifest.
+    A change here has to be a deliberate edit, not drift after seeing a
+    result."""
+    assert ANALYSIS_PLAN["primary"]["outcome"] == "is_imperative"
+    assert ANALYSIS_PLAN["primary"]["grain"] == "one row per sentence"
+    assert ANALYSIS_PLAN["primary"]["reference"] == "lateral"
+    assert ANALYSIS_PLAN["primary"]["contrasts"] == ["down", "up"]
+    assert ANALYSIS_PLAN["secondary"]["outcomes"] == ["imperative_ratio", "hedge_rate"]
+    assert ANALYSIS_PLAN["exploratory"]["correction"].startswith("Holm")
+    assert "not a finding" in ANALYSIS_PLAN["exploratory"]["rule"]
+
+
+def test_full_grid_path_does_not_collide_with_the_pilot_file() -> None:
+    assert full_grid_path(Q1_GRID_PATH) == Q1_FULL_GRID_PATH
+    assert full_grid_path(Q1_GRID_PATH) != Q1_GRID_PATH
+
+
+def test_design_of_frame_reads_the_design_off_a_stored_grid() -> None:
+    pilot_ids = [s.scenario_id for s in scenarios_for_design("pilot")]
+    full_ids = [s.scenario_id for s in scenarios_for_design("full")]
+
+    assert design_of_frame(pd.DataFrame({"scenario_id": pilot_ids})) == "pilot"
+    assert design_of_frame(pd.DataFrame({"scenario_id": full_ids})) == "full"
+
+
+def test_subset_to_pilot_keeps_exactly_the_pilot_scenarios() -> None:
+    full_ids = [s.scenario_id for s in scenarios_for_design("full")]
+    frame = pd.DataFrame({"scenario_id": full_ids, "value": range(len(full_ids))})
+
+    subset = subset_to_pilot(frame)
+
+    assert len(subset) == 24
+    assert set(subset["scenario_id"]) == {s.scenario_id for s in build_q1_scenarios()}
+
+
+# ---------------------------------------------------------- standard errors
+
+
+class _FakeSentenceFit:
+    """A stand-in for SentenceModelResult, which carries a posterior SD per
+    term the way the real variational-Bayes fit does."""
+
+    posterior_sd: ClassVar[dict[str, float]] = {"direction[T.down]": 0.05}
+
+    def contrast(self, level: str) -> tuple[float, float]:
+        return 0.25, 0.001
+
+
+def test_contrast_se_prefers_the_posterior_sd_when_there_is_one() -> None:
+    assert contrast_se(_FakeSentenceFit(), "down") == 0.05
+
+
+def test_contrast_se_backs_the_error_out_of_a_p_value_otherwise() -> None:
+    """A linear mixed model exposes no standard error through ``contrast``,
+    so it is recovered from the coefficient and its p-value. A coefficient
+    at p=.05 sits 1.96 standard errors from zero."""
+    fit = _FakeContrast({"down": (0.2, 0.05)})
+    assert contrast_se(fit, "down") == pytest.approx(0.2 / 1.959964, rel=1e-4)
+
+
+def test_contrast_se_is_undefined_when_the_p_value_leaves_no_room() -> None:
+    """p=1 implies a standard error of infinity, and a p-value rounded to 0
+    implies one of zero. Neither is a number worth printing."""
+    assert math.isnan(contrast_se(_FakeContrast({"down": (0.0, 1.0)}), "down"))
+    assert math.isnan(contrast_se(_FakeContrast({"down": (0.3, 0.0)}), "down"))

@@ -1,0 +1,243 @@
+{
+  "analysis_plan": {
+    "decision_by_direction": {
+      "caveat": "the model repeats its own decision only 60% of the time, so this runs on an unstable outcome; see PROGRESS.md section 50",
+      "test": "chi-square, not clustered by persona"
+    },
+    "exploratory": {
+      "correction": "Holm across the whole exploratory family",
+      "rule": "a single p<.05 among these is not a finding",
+      "tests": "direction x stakes and direction x task_type interactions"
+    },
+    "primary": {
+      "contrasts": [
+        "down",
+        "up"
+      ],
+      "grain": "one row per sentence",
+      "model": "logistic mixed model, random intercept per persona",
+      "outcome": "is_imperative",
+      "reference": "lateral"
+    },
+    "secondary": {
+      "grain": "one row per reply",
+      "model": "linear mixed model, random intercept per persona",
+      "outcomes": [
+        "imperative_ratio",
+        "hedge_rate"
+      ],
+      "status": "reported, not the headline"
+    }
+  },
+  "decision_by_direction": {
+    "caveat": "the model repeats its own decision only 60% of the time, so this runs on an unstable outcome; see PROGRESS.md section 50",
+    "chi2": 20.214,
+    "degrees_of_freedom": 8,
+    "p_value": 0.009558
+  },
+  "exploratory": [
+    {
+      "coefficient": 0.03541666666666973,
+      "family": "direction x stakes",
+      "holm_p": 1.0,
+      "p_value": 0.5173146055764434,
+      "term": "direction[T.down]:stakes[T.high]"
+    },
+    {
+      "coefficient": -0.030208333333330374,
+      "family": "direction x stakes",
+      "holm_p": 1.0,
+      "p_value": 0.5807625431066564,
+      "term": "direction[T.up]:stakes[T.high]"
+    },
+    {
+      "coefficient": 0.029166666666653837,
+      "family": "direction x task_type",
+      "holm_p": 1.0,
+      "p_value": 0.7160055026792772,
+      "term": "direction[T.down]:task_type[T.confirm_details]"
+    },
+    {
+      "coefficient": 0.09999999999998675,
+      "family": "direction x task_type",
+      "holm_p": 1.0,
+      "p_value": 0.21227915151296028,
+      "term": "direction[T.down]:task_type[T.report_problem]"
+    },
+    {
+      "coefficient": 0.15416666666665343,
+      "family": "direction x task_type",
+      "holm_p": 0.6538268782715909,
+      "p_value": 0.054485573189299245,
+      "term": "direction[T.down]:task_type[T.request_information]"
+    },
+    {
+      "coefficient": 0.14374999999998675,
+      "family": "direction x task_type",
+      "holm_p": 0.8026554484771633,
+      "p_value": 0.07296867713428758,
+      "term": "direction[T.down]:task_type[T.resolve_disagreement]"
+    },
+    {
+      "coefficient": 0.04166666666665405,
+      "family": "direction x task_type",
+      "holm_p": 1.0,
+      "p_value": 0.6032602482199771,
+      "term": "direction[T.down]:task_type[T.schedule_coordination]"
+    },
+    {
+      "coefficient": -0.03333333333334736,
+      "family": "direction x task_type",
+      "holm_p": 1.0,
+      "p_value": 0.6775751847593721,
+      "term": "direction[T.up]:task_type[T.confirm_details]"
+    },
+    {
+      "coefficient": 0.00937499999998555,
+      "family": "direction x task_type",
+      "holm_p": 1.0,
+      "p_value": 0.9069103619835672,
+      "term": "direction[T.up]:task_type[T.report_problem]"
+    },
+    {
+      "coefficient": 0.0416666666666522,
+      "family": "direction x task_type",
+      "holm_p": 1.0,
+      "p_value": 0.6032602482199952,
+      "term": "direction[T.up]:task_type[T.request_information]"
+    },
+    {
+      "coefficient": 0.08124999999998557,
+      "family": "direction x task_type",
+      "holm_p": 1.0,
+      "p_value": 0.3108453649171177,
+      "term": "direction[T.up]:task_type[T.resolve_disagreement]"
+    },
+    {
+      "coefficient": -0.02708333333334715,
+      "family": "direction x task_type",
+      "holm_p": 1.0,
+      "p_value": 0.7355014007554745,
+      "term": "direction[T.up]:task_type[T.schedule_coordination]"
+    }
+  ],
+  "levels_by_direction": {
+    "full": {
+      "down": 0.345821325648415,
+      "lateral": 0.3157099697885196,
+      "up": 0.3303303303303303
+    },
+    "pilot": {
+      "down": 0.40869565217391307,
+      "lateral": 0.358974358974359,
+      "up": 0.3963963963963964
+    },
+    "real": {
+      "down": 0.1752,
+      "lateral": 0.1417,
+      "up": 0.1504
+    }
+  },
+  "persona_variance": {
+    "reply_level": 0.0,
+    "sentence_level_sd": 0.1141
+  },
+  "precision": {
+    "hedge_rate:down": {
+      "full_coefficient": -0.0649,
+      "full_p": 0.0008236,
+      "full_se": 0.0194,
+      "pilot_coefficient": -0.1125,
+      "pilot_p": 0.03407,
+      "pilot_se": 0.0531,
+      "real_coefficient": -0.0046,
+      "real_se": 0.0073,
+      "section_39_coefficient": 0.027,
+      "section_39_se": 0.0392
+    },
+    "hedge_rate:up": {
+      "full_coefficient": -0.025,
+      "full_p": 0.1978,
+      "full_se": 0.0194,
+      "pilot_coefficient": 0.0,
+      "pilot_p": 1.0,
+      "pilot_se": 0.0532,
+      "real_coefficient": -0.005,
+      "real_se": 0.0063,
+      "section_39_coefficient": 0.025,
+      "section_39_se": 0.0393
+    },
+    "imperative_ratio:down": {
+      "full_coefficient": 0.0302,
+      "full_p": 0.2693,
+      "full_se": 0.0273,
+      "pilot_coefficient": 0.0563,
+      "pilot_p": 0.4116,
+      "pilot_se": 0.0685,
+      "real_coefficient": 0.0427,
+      "real_se": 0.0137,
+      "section_39_coefficient": 0.027,
+      "section_39_se": 0.0638
+    },
+    "imperative_ratio:up": {
+      "full_coefficient": 0.0141,
+      "full_p": 0.607,
+      "full_se": 0.0273,
+      "pilot_coefficient": 0.0292,
+      "pilot_p": 0.6703,
+      "pilot_se": 0.0685,
+      "real_coefficient": 0.0177,
+      "real_se": 0.0118,
+      "section_39_coefficient": 0.083,
+      "section_39_se": 0.0636
+    },
+    "is_imperative:down": {
+      "full_coefficient": 0.1341,
+      "full_p": 0.09168,
+      "full_se": 0.0795,
+      "pilot_coefficient": 0.1975,
+      "pilot_p": 0.298,
+      "pilot_se": 0.1897,
+      "real_coefficient": 0.2533,
+      "real_se": 0.0518,
+      "section_39_coefficient": 0.163,
+      "section_39_se": 0.1941
+    },
+    "is_imperative:up": {
+      "full_coefficient": 0.0642,
+      "full_p": 0.4343,
+      "full_se": 0.0821,
+      "pilot_coefficient": 0.1508,
+      "pilot_p": 0.4371,
+      "pilot_se": 0.1941,
+      "real_coefficient": 0.0705,
+      "real_se": 0.0423,
+      "section_39_coefficient": 0.395,
+      "section_39_se": 0.198
+    }
+  },
+  "primary": {
+    "is_imperative:down": {
+      "coefficient": 0.1341,
+      "p_value": 0.09168,
+      "std_error": 0.0795
+    },
+    "is_imperative:up": {
+      "coefficient": 0.0642,
+      "p_value": 0.4343,
+      "std_error": 0.0821
+    }
+  },
+  "run": {
+    "design": "full",
+    "model": "llama3.2:3b",
+    "n_cells": 1440,
+    "n_from_cache": 1440,
+    "n_generated": 0,
+    "n_replies_full": 1440,
+    "n_replies_pilot": 240,
+    "n_sentences_full": 2022,
+    "n_sentences_pilot": 343,
+    "prompt_text_hash": "d4c18550ed56f2de"
+  }
+}

@@ -29,6 +29,7 @@ and says plainly that it is not authoritative.
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -300,6 +301,30 @@ def assemble(
         variable_suffix="\n\n".join([render_scenario_block(scenario), instruction.strip()]),
         cache_group=f"{persona.persona_id}__{scenario.direction}",
     )
+
+
+def prompt_text_hash(variant: PromptVariant = "default") -> str:
+    """A short hash of the prompt templates one variant uses.
+
+    Recorded in run manifests so a result can be tied to the prompt text
+    that produced it. PROGRESS.md section 51 is why this exists. Commit
+    8f8df1e changed ``TASK_FRAMING`` on 2026-09-05, which changed every
+    generated reply, and no result file recorded that the prompt had moved.
+    A stale number then sat in the log for twelve days.
+
+    Persona, memory and scenario text are excluded on purpose. Those vary
+    per cell, so including them would give one hash per cell rather than
+    one per prompt version. This identifies the template, not the filled
+    prompt.
+    """
+    taxonomy = DECISION_TAXONOMY_DECIDE_FIRST if variant == "decide_first" else DECISION_TAXONOMY
+    instruction = (
+        OUTPUT_INSTRUCTION_DECIDE_FIRST if variant == "decide_first" else OUTPUT_INSTRUCTION
+    )
+    blob = "\x00".join(
+        [TASK_FRAMING, ORGANIZATION_CONTEXT, HIERARCHY_CONTEXT, taxonomy, instruction]
+    )
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
 
 
 def estimate_prefix_tokens(text: str) -> int:

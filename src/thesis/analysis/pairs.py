@@ -39,6 +39,7 @@ from thesis.paths import CACHE_DIR, COST_LEDGER, INTERIM_DIR, MESSAGES_PARQUET_G
 from thesis.sim.memory import MemoryItem
 from thesis.sim.memory_generation import load_frozen_memory
 from thesis.sim.persona import Persona, load_frozen_personas
+from thesis.sim.prompt import prompt_text_hash
 from thesis.sim.real_stimuli import RealStimulusPair, build_real_stimulus_pairs
 from thesis.sim.run import RunManifest, run_grid
 from thesis.sim.schemas import PROMPT_VARIANTS, PromptVariant
@@ -107,7 +108,14 @@ def build_pair_table(
         git_dirty=False,
         config_hash="",
         models=[model],
-        design={"kind": "real_stimulus_pairs", "prompt_variant": prompt_variant, "draw": draw},
+        design={
+            "kind": "real_stimulus_pairs",
+            "prompt_variant": prompt_variant,
+            "draw": draw,
+            # Ties this run to the prompt text that produced it, so a later
+            # cross-run comparison can see a changed prompt. See section 51.
+            "prompt_text_hash": prompt_text_hash(prompt_variant),
+        },
         n_cells=len(pairs),
     )
     rows: list[dict[str, Any]] = run_grid(

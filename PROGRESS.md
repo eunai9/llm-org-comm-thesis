@@ -29,8 +29,9 @@ you to read, not for a computer to run. Updated after each work session.
 | Statistics that compare real vs. AI-written emails | Done, on the free path |
 | AI replies to a real email, compared to the real reply | Done — 183 pairs on the rebuilt corpus, see section 38 |
 | Does the judge favour its own kind of AI? (Q3) | Re-run against the rebuilt corpus — headline result weaker, one item now significant, see section 41 |
-| Does hierarchy shape what gets written? (Q1) | Re-run against the rebuilt corpus — mostly still null, one contrast now borderline, see section 39 |
+| Does hierarchy shape what gets written? (Q1) | Re-run at 1,440 replies under the current prompt. Writing down is +0.134 (p=.092), measured six times better than before. Section 39's numbers are stale. See section 51 |
 | Does real email show a direction pattern? (benchmark for Q1) | Measured. Writing down gives more orders in every check. The simulator's estimate is the same size but too noisy to detect. See section 48 |
+| Is each result tied to the prompt that produced it? | It was not. A prompt change on Sep 5 silently moved Q1's numbers and nothing caught it. Run manifests now record a prompt hash. See section 51 |
 | Validation pass: embedding map, 100 replies read by hand | Done — see section 35 |
 | Measure the mirroring failure automatically | Done — see section 42 |
 | Fix the mirroring failure by instructing the persona | Tried and did not work — phrasing moved, behavior did not, see section 43 |
@@ -1789,6 +1790,17 @@ weaker claim and a more defensible one.
 
 ### 39. Q1 on the rebuilt corpus: mostly the same null, one contrast moves (Sep 4)
 
+> **Note added Sep 17: the numbers in this section are stale.** They were
+> generated on Sep 4 at 12:30. On Sep 5 at 16:46, commit `8f8df1e` added a
+> paragraph to `TASK_FRAMING` in `src/thesis/sim/prompt.py`, the "you are the
+> person this message was sent to" instruction from section 43. It applies to
+> every reply, with no variant switch. The response cache is keyed on the
+> prompt text, so that commit changed every Q1 reply. Section 51 re-ran the
+> same 24 scenarios under the current prompt and did not reproduce the
+> borderline writing-up result below. The numbers here are left exactly as
+> they were, because they are correct for the prompt that produced them. They
+> should not be compared with any result generated after Sep 5.
+
 Section 38 showed that a corpus correction can move a result. Q1 needed the
 same check, because the rebuild changes persona style statistics, and those go
 into the prompt text every Q1 reply comes from.
@@ -3135,6 +3147,212 @@ different cache keys, and draw 1 is unchanged. black, ruff and mypy are clean.
 
 ---
 
+### 51. Q1 at six times the size, and a stale number found on the way (Sep 17)
+
+**Result first.** Q1 now runs on 1,440 replies instead of 240. Writing down
+gives more orders than writing to a peer, by +0.134 on the logit scale
+(p=.092). That is still not significant, but it is measured about 2.4 times
+more precisely than before. Writing up is +0.064 (p=.434). Section 39's one
+borderline result does not survive. One new thing turned up: the simulator
+softens its language less when writing down, and real email does not do that.
+Separately, this run found that section 39's replies came from a prompt that
+no longer exists.
+
+**Why this step follows.** Section 39 found almost nothing in the simulator.
+Section 48 then measured the same thing in real Enron email and found a clear
+pattern: people give more orders when writing down. It also showed the
+simulator's estimate for writing down was about the right size but four times
+noisier, and estimated that 1,100 to 2,700 replies would be needed to detect
+it. Section 50 added that the model disagrees with itself, so single-draw
+outcomes carry noise. This section runs Q1 at the size section 48 asked for.
+
+#### What was run
+
+The old Q1 design used 24 scenarios: 2 task types, 3 directions, 4 tones, with
+each task type pinned to one stakes level. The full scenario grid has 144: 6
+task types, 3 directions, 2 stakes levels, 4 tones. With 10 personas that is
+1,440 replies. The 24 are an exact subset of the 144, so the small design sits
+inside the big one and both can be reported from one run.
+
+`build_q1_cells` takes a `--design` flag. It defaults to the 24-scenario
+design, so nothing that existed before changes.
+
+**The analysis plan was fixed before any number was looked at,** and written
+into the run manifest so the file records the order rather than a claim about
+it. Primary outcome: orders per sentence, logistic mixed model, random
+intercept per persona, lateral as the reference, two contrasts only. Secondary:
+orders per reply and hedges per reply. Exploratory: whether the direction
+effect changes with stakes or task type, Holm-corrected, with a single p<.05
+among them counting as nothing.
+
+#### A stale number, found on the way
+
+The plan was that the 240 old replies would be reused unchanged, so the small
+design inside the big run would reproduce section 39. It did not. 239 of the
+240 reply texts differ.
+
+The cause is not the scenarios. It is the prompt. Section 39's grid was
+generated on Sep 4 at 12:30. On Sep 5 at 16:46, commit `8f8df1e` added one
+paragraph to `TASK_FRAMING`, the "you are the person this message was sent to"
+instruction from section 43. It is not behind a variant switch, so it applies
+to every reply. The response cache is keyed on the exact prompt text, so that
+commit gave every Q1 cell a new key. The 240 cache entries that looked like
+section 39's replies were newer replies written under the new prompt.
+
+This was checked directly rather than inferred. For one cell, the entry holding
+section 39's old reply was opened and compared with today's. The two prompts
+differ by exactly that one paragraph and nothing else, 5,513 characters against
+5,975.
+
+**The analysis code is not the cause.** Re-fitting section 39's own saved file
+under today's code reproduces section 39 exactly, including +0.395 (p=.046) for
+writing up and chi2=18.02 (p=.021) for decisions. Only the generated text
+changed.
+
+#### The result
+
+Each number is the difference from writing to a peer, on the logit scale. A
+positive number means more orders.
+
+**Orders per sentence** counts each sentence once, as an order or not. An order
+is a sentence like "Send me the file." This is the primary outcome, and the
+more trustworthy of the two measures since section 36.
+
+| Orders per sentence | Writing down | Writing up |
+|---|---|---|
+| Section 39 (240 replies, old prompt) | +0.163 (p=.401) | **+0.395 (p=.046)** |
+| Same 24 scenarios, current prompt, 240 replies | +0.198 (p=.298) | +0.151 (p=.437) |
+| Full grid, current prompt, 1,440 replies | +0.134 (p=.092) | +0.064 (p=.434) |
+| Real email (section 48) | +0.253 (p<.001) | +0.070 (p=.096) |
+
+**Do not read this as "more data retracted section 39".** Most of the movement
+in the writing-up number happened at the same sample size, between the first
+and second rows. But that step cannot be trusted either. Each of those two
+estimates has a standard error near 0.19, so the difference between them
+carries a standard error near 0.27. A gap of 0.244 is well inside noise.
+
+The honest statement has two parts. Section 39's number was never well
+estimated. Under the current prompt the estimate is smaller and much better
+estimated. Whether the prompt or the draw moved it cannot be separated with one
+draw of each. Section 50 is the reason to expect the draw alone to move things:
+orders per reply correlate only 0.15 between two draws of the same prompt.
+
+**Orders per reply** is the share of a reply's sentences that give an order.
+It stays null: +0.030 writing down (p=.269) and +0.014 writing up (p=.607).
+
+#### Precision: the run did what it was meant to do
+
+A standard error says how well a number is pinned down. Smaller is better.
+Six times the data should shrink it by about the square root of 6, which is
+2.45.
+
+| Orders per sentence, writing down | Estimate | Standard error |
+|---|---|---|
+| Section 39 (240 replies) | +0.163 | 0.194 |
+| Full grid (1,440 replies) | +0.134 | 0.080 |
+| Real email (2,202 emails) | +0.253 | 0.052 |
+
+The standard error fell by a factor of 2.43. That is what six times the data
+should give. The simulator's estimate is now about half of real email's, and
+the difference between them is not significant (p=.209). So the two cannot be
+called equal and cannot be called different.
+
+**What it would cost to settle it.** To detect an effect of +0.134 at 80% power
+the standard error would have to reach 0.048. At today's reply length that is
+about 4,028 replies. So 1,440 sits below what this particular effect size
+needs. Section 48's range of 1,100 to 2,700 assumed the true effect was as big
+as real email's. It is smaller here, so the requirement is larger.
+
+#### The one clear gap between the simulator and real email
+
+**Hedges per reply** is the share of a reply's sentences carrying a softener,
+such as "maybe" or "I think".
+
+| Hedges per reply, writing down | Value |
+|---|---|
+| Section 39 (old prompt) | +0.027 (p=.491) |
+| Same 24 scenarios, current prompt | −0.113 (p=.034) |
+| Full grid, current prompt | −0.065 (p=.001) |
+| Real email | −0.005 (p=.526) |
+
+The simulator hedges noticeably less when writing down. Real email does not
+change. The difference is −0.060, p=.004, and it survives a Holm correction
+across all six simulator-versus-real comparisons (adjusted p=.024). The other
+five are all adjusted to 1.000.
+
+**Two cautions.** The sign flipped when the act paragraph landed, so this is a
+property of the current prompt rather than a standing fact about the simulator.
+And it is one result. It needs replication before it counts.
+
+#### The exploratory tests found nothing
+
+The full grid is the first Q1 design that crosses stakes and runs more than two
+task types, so this could be asked for the first time. Twelve interaction terms
+were fitted, two for stakes and ten for task type, and Holm-corrected as one
+family. **Every adjusted p-value is 1.000.** The smallest raw p-value is .054,
+for writing down on `request_information`, which becomes .654 after correction.
+Nothing here is a finding, which is what the pre-registered rule said to
+conclude.
+
+#### Decisions, and why the number is not leaned on
+
+`decision ~ direction` gives chi2=20.21, p=.010, df=8. This is not presented as
+a finding, for two reasons already on record. The test ignores clustering by
+persona (section 33). And section 50 showed the model reproduces its own
+decision only 60% of the time, so this runs on an unstable outcome with one
+draw per cell.
+
+#### The lesson, which is worth more than the number
+
+A prompt change made to fix one problem silently moved a different measured
+outcome, and nothing caught it for twelve days. The reason is simple: **no
+result file recorded which prompt produced it.**
+
+This is the same family of failure as the cache cascades in sections 17, 31 and
+37, where a change far from the simulator correctly invalidated stored replies.
+It is also the same family as section 33, where three "replications" turned out
+to share one bug. The pattern is that provenance which is not written down is
+provenance that does not exist.
+
+**The hole is now closed.** `prompt_text_hash` in `sim/prompt.py` hashes the
+prompt templates for a variant, and the hash is written into the run manifest
+by both the Q1 grid and the pairs runner. Persona and scenario text are left
+out on purpose, because those vary per cell. A future cross-run comparison can
+now see a changed prompt instead of depending on someone noticing.
+
+#### Limits
+
+- One model, 3 billion parameters, running locally. 10 personas.
+- One draw per cell. Section 50's noise floor applies to every number here.
+- 2,022 sentences from 1,440 replies is 1.40 per reply. Section 34's
+  resolution limit has not gone away.
+- Reply-level persona variance is 0.0000 again, the degenerate value sections
+  33 and 34 flagged. The sentence-level model gives a real 0.1141.
+- The comparison with real email is a comparison of patterns, not levels. The
+  simulator gives an order in about a third of sentences, real email in about a
+  sixth.
+
+#### How it was run
+
+```
+python -m thesis.analysis.q1 --local llama3.2:3b --design full \
+  --progress-every 50 --compare-real
+```
+
+1,200 replies were generated and 240 came from the cache. About 7 hours.
+**Cost was zero.** The grid is in `data/interim/q1_direction_grid_full.parquet`
+and the numbers in `outputs/manifests/q1_full_grid.json`. The 240-cell file
+from section 39 was not touched.
+
+712 tests pass: the 698 from before and 14 new ones. 9 of that total still sit
+in another session's uncommitted `test_blind_review.py`. The new tests cover
+the deterministic half of this change: the design flag gives exactly 1,440
+cells, the default still gives 240, the 24 scenarios are a subset of the 144,
+the analysis plan is pinned, and the prompt hash changes when the prompt text
+changes. No test calls a model. black, ruff and mypy are clean.
+
+---
+
 ## What's next
 
 *(Rewritten Aug 31 — the previous version was written before the corpus
@@ -3267,23 +3485,28 @@ and the better automatic measure, and the four supervisor questions.
   two independent codings give an agreement statistic, which is
   what makes the qualitative half of this defensible — and it is a dry run
   for the November human-coding round, with none of its ethics overhead.
-- **Decide how Q1 proceeds.** Section 48 now gives a target. Real email
-  shows a writing-down effect of +3.3 points in the chance that a sentence
-  is an order. The simulator's estimate matches it in size but cannot
-  detect it with 240 replies. The next step is a bigger simulator run, not
-  more analysis of the same replies. It needs roughly 1,100 to 2,700
-  replies for 80% power at today's reply length. Longer replies would lower
-  that, because each sentence adds data. The same run would also show
-  whether the simulator's writing-up effect is real. Real email does not
-  show it. The research plan expected the simulated arm to be the stronger
-  one. For Q1 the real-email arm is now the stronger one. Worth raising
-  with your supervisor.
-- **Give the decision outcome more draws per cell.** Section 50 showed the
-  model repeats its own decision only 60% of the time. Q1's decision result
-  rests on one draw per cell, so it is measured on an unstable outcome. Three
-  or five draws per cell would average that out and give a spread to report.
-  That is generation time, not analysis, and it costs nothing locally. It fits
-  inside the bigger Q1 run the item above already calls for.
+- **Decide how Q1 proceeds, now that the bigger run is done.** Section 51 ran
+  1,440 replies. Writing down is +0.134 (p=.092), about half of real email's
+  +0.253, and measured 2.4 times better than section 39. It is still not
+  significant. Reaching 80% power on an effect this size needs about 4,028
+  replies, which is roughly 14 more hours of local generation and costs
+  nothing but time. The question for your supervisor is whether Q1 is worth
+  that, given the answer would still come from one 3B model with 10 personas.
+  For Q1 the real-email arm remains the stronger one.
+- **Spend the next generation on draws, not on more cells.** Section 50 found
+  orders per reply correlate only 0.15 between two draws of one prompt, and
+  that the model repeats its own decision 60% of the time. Every number in
+  section 51 rests on a single draw. Three draws per cell on the existing
+  1,440 would give a spread to report and would average out the noise, instead
+  of buying more cells whose individual values stay this unstable. It would
+  also let a prompt effect be separated from draw noise, which section 51 could
+  not do. If only one generation run happens next, this is the one worth doing.
+- **Watch the hedging gap.** Section 51 found the simulator hedges less when
+  writing down while real email does not, −0.060 at p=.004, surviving a Holm
+  correction. It is the first clear place the simulator behaves unlike real
+  email. It appeared only after the Sep 5 prompt change, so it may be a
+  property of that prompt. It needs replication before it is reported as a
+  result.
 - **Build the contamination probe and anonymized-stimulus arm.** Named in
   the research plan, and still the strongest objection an examiner can
   raise; both are cheap and turn an unanswerable question into a table.
