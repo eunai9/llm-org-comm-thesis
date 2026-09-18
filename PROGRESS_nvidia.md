@@ -20,6 +20,7 @@ Nothing here replaces a result in `PROGRESS.md` yet.
 | Q1 with DeepSeek: does direction change directive language? | Done, see section 10 |
 | A third model: OpenAI's gpt-oss-20b on the same 183 pairs | Done, see section 11 |
 | DeepSeek against the real-email benchmark | Done, see section 12 |
+| A fourth model: gpt-oss-120b through Groq | Done, see section 13 |
 | Hand-code a sample of DeepSeek replies | Not started |
 | DeepSeek run without the act instruction | Not started |
 | Judge study with a second model family | Not started |
@@ -874,7 +875,127 @@ python -m thesis.analysis.q1 --grid data/interim/q1_direction_grid_deepseek.parq
 
 ---
 
-## 13. Next steps
+## 13. A fourth model: gpt-oss-120b through Groq (Sep 18)
+
+**Result first.** The larger OpenAI open model now answers the same 183
+emails. It mirrors far less than Llama and about as little as the 20B model.
+Its words still give it away almost perfectly. Being six times bigger did not
+make it harder to tell from a real person.
+
+**Why this step.** Section 11 added gpt-oss-20b. The 120B model is the bigger
+version of the same family. It tests whether size changes the two findings of
+sections 8 and 9: much less mirroring than the small local model, but easy to
+spot by stock phrases.
+
+**Why a new provider.** NVIDIA's catalog does not serve the 120B model, and
+this laptop cannot run it. It needs about 60 GB of memory, and the laptop has
+16 GB plus 1 GB of graphics memory. Groq serves it on a free tier, so the
+no-payment rule still holds.
+
+**The client.** NVIDIA and Groq speak the same API format, so the shared parts
+moved into one module, `openai_compatible.py`. `NvidiaClient` and `GroqClient`
+are thin subclasses of it. The NVIDIA tests pass unchanged, which is what
+makes the move safe. Two things are specific to Groq:
+
+- **The schema goes in strict mode.** Groq then constrains the reply to the
+  schema. On NVIDIA the model sometimes ran past the JSON until the token
+  limit (section 11), and only `@low` avoided it.
+- **The reasoning is not requested.** gpt-oss returns its thinking in a
+  separate field, which this project never reads.
+
+Replies are marked `groq/` and priced at zero. Commits `74add35`, `3d1a891`.
+
+**Pacing.** Groq's free tier allows 30 requests and 8,000 tokens per minute,
+1,000 requests and 200,000 tokens per day. A reply of this project costs
+about 1,930 tokens, so only about 4 fit in a minute. A first 10-reply run at
+2 seconds per call drew two 429 errors. The client now waits 15 seconds
+between calls.
+
+**The run.**
+
+| | Value |
+|---|---:|
+| Pairs written | 183 of 183 |
+| New replies | 129 (10 came from the test) |
+| Time | 34 minutes |
+| Empty replies | 0 |
+| Replies with a placeholder such as `[Name]` | 7 |
+| Decisions | 102 accept, 53 defer, 24 none, 4 decline |
+| Median length | 27 words (real replies: 44) |
+| Cost | $0 |
+
+The daily token cap never bit. 129 replies at about 1,930 tokens is roughly
+249,000 tokens, above the stated 200,000 per day, so the cap is either looser
+than documented or counted differently.
+
+**Mirroring.** Same measure and tests as section 8, with every reply cut to
+the length of its Llama partner.
+
+| | Mean borrowed words | Flagged |
+|---|---:|---:|
+| Llama 3.2 3B | 0.565 | 19.1% |
+| DeepSeek V4 Flash | 0.469 | 8.2% |
+| gpt-oss-20b | 0.373 | 4.9% |
+| gpt-oss-120b | 0.435 | 4.4% |
+| Real replies | 0.294 | 9.8% |
+
+![Mean borrowed words by model, every reply cut to the Llama length, next to the real replies.](docs/figures/nvidia_four_models_mirroring.png)
+
+- **The 120B model mirrors far less than Llama.** At the same length it scores
+  0.129 lower (signed-rank test, p < 0.0001). 30 replies stop being flagged
+  and 3 become flagged (McNemar, p < 0.0001).
+- **Size did not help here.** It borrows more of the sender's words than the
+  20B model, 0.435 against 0.373, though it is flagged slightly less often.
+- **All four models still borrow more than real writers do**, 0.294.
+
+**Can it be told apart from real replies?** Same method as section 9, after
+removing signature and header lines.
+
+| Run | Length only | Full text | Text, same length |
+|---|---:|---:|---:|
+| Llama, instruction | 0.837 | 0.919 | 0.881 |
+| DeepSeek, instruction | 0.571 | 0.978 | 0.977 |
+| gpt-oss-20b@low | 0.687 | 0.974 | 0.970 |
+| gpt-oss-120b@low | 0.748 | 0.969 | 0.962 |
+
+![Length-only and same-length text AUC for the four models.](docs/figures/nvidia_four_models_auc.png)
+
+- **Length gives the 120B model away more than DeepSeek,** 0.748 against
+  0.571, because its replies are short: 27 words at the median against 44 for
+  real replies.
+- **Its words give it away almost perfectly,** 0.962 at the same length.
+- **It uses the same stock phrases.** "I'll" appears in 61% of its replies,
+  against 5% of real replies. "let" is in 38%, "review" in 23%, "got" in 22%,
+  "forward" in 19%, and "team" in 12% against no real reply.
+
+**What this means.** Four models from three families, all answering the same
+183 emails with the same prompt, behave the same way in the two respects this
+log measures. All of them mirror much less than the 3B local model, and all
+of them are easy to spot by their stock phrases. Model size moved neither
+result: the 120B model is no less detectable than the 20B one.
+
+**Limits.**
+
+- Only one reasoning setting was used, `@low`.
+- Only Groq serves this model here. If Groq changes its free tier, a re-run
+  is impossible, though the cache keeps the replies already generated.
+- The separation numbers come from the one-off script of section 9.
+
+**Commands.**
+
+```
+python -m thesis.analysis.pairs --groq openai/gpt-oss-120b@low \
+  --out data/interim/pairs_gpt_oss_120b.parquet
+python -m thesis.analysis.mirroring --pairs data/interim/pairs_gpt_oss_120b.parquet \
+  --out outputs/tables/mirroring_scores_gpt_oss_120b.csv \
+  --figure-prefix mirroring_gpt_oss_120b_ \
+  --manifest outputs/manifests/mirroring_gpt_oss_120b.json \
+  --compare-to data/interim/real_vs_generated_pairs_act.parquet
+```
+
+---
+
+## 14. Next steps
 
 Most valuable first.
 
@@ -930,3 +1051,6 @@ Most valuable first.
 - **Compare DeepSeek with the real-email benchmark.** Sep 16, section 12.
   `q1.py` gained `--grid` and `--compare-real`, so any grid can be held
   against real email with one command.
+- **A fourth model, gpt-oss-120b through Groq.** Sep 18, section 13 and
+  commits `74add35`, `3d1a891`. NVIDIA does not serve it and this laptop
+  cannot run it, so the free Groq tier was added on a shared client body.

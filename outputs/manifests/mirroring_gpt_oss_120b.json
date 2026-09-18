@@ -1,0 +1,77 @@
+{
+  "auc_vs_hand_codes": {
+    "borrowed_words": 0.834,
+    "longest_repeat": 0.786,
+    "returned_request": 0.667
+  },
+  "compared_with_previous_prompt": {
+    "borrowed_words": {
+      "after": 0.405,
+      "before": 0.565,
+      "change": -0.159,
+      "p_value": 0.0
+    },
+    "flagged_share": {
+      "after": 0.022,
+      "before": 0.191,
+      "change": -0.169,
+      "p_value": 0.0
+    },
+    "n_paired": 183,
+    "newly_flagged": 1,
+    "no_longer_flagged": 32,
+    "reply_words": {
+      "after": 28.6,
+      "before": 22.7,
+      "change": 5.9,
+      "p_value": NaN
+    },
+    "same_length": {
+      "after_words": 20.5,
+      "borrowed_words": {
+        "after": 0.435,
+        "before": 0.565,
+        "change": -0.129,
+        "p_value": 0.0
+      },
+      "flagged_share": {
+        "after": 0.044,
+        "before": 0.191,
+        "change": -0.148,
+        "p_value": 0.0
+      },
+      "newly_flagged": 3,
+      "no_longer_flagged": 30,
+      "real_borrowed_words": 0.294,
+      "real_flagged_share": 0.098
+    }
+  },
+  "flagged_rate_by_direction": {
+    "down": {
+      "n": 51,
+      "rate": 0.039
+    },
+    "lateral": {
+      "n": 95,
+      "rate": 0.011
+    },
+    "up": {
+      "n": 37,
+      "rate": 0.027
+    }
+  },
+  "headline_signal": "borrowed_words",
+  "mean_borrowed_words": {
+    "generated": 0.405,
+    "real": 0.301,
+    "real_length_matched": 0.277
+  },
+  "n_hand_coded": 100,
+  "n_pairs": 183,
+  "share_over_threshold": {
+    "generated": 0.022,
+    "real_length_matched": 0.077
+  },
+  "threshold": 0.8,
+  "threshold_chosen_on_the_coded_sample": true
+}
