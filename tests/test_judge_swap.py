@@ -16,31 +16,44 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
+import numpy as np
 import pandas as pd
 import pytest
 
+from thesis.analysis import judge_swap
 from thesis.analysis.judge_swap import (
     DEFAULT_GENERATORS,
     HISTORICAL_CELL_MEANS,
     HISTORICAL_INTERACTION_P_OVERALL,
+    JUDGE_SWAP_GRID_PATH,
+    JUDGE_SWAP_SCORES_PATH,
+    JUDGE_SWAP_TWO_TONE_GRID_PATH,
+    JUDGE_SWAP_TWO_TONE_SCORES_PATH,
     JudgeSwapComparison,
     build_judge_items,
     build_judge_swap_cells,
     build_judge_swap_scenarios,
+    build_two_tone_manifest,
     combine_generator_grids,
     combine_judge_scores,
     compare_judge_swap,
+    fit_subset,
     format_comparison_table,
     generate_judge_swap_grid,
+    replies_for_power,
+    run_two_tone_analysis,
     saturated_2x2_effects,
     score_judge_swap_replies,
+    subset_to_neutral,
 )
 from thesis.judge.rubric import RUBRIC_ITEMS
 from thesis.llm.base import Capabilities, CompletionRequest, CompletionResponse, Provider, Usage
 from thesis.llm.cache import ResponseCache
 from thesis.llm.cost import CostLedger
 from thesis.sim.persona import Persona, PersonaStyle
+from thesis.sim.prompt import prompt_text_hash
 from thesis.sim.scenario import DIRECTIONS
 
 
@@ -463,3 +476,228 @@ def test_default_generators_are_keys_in_historical_cell_means() -> None:
     assert (a, b) in HISTORICAL_CELL_MEANS
     assert (b, a) in HISTORICAL_CELL_MEANS
     assert (b, b) in HISTORICAL_CELL_MEANS
+
+
+# ------------------------------------------------------- the two-tone design
+
+
+def test_two_tone_design_gives_120_cells_per_generator() -> None:
+    """The design PROGRESS.md section 52 runs: 10 personas x 12 scenarios x
+    1 replicate, for each of the two generator models."""
+    personas = [_persona(f"p{i}") for i in range(10)]
+    cells = build_judge_swap_cells(personas, "llama3.2:3b", "gen_llama", design="two_tone")
+
+    assert len(cells) == 120
+    assert len({c.scenario.scenario_id for c in cells}) == 12
+    assert len({c.persona.persona_id for c in cells}) == 10
+    assert {c.replicate for c in cells} == {1}
+
+
+def test_the_default_design_is_still_the_60_cell_pilot() -> None:
+    """Adding the flag must not change what an existing caller gets."""
+    personas = [_persona(f"p{i}") for i in range(10)]
+    assert len(build_judge_swap_cells(personas, "llama3.2:3b", "gen_llama")) == 60
+
+
+def test_the_pilot_scenarios_are_a_subset_of_the_two_tone_scenarios() -> None:
+    """This is what lets one two-tone run also report section 41's design."""
+    pilot = {s.scenario_id for s in build_judge_swap_scenarios("pilot")}
+    two_tone = {s.scenario_id for s in build_judge_swap_scenarios("two_tone")}
+
+    assert len(pilot) == 6
+    assert len(two_tone) == 12
+    assert pilot < two_tone
+
+
+def test_the_two_tone_design_adds_only_the_assertive_tone() -> None:
+    scenarios = build_judge_swap_scenarios("two_tone")
+
+    assert {s.tone for s in scenarios} == {"neutral", "assertive"}
+    assert {s.task_type for s in scenarios} == {"approve_or_decline", "report_problem"}
+
+
+def test_the_two_tone_files_do_not_overwrite_the_pilot_files() -> None:
+    """Section 41's data stays where it is."""
+    assert JUDGE_SWAP_TWO_TONE_GRID_PATH != JUDGE_SWAP_GRID_PATH
+    assert JUDGE_SWAP_TWO_TONE_SCORES_PATH != JUDGE_SWAP_SCORES_PATH
+
+
+def _two_tone_reply_frame(tones: Sequence[str] = ("neutral", "assertive")) -> pd.DataFrame:
+    """A reply frame shaped like a real run: 10 personas x 3 directions x
+    both generator models, for each tone."""
+    rows = []
+    for persona in range(10):
+        for tone in tones:
+            for direction in DIRECTIONS:
+                for generator in DEFAULT_GENERATORS:
+                    scenario_id = f"approve_or_decline__{direction}__high__{tone}"
+                    slug = generator.replace(":", "_").replace(".", "_")
+                    rows.append(
+                        {
+                            "cell_id": f"gen_{slug}__p{persona}__{scenario_id}__r1",
+                            "scenario_id": scenario_id,
+                            "persona_id": f"p{persona}",
+                            "model": generator,
+                            "body": "a reply",
+                        }
+                    )
+    return pd.DataFrame(rows)
+
+
+def _two_tone_score_frame(
+    tones: Sequence[str] = ("neutral", "assertive"), *, self_preference: float = 0.5
+) -> pd.DataFrame:
+    """Scores for that frame, with a known self-preference built in: the
+    llama judge adds ``self_preference`` to llama-written replies only."""
+    rng = np.random.default_rng(0)
+    llama, qwen = DEFAULT_GENERATORS
+    rows = []
+    for reply in _two_tone_reply_frame(tones).itertuples():
+        for judge in DEFAULT_GENERATORS:
+            score = (
+                3.0
+                + (0.4 if reply.model == qwen else 0.0)
+                + (0.3 if judge == llama else 0.0)
+                + (self_preference if reply.model == llama and judge == llama else 0.0)
+                + float(rng.normal(0.0, 0.3))
+            )
+            rows.append(
+                {
+                    "item_id": reply.cell_id,
+                    "generator": reply.model,
+                    "judge": judge,
+                    "persona_id": reply.persona_id,
+                    "score_overall": score,
+                    "score_corpus_plausibility": score,
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def test_subset_to_neutral_keeps_only_the_neutral_rows() -> None:
+    """Works on a reply frame, which names the scenario, and on a score
+    frame, which carries the scenario inside the item id."""
+    replies = _two_tone_reply_frame()
+    scores = _two_tone_score_frame()
+
+    assert len(replies) == 120
+    assert len(subset_to_neutral(replies)) == 60
+    assert subset_to_neutral(replies)["scenario_id"].str.endswith("neutral").all()
+    assert len(scores) == 240
+    assert len(subset_to_neutral(scores)) == 120
+
+
+def test_fit_subset_recovers_the_injected_self_preference_with_a_standard_error() -> None:
+    """Self-preference is the interaction term. It is built into this data
+    at +0.5, so the fit has to find it, and say how precisely."""
+    llama, qwen = DEFAULT_GENERATORS
+    fit = fit_subset(
+        _two_tone_reply_frame(),
+        _two_tone_score_frame(self_preference=0.5),
+        label="full",
+        generator_alt=llama,
+        generator_ref=qwen,
+        judge_alt=llama,
+        judge_ref=qwen,
+    )
+    effect = fit.effect("self_preference_overall")
+
+    assert effect.coefficient == pytest.approx(0.5, abs=0.2)
+    assert effect.std_error > 0
+    assert [e.key for e in fit.effects] == [
+        "generator_quality",
+        "judge_generosity",
+        "self_preference_overall",
+        "self_preference_plausibility",
+    ]
+
+
+def test_run_two_tone_analysis_fits_the_neutral_half_separately() -> None:
+    """The neutral half is section 41's design. Fitting both separates more
+    data from a wider set of situations."""
+    llama, qwen = DEFAULT_GENERATORS
+    result = run_two_tone_analysis(
+        _two_tone_reply_frame(),
+        _two_tone_score_frame(),
+        generator_alt=llama,
+        generator_ref=qwen,
+        judge_alt=llama,
+        judge_ref=qwen,
+    )
+
+    assert result.full.n_replies == 120
+    assert result.full.n_scores == 240
+    assert result.neutral.n_replies == 60
+    assert result.neutral.n_scores == 120
+    full_se = result.full.effect("self_preference_overall").std_error
+    neutral_se = result.neutral.effect("self_preference_overall").std_error
+    assert full_se < neutral_se
+
+
+def test_replies_for_power_grows_with_the_square_of_the_precision_gap() -> None:
+    """Precision improves with the square root of the sample size, so twice
+    the noise needs four times the replies."""
+    at_target = replies_for_power(0.28, 0.28 / 2.8016, 240)
+    twice_as_noisy = replies_for_power(0.28, 2 * 0.28 / 2.8016, 240)
+
+    assert at_target == pytest.approx(240, rel=1e-3)
+    assert twice_as_noisy == pytest.approx(960, rel=1e-3)
+
+
+def test_build_two_tone_manifest_records_the_prompt_hash_and_both_subsets() -> None:
+    """A result has to say which prompt produced it. Section 41's replies
+    came from a prompt that had changed since, and no file recorded it."""
+    llama, qwen = DEFAULT_GENERATORS
+    result = run_two_tone_analysis(
+        _two_tone_reply_frame(),
+        _two_tone_score_frame(),
+        generator_alt=llama,
+        generator_ref=qwen,
+        judge_alt=llama,
+        judge_ref=qwen,
+    )
+    manifest = build_two_tone_manifest(
+        result,
+        generators=DEFAULT_GENERATORS,
+        judges=DEFAULT_GENERATORS,
+        n_from_cache=120,
+        n_generated=120,
+    )
+
+    assert manifest["run"]["prompt_text_hash"] == prompt_text_hash()
+    assert manifest["run"]["design"] == "two_tone"
+    assert set(manifest["full"]["effects"]) == {
+        "generator_quality",
+        "judge_generosity",
+        "self_preference_overall",
+        "self_preference_plausibility",
+    }
+    assert manifest["neutral_only"]["n_replies"] == 60
+    assert manifest["power"]["replies_needed"] > 0
+
+
+def test_generate_judge_swap_grid_writes_the_prompt_hash_into_its_manifest(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The grid's own run manifest records the prompt too, the way q1.py and
+    pairs.py have since section 51."""
+    seen: list[Any] = []
+
+    def _spy(cells: Any, client: Any, stores: Any, config: Any, **kwargs: Any) -> list[Any]:
+        seen.append(kwargs["manifest"])
+        return []
+
+    monkeypatch.setattr(judge_swap, "run_grid", _spy)
+    generate_judge_swap_grid(
+        FakeClient("llama3.2:3b"),
+        model="llama3.2:3b",
+        personas=[_persona("p0")],
+        stores={},
+        cache=ResponseCache(tmp_path / "cache"),
+        ledger=CostLedger(tmp_path / "ledger.csv"),
+        design="two_tone",
+    )
+
+    assert seen[0].design["prompt_text_hash"] == prompt_text_hash()
+    assert seen[0].design["design"] == "two_tone"
+    assert seen[0].design["n_scenarios"] == 12

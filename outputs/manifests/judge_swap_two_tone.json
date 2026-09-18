@@ -1,0 +1,113 @@
+{
+  "caveats": [
+    "two 3B local models stand in for the plan's cross-provider design",
+    "one draw per cell; the model reproduces its own decision 60% of the time (PROGRESS.md section 50)",
+    "section 41 used a different prompt, so that comparison mixes a prompt change with draw noise"
+  ],
+  "full": {
+    "effects": {
+      "generator_quality": {
+        "coefficient": -0.6903,
+        "label": "generator quality (writer effect)",
+        "outcome": "score_overall",
+        "p_value": 5.485e-12,
+        "std_error": 0.1002
+      },
+      "judge_generosity": {
+        "coefficient": 0.7528,
+        "label": "judge generosity (rater effect)",
+        "outcome": "score_overall",
+        "p_value": 5.627e-14,
+        "std_error": 0.1002
+      },
+      "self_preference_overall": {
+        "coefficient": 0.3972,
+        "label": "self-preference (overall rubric mean)",
+        "outcome": "score_overall",
+        "p_value": 0.005038,
+        "std_error": 0.1416
+      },
+      "self_preference_plausibility": {
+        "coefficient": 0.3667,
+        "label": "self-preference (corpus_plausibility only)",
+        "outcome": "score_corpus_plausibility",
+        "p_value": 0.05472,
+        "std_error": 0.1909
+      }
+    },
+    "n_replies": 240,
+    "n_scores": 480,
+    "persona_variance": 0.0
+  },
+  "neutral_only": {
+    "effects": {
+      "generator_quality": {
+        "coefficient": -0.5,
+        "label": "generator quality (writer effect)",
+        "outcome": "score_overall",
+        "p_value": 0.0003181,
+        "std_error": 0.1389
+      },
+      "judge_generosity": {
+        "coefficient": 0.775,
+        "label": "judge generosity (rater effect)",
+        "outcome": "score_overall",
+        "p_value": 2.404e-08,
+        "std_error": 0.1389
+      },
+      "self_preference_overall": {
+        "coefficient": 0.4,
+        "label": "self-preference (overall rubric mean)",
+        "outcome": "score_overall",
+        "p_value": 0.0417,
+        "std_error": 0.1964
+      },
+      "self_preference_plausibility": {
+        "coefficient": 0.3667,
+        "label": "self-preference (corpus_plausibility only)",
+        "outcome": "score_corpus_plausibility",
+        "p_value": 0.1547,
+        "std_error": 0.2577
+      }
+    },
+    "n_replies": 120,
+    "n_scores": 240,
+    "persona_variance": 0.0
+  },
+  "power": {
+    "coefficient": 0.3972,
+    "replies_needed": 239,
+    "std_error": 0.1416,
+    "target": "80% power, two-sided 0.05, overall-rubric interaction"
+  },
+  "run": {
+    "design": "two_tone",
+    "generators": [
+      "llama3.2:3b",
+      "qwen2.5:3b"
+    ],
+    "judges": [
+      "llama3.2:3b",
+      "qwen2.5:3b"
+    ],
+    "n_from_cache": 0,
+    "n_generated": 0,
+    "prompt_text_hash": "d4c18550ed56f2de"
+  },
+  "section_41": {
+    "generator_quality": {
+      "coefficient": -0.54
+    },
+    "judge_generosity": {
+      "coefficient": 0.61
+    },
+    "self_preference_overall": {
+      "coefficient": 0.32,
+      "p_value": 0.142
+    },
+    "self_preference_plausibility": {
+      "coefficient": 0.7,
+      "p_value": 0.014
+    }
+  }
+}

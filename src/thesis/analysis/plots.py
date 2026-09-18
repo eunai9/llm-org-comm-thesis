@@ -849,6 +849,28 @@ def main() -> None:
         y_label="mean rubric score, own family (1-5)",
     )
 
+    # Section 52: the judge-swap pilot re-run at twice the size (the
+    # two_tone design), on the current prompt. Section 41's replies were
+    # generated the day before the Sep 5 prompt change and never re-run --
+    # this is that re-run, not just a bigger sample. Same own-family-score
+    # plot as section 41's own figure, so the two are easy to set side by
+    # side.
+    plot_factor_interaction(
+        ("llama-generated\n(llama judging)", "qwen-generated\n(qwen judging)"),
+        {
+            "old (section 41, stale prompt)": (4.103, 3.714),
+            "new (section 52, current prompt, 240 replies)": (4.143, 3.683),
+        },
+        path=DOCS_FIGURES_DIR / "judge_swap_two_tone_interaction.png",
+        title="Judge swap at twice the size: self-preference is now significant",
+        subtitle=(
+            "Own-family judge score. Self-preference interaction: old p=.142, new "
+            "p=.005 (overall); corpus_plausibility only, new p=.055."
+        ),
+        x_label="which model wrote the reply, judged by the same model",
+        y_label="mean rubric score, own family (1-5)",
+    )
+
     # Section 45: the power score split into its two halves and checked
     # against seniority separately. Three lines, not two, so
     # plot_factor_interaction's cap does not fit -- this is exactly the case

@@ -109,17 +109,23 @@ def score_items(
     cache: ResponseCache,
     ledger: CostLedger,
     run_id: str,
+    progress_every: int = 0,
 ) -> tuple[list[JudgeResult], ScoringSummary]:
     """Score every item, serving from cache where possible.
 
     Invalid responses are recorded and skipped rather than raised, the same
     choice run.py makes for the simulator: one malformed judge response must
     not discard every other score in the batch.
+
+    ``progress_every`` logs a line every N items, and is off by default.
+    A judging run of several hundred local calls takes hours, and a silent
+    log looks the same as a hung run. It counts items reached, not items
+    scored, so an invalid response still moves the count.
     """
     summary = ScoringSummary(n_requested=len(items))
     results: list[JudgeResult] = []
 
-    for item in items:
+    for index, item in enumerate(items, start=1):
         request = build_judge_request(item, variant, model)
         key = cache_key(request, client.provider)
 
@@ -129,6 +135,9 @@ def score_items(
             cache.put(key, request, response, client.provider)
         else:
             summary.n_from_cache += 1
+
+        if progress_every > 0 and index % progress_every == 0:
+            log.info("judged %d/%d items (%d from cache)", index, len(items), summary.n_from_cache)
 
         if response.parsed is None:
             log.warning("item %s: no parseable structured output", item.item_id)

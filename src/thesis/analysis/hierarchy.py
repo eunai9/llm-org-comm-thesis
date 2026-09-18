@@ -640,6 +640,7 @@ class InteractionModelResult:
     n_observations: int
     n_groups: int
     coefficients: dict[str, float]
+    std_errors: dict[str, float]
     p_values: dict[str, float]
     group_variance: float
     converged: bool
@@ -672,6 +673,21 @@ class InteractionModelResult:
             )
             raise KeyError(msg)
         return self.coefficients[key], self.p_values[key]
+
+    def main_effect_std_error(self, factor: str, level: str) -> float:
+        """How precisely one main effect is measured, on the outcome's own
+        scale. Smaller is better.
+
+        A separate method rather than a third element in
+        :meth:`main_effect`'s tuple, so every existing caller keeps working.
+        """
+        self.main_effect(factor, level)
+        return self.std_errors[f"{factor}[T.{level}]"]
+
+    def interaction_std_error(self, level1: str, level2: str) -> float:
+        """How precisely the interaction term is measured. Smaller is better."""
+        self.interaction(level1, level2)
+        return self.std_errors[f"{self.factor1}[T.{level1}]:{self.factor2}[T.{level2}]"]
 
 
 def fit_interaction_model(
@@ -719,14 +735,17 @@ def fit_interaction_model(
     fit = _fit_with_fallback(model, label=f"{outcome_col} ~ {factor1_col} * {factor2_col}")
 
     coefficients: dict[str, float] = {}
+    std_errors: dict[str, float] = {}
     p_values: dict[str, float] = {}
     for name, coef in fit.params.items():
         if name in ("Intercept", "Group Var"):
             coefficients[name] = float(coef)
+            std_errors[name] = float(fit.bse.get(name, float("nan")))
             p_values[name] = float(fit.pvalues.get(name, float("nan")))
             continue
         clean_name = _clean_interaction_term(name, factor1_col, factor2_col)
         coefficients[clean_name] = float(coef)
+        std_errors[clean_name] = float(fit.bse.get(name, float("nan")))
         p_values[clean_name] = float(fit.pvalues.get(name, float("nan")))
 
     return InteractionModelResult(
@@ -738,6 +757,7 @@ def fit_interaction_model(
         n_observations=len(working),
         n_groups=n_groups,
         coefficients=coefficients,
+        std_errors=std_errors,
         p_values=p_values,
         group_variance=float(fit.cov_re.iloc[0, 0]),
         converged=bool(fit.converged),

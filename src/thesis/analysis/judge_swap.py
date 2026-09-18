@@ -58,6 +58,18 @@ second, dispatching client only this module would need. Scoring has the
 same shape: :func:`score_judge_swap_replies` is called once per judge
 model over the full 120 replies.
 
+**The two-tone design, and why section 41's replies are stale.** Section 52
+re-runs this at twice the size. The design flag ``two_tone`` adds the
+assertive tone next to the neutral one, which doubles the grid to 12
+scenarios, 120 cells per generator, 240 replies and 480 judge calls. The
+neutral-only half of that run is the same design section 41 reports, so one
+run gives both numbers. The re-run was needed for a second reason: commit
+``8f8df1e`` (2026-09-05) added a paragraph to ``TASK_FRAMING`` after section
+41's replies were generated on 2026-09-04, and the cache is keyed on prompt
+text, so every section-41 reply came from a prompt that no longer exists.
+:func:`thesis.sim.prompt.prompt_text_hash` now goes into this module's run
+manifest, so a later run can see that rather than having to work it out.
+
 **Why the "old" half of the comparison is a plain 2x2 decomposition, not a
 mixed-model refit.** Section 23 archived its four cell means (the
 numbers behind ``docs/figures/judge_swap_interaction.png``,
@@ -75,11 +87,12 @@ interaction PROGRESS.md already quoted a p-value for.
 from __future__ import annotations
 
 import argparse
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 import numpy as np
 import pandas as pd
@@ -94,13 +107,14 @@ from thesis.llm.base import CompletionRequest, CompletionResponse, LLMClient, Pr
 from thesis.llm.cache import ResponseCache
 from thesis.llm.cost import CostLedger
 from thesis.logging_setup import configure_logging, get_logger
-from thesis.paths import CACHE_DIR, COST_LEDGER, INTERIM_DIR, ensure_dirs
+from thesis.paths import CACHE_DIR, COST_LEDGER, INTERIM_DIR, MANIFESTS_DIR, ensure_dirs
 from thesis.sim.grid import GridCell, expand, order_for_cache
 from thesis.sim.memory import MemoryItem
 from thesis.sim.memory_generation import load_frozen_memory
 from thesis.sim.persona import Persona, load_frozen_personas
+from thesis.sim.prompt import prompt_text_hash
 from thesis.sim.run import RunManifest, run_grid
-from thesis.sim.scenario import Scenario, build_scenarios
+from thesis.sim.scenario import Scenario, Tone, build_scenarios
 
 log = get_logger(__name__)
 
@@ -122,9 +136,37 @@ class _CompletionClient(Protocol):
 JUDGE_SWAP_GRID_PATH: Path = INTERIM_DIR / "judge_swap_grid.parquet"
 JUDGE_SWAP_SCORES_PATH: Path = INTERIM_DIR / "judge_swap_scores.parquet"
 
-# The only tone level the judge-swap design uses -- see the module docstring
-# for how this was recovered from the response cache rather than guessed at.
-JUDGE_SWAP_TONE = "neutral"
+# Where the two-tone run writes. Separate files, so a bigger run never
+# overwrites the neutral-only files sections 23 and 41 report.
+JUDGE_SWAP_TWO_TONE_GRID_PATH: Path = INTERIM_DIR / "judge_swap_grid_two_tone.parquet"
+JUDGE_SWAP_TWO_TONE_SCORES_PATH: Path = INTERIM_DIR / "judge_swap_scores_two_tone.parquet"
+JUDGE_SWAP_TWO_TONE_MANIFEST_PATH: Path = MANIFESTS_DIR / "judge_swap_two_tone.json"
+
+# Which scenarios a run uses. "pilot" is the 6 neutral-tone scenarios
+# sections 23 and 41 report. "two_tone" adds the assertive tone, so 12
+# scenarios and, with 10 personas, 120 cells per generator model. The 6 are
+# a subset of the 12, which is what lets one run report both.
+JudgeSwapDesign = Literal["pilot", "two_tone"]
+
+JUDGE_SWAP_TONES: dict[JudgeSwapDesign, tuple[Tone, ...]] = {
+    "pilot": ("neutral",),
+    "two_tone": ("neutral", "assertive"),
+}
+
+# The tone every pilot-design reply uses -- see the module docstring for how
+# this was recovered from the response cache rather than guessed at.
+JUDGE_SWAP_TONE: Tone = "neutral"
+
+# section 41 (Sep 4): the same pilot design at 120 replies, under the prompt
+# that existed before commit 8f8df1e. Stored so a later run compares with a
+# recorded number instead of a remembered one. Its two main effects were
+# published as p<.001 and have no exact p-value to store.
+SECTION_41_EFFECTS: dict[str, dict[str, float]] = {
+    "generator_quality": {"coefficient": -0.54},
+    "judge_generosity": {"coefficient": 0.61},
+    "self_preference_overall": {"coefficient": 0.32, "p_value": 0.142},
+    "self_preference_plausibility": {"coefficient": 0.70, "p_value": 0.014},
+}
 
 # Section 23's own pair, in the order its cell means below are keyed by --
 # the second model is the reference level both factors are measured against.
@@ -149,20 +191,44 @@ HISTORICAL_INTERACTION_P_OVERALL = 0.065
 HISTORICAL_INTERACTION_P_PLAUSIBILITY = 0.20
 
 
-def build_judge_swap_scenarios() -> list[Scenario]:
-    """The 6 scenarios (2 task types x 3 directions, neutral tone only) the
-    judge-swap pilot uses -- filtered out of the full 144-scenario grid
-    ``build_scenarios`` returns. Reuses :data:`Q1_TASK_STAKES`'s task/stakes
-    pinning because the cache archaeology in the module docstring found the
-    identical pinning in the judge-swap pilot's own cached calls, not because
-    the two designs are the same design."""
+def build_judge_swap_scenarios(design: JudgeSwapDesign = "pilot") -> list[Scenario]:
+    """The scenarios one design runs, filtered out of the full 144-scenario
+    grid ``build_scenarios`` returns.
+
+    ``pilot`` gives 6: 2 task types x 3 directions, neutral tone only.
+    ``two_tone`` gives 12, adding the assertive tone. Reuses
+    :data:`Q1_TASK_STAKES`'s task/stakes pinning because the cache
+    archaeology in the module docstring found the identical pinning in the
+    judge-swap pilot's own cached calls, not because the two designs are the
+    same design.
+    """
+    tones = JUDGE_SWAP_TONES[design]
     return [
         s
         for s in build_scenarios()
         if s.task_type in Q1_TASK_STAKES
         and s.stakes == Q1_TASK_STAKES[s.task_type]
-        and s.tone == JUDGE_SWAP_TONE
+        and s.tone in tones
     ]
+
+
+def subset_to_neutral(frame: pd.DataFrame) -> pd.DataFrame:
+    """The neutral-tone rows inside a two-tone frame.
+
+    The 6 pilot scenarios are an exact subset of the 12, so a two-tone run
+    contains the design section 41 reports. Refitting on just those rows
+    separates two explanations for a changed answer: more data, or a wider
+    set of situations. Works on a reply frame (which carries ``scenario_id``)
+    and on a score frame (which carries the scenario inside ``item_id``).
+    """
+    neutral_ids = {s.scenario_id for s in build_judge_swap_scenarios("pilot")}
+    if "scenario_id" in frame.columns:
+        keep = frame["scenario_id"].isin(neutral_ids)
+    else:
+        keep = frame["item_id"].map(
+            lambda i: any(str(i).endswith(f"{sid}__r1") for sid in neutral_ids)
+        )
+    return frame[keep].reset_index(drop=True)
 
 
 def _model_slug(model: str) -> str:
@@ -176,12 +242,14 @@ def build_judge_swap_cells(
     role_label: str,
     *,
     n_replicates: int = 1,
+    design: JudgeSwapDesign = "pilot",
 ) -> list[GridCell]:
     """Expand and cache-order one generator model's half of the judge-swap
-    grid: ``len(personas)`` x 6 scenarios x ``n_replicates``. Defaults to one
-    replicate; with 10 personas that is 60 cells, matching section 23's
-    "10 personas x 3 directions x 2 task types" per model."""
-    scenarios = build_judge_swap_scenarios()
+    grid: ``len(personas)`` x scenarios x ``n_replicates``. Defaults to one
+    replicate and the pilot design; with 10 personas that is 60 cells,
+    matching section 23's "10 personas x 3 directions x 2 task types" per
+    model. ``design="two_tone"`` gives 120 cells per model."""
+    scenarios = build_judge_swap_scenarios(design)
     return order_for_cache(expand(personas, scenarios, [(model, role_label)], n_replicates))
 
 
@@ -196,6 +264,7 @@ class JudgeSwapGrid:
     n_cells: int
     n_from_cache: int
     n_generated: int
+    design: JudgeSwapDesign = "pilot"
 
 
 def generate_judge_swap_grid(
@@ -210,9 +279,12 @@ def generate_judge_swap_grid(
     limit: int | None = None,
     cache: ResponseCache | None = None,
     ledger: CostLedger | None = None,
+    design: JudgeSwapDesign = "pilot",
+    progress_every: int = 20,
 ) -> JudgeSwapGrid:
-    """Generate (or load from cache) one generator model's 60-reply half of
-    the judge-swap grid.
+    """Generate (or load from cache) one generator model's half of the
+    judge-swap grid: 60 replies under the pilot design, 120 under
+    ``two_tone``.
 
     Runs through :func:`thesis.sim.run.run_grid`, the same code path
     ``q1.py`` and ``pairs.py`` use. Call this once per generator model (see
@@ -226,7 +298,9 @@ def generate_judge_swap_grid(
     ledger = ledger if ledger is not None else CostLedger(COST_LEDGER)
     role_label = role_label if role_label is not None else f"gen_{_model_slug(model)}"
 
-    cells = build_judge_swap_cells(personas, model, role_label, n_replicates=n_replicates)
+    cells = build_judge_swap_cells(
+        personas, model, role_label, n_replicates=n_replicates, design=design
+    )
     if limit is not None:
         cells = cells[:limit]
 
@@ -238,7 +312,16 @@ def generate_judge_swap_grid(
         git_dirty=False,
         config_hash="",
         models=[model],
-        design={"kind": "judge_swap_grid", "generator": model},
+        design={
+            "kind": "judge_swap_grid",
+            "generator": model,
+            "design": design,
+            "n_scenarios": len({c.scenario.scenario_id for c in cells}),
+            # Ties this run to the prompt text that produced it. Section 51
+            # exists because nothing recorded this before, and section 41's
+            # replies turned out to come from a prompt that no longer exists.
+            "prompt_text_hash": prompt_text_hash(),
+        },
         n_cells=len(cells),
     )
     rows: list[dict[str, Any]] = run_grid(
@@ -250,6 +333,7 @@ def generate_judge_swap_grid(
         cache=cache,
         ledger=ledger,
         manifest=manifest,
+        progress_every=progress_every,
     )
     frame = pd.DataFrame.from_records(rows)
     return JudgeSwapGrid(
@@ -259,6 +343,7 @@ def generate_judge_swap_grid(
         n_cells=len(cells),
         n_from_cache=manifest.n_from_cache,
         n_generated=manifest.n_generated,
+        design=design,
     )
 
 
@@ -315,6 +400,7 @@ def score_judge_swap_replies(
     cache: ResponseCache | None = None,
     ledger: CostLedger | None = None,
     run_id: str | None = None,
+    progress_every: int = 20,
 ) -> JudgeSwapScores:
     """Blind-score every reply in ``replies`` with one judge model.
 
@@ -338,6 +424,7 @@ def score_judge_swap_replies(
         cache=cache,
         ledger=ledger,
         run_id=run_id,
+        progress_every=progress_every,
     )
 
     generator_by_item = dict(zip(replies["cell_id"], replies["model"], strict=True))
@@ -609,6 +696,353 @@ def format_report(result: JudgeSwapResult) -> str:
     return "\n".join(sections)
 
 
+# A two-sided 0.05 test reaches 80% power when the estimate sits 2.80
+# standard errors away from zero: 1.96 for the test, 0.84 for the power.
+POWER_Z_SUM = 2.8016
+
+
+def replies_for_power(coefficient: float, std_error: float, n_replies: int) -> float:
+    """How many replies an effect of this size would need for 80% power.
+
+    Precision improves with the square root of the sample size. So the
+    required size grows with the square of the gap between today's standard
+    error and the one the test needs. Counts replies, not scores, because
+    every reply is scored by both judges.
+    """
+    if coefficient == 0.0:
+        return float("inf")
+    needed_se = abs(coefficient) / POWER_Z_SUM
+    return n_replies * (std_error / needed_se) ** 2
+
+
+@dataclass(frozen=True, slots=True)
+class JudgeSwapEffect:
+    """One measured effect: its size, how precisely it is measured, and its
+    p-value."""
+
+    key: str
+    label: str
+    outcome: str
+    coefficient: float
+    std_error: float
+    p_value: float
+
+
+def effect_estimates(
+    overall_model: InteractionModelResult,
+    plausibility_model: InteractionModelResult,
+    *,
+    generator_alt: str,
+    judge_alt: str,
+) -> list[JudgeSwapEffect]:
+    """The effects this design measures, each with a standard error.
+
+    Generator quality is how much higher one model's replies score, for a
+    fixed judge. Judge generosity is how much higher one judge scores, for a
+    fixed writer. Self-preference is what is left: how much higher a judge
+    scores its own family's replies than those two effects alone predict.
+    That is the interaction term, and it is the one Q3 asks about. It is
+    reported twice, on the rubric mean and on ``corpus_plausibility`` alone.
+    """
+    generator_coefficient, generator_p = overall_model.main_effect("generator", generator_alt)
+    judge_coefficient, judge_p = overall_model.main_effect("judge", judge_alt)
+    interaction_coefficient, interaction_p = overall_model.interaction(generator_alt, judge_alt)
+    plausibility_coefficient, plausibility_p = plausibility_model.interaction(
+        generator_alt, judge_alt
+    )
+    return [
+        JudgeSwapEffect(
+            "generator_quality",
+            "generator quality (writer effect)",
+            "score_overall",
+            generator_coefficient,
+            overall_model.main_effect_std_error("generator", generator_alt),
+            generator_p,
+        ),
+        JudgeSwapEffect(
+            "judge_generosity",
+            "judge generosity (rater effect)",
+            "score_overall",
+            judge_coefficient,
+            overall_model.main_effect_std_error("judge", judge_alt),
+            judge_p,
+        ),
+        JudgeSwapEffect(
+            "self_preference_overall",
+            "self-preference (overall rubric mean)",
+            "score_overall",
+            interaction_coefficient,
+            overall_model.interaction_std_error(generator_alt, judge_alt),
+            interaction_p,
+        ),
+        JudgeSwapEffect(
+            "self_preference_plausibility",
+            "self-preference (corpus_plausibility only)",
+            "score_corpus_plausibility",
+            plausibility_coefficient,
+            plausibility_model.interaction_std_error(generator_alt, judge_alt),
+            plausibility_p,
+        ),
+    ]
+
+
+@dataclass(frozen=True, slots=True)
+class JudgeSwapFit:
+    """One subset of a run, fitted: how big it was and what it found."""
+
+    label: str
+    n_replies: int
+    n_scores: int
+    overall_model: InteractionModelResult
+    plausibility_model: InteractionModelResult
+    effects: list[JudgeSwapEffect]
+
+    def effect(self, key: str) -> JudgeSwapEffect:
+        """One effect, by key."""
+        for effect in self.effects:
+            if effect.key == key:
+                return effect
+        msg = f"no effect {key!r}; available: {[e.key for e in self.effects]}"
+        raise KeyError(msg)
+
+
+def fit_subset(
+    replies: pd.DataFrame,
+    scores: pd.DataFrame,
+    *,
+    label: str,
+    generator_alt: str,
+    generator_ref: str,
+    judge_alt: str,
+    judge_ref: str,
+) -> JudgeSwapFit:
+    """Fit both models on one subset of a run, and read the effects off them."""
+    overall_model, plausibility_model = fit_judge_swap_models(
+        scores, generator_reference=generator_ref, judge_reference=judge_ref
+    )
+    return JudgeSwapFit(
+        label=label,
+        n_replies=len(replies),
+        n_scores=len(scores),
+        overall_model=overall_model,
+        plausibility_model=plausibility_model,
+        effects=effect_estimates(
+            overall_model,
+            plausibility_model,
+            generator_alt=generator_alt,
+            judge_alt=judge_alt,
+        ),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class TwoToneResult:
+    """A two-tone run: the whole grid, and the neutral-tone half inside it."""
+
+    full: JudgeSwapFit
+    neutral: JudgeSwapFit
+
+
+def run_two_tone_analysis(
+    replies: pd.DataFrame,
+    scores: pd.DataFrame,
+    *,
+    generator_alt: str,
+    generator_ref: str,
+    judge_alt: str,
+    judge_ref: str,
+) -> TwoToneResult:
+    """Fit the whole two-tone grid, then the neutral-tone rows inside it.
+
+    The neutral half is the design sections 23 and 41 report. Reporting both
+    separates two things a changed answer could come from: more data, or a
+    wider set of situations.
+    """
+    return TwoToneResult(
+        full=fit_subset(
+            replies,
+            scores,
+            label="full (both tones)",
+            generator_alt=generator_alt,
+            generator_ref=generator_ref,
+            judge_alt=judge_alt,
+            judge_ref=judge_ref,
+        ),
+        neutral=fit_subset(
+            subset_to_neutral(replies),
+            subset_to_neutral(scores),
+            label="neutral tone only",
+            generator_alt=generator_alt,
+            generator_ref=generator_ref,
+            judge_alt=judge_alt,
+            judge_ref=judge_ref,
+        ),
+    )
+
+
+def format_two_tone_report(result: TwoToneResult) -> str:
+    """The two-tone report: the full grid next to its neutral-tone half."""
+    header = f"{'effect':<44}{'full':>9}{'se':>7}{'p':>7}{'neutral':>10}{'se':>7}{'p':>7}"
+    lines = [
+        "Q3 (judge-swap), two-tone run: does a judge favor its own family?",
+        "=" * len(header),
+        f"full: {result.full.n_replies} replies, {result.full.n_scores} scores",
+        f"neutral only: {result.neutral.n_replies} replies, {result.neutral.n_scores} scores",
+        "",
+        header,
+        "-" * len(header),
+    ]
+    for effect in result.full.effects:
+        same = result.neutral.effect(effect.key)
+        lines.append(
+            f"{effect.label:<44}{effect.coefficient:>+9.3f}{effect.std_error:>7.3f}"
+            f"{effect.p_value:>7.3f}{same.coefficient:>+10.3f}{same.std_error:>7.3f}"
+            f"{same.p_value:>7.3f}"
+        )
+
+    interaction = result.full.effect("self_preference_overall")
+    needed = replies_for_power(
+        interaction.coefficient, interaction.std_error, result.full.n_replies
+    )
+    lines += [
+        "",
+        f"persona variance (overall rubric): {result.full.overall_model.group_variance:.4f}",
+        f"replies needed for 80% power on the overall interaction: {needed:.0f}",
+        "",
+        "section 41 (same design, 120 replies, prompt before commit 8f8df1e):",
+    ]
+    for key, recorded in SECTION_41_EFFECTS.items():
+        old_p = recorded.get("p_value")
+        old_p_text = "n/a" if old_p is None else f"{old_p:.3f}"
+        lines.append(
+            f"  {result.full.effect(key).label:<44}"
+            f"{recorded['coefficient']:>+9.3f}{old_p_text:>7}"
+        )
+    return "\n".join(lines)
+
+
+def _effects_payload(fit: JudgeSwapFit) -> dict[str, Any]:
+    """One fitted subset, as plain JSON-safe numbers."""
+    return {
+        "n_replies": fit.n_replies,
+        "n_scores": fit.n_scores,
+        "persona_variance": round(fit.overall_model.group_variance, 4),
+        "effects": {
+            effect.key: {
+                "label": effect.label,
+                "outcome": effect.outcome,
+                "coefficient": round(effect.coefficient, 4),
+                "std_error": round(effect.std_error, 4),
+                "p_value": float(f"{effect.p_value:.4g}"),
+            }
+            for effect in fit.effects
+        },
+    }
+
+
+def build_two_tone_manifest(
+    result: TwoToneResult,
+    *,
+    generators: Sequence[str],
+    judges: Sequence[str],
+    n_from_cache: int,
+    n_generated: int,
+) -> dict[str, Any]:
+    """Everything the write-up quotes, in one file.
+
+    Records ``prompt_text_hash``, so this run is tied to the prompt that
+    produced it. Section 41 had no such record, and its replies turned out to
+    come from a prompt that had changed since.
+    """
+    interaction = result.full.effect("self_preference_overall")
+    return {
+        "run": {
+            "design": "two_tone",
+            "generators": list(generators),
+            "judges": list(judges),
+            "prompt_text_hash": prompt_text_hash(),
+            "n_from_cache": n_from_cache,
+            "n_generated": n_generated,
+        },
+        "full": _effects_payload(result.full),
+        "neutral_only": _effects_payload(result.neutral),
+        "power": {
+            "target": "80% power, two-sided 0.05, overall-rubric interaction",
+            "coefficient": round(interaction.coefficient, 4),
+            "std_error": round(interaction.std_error, 4),
+            "replies_needed": round(
+                replies_for_power(
+                    interaction.coefficient, interaction.std_error, result.full.n_replies
+                )
+            ),
+        },
+        "section_41": SECTION_41_EFFECTS,
+        "caveats": [
+            "two 3B local models stand in for the plan's cross-provider design",
+            "one draw per cell; the model reproduces its own decision 60% of the "
+            "time (PROGRESS.md section 50)",
+            "section 41 used a different prompt, so that comparison mixes a prompt "
+            "change with draw noise",
+        ],
+    }
+
+
+def _report(
+    replies: pd.DataFrame,
+    scores: pd.DataFrame,
+    *,
+    design: JudgeSwapDesign,
+    generators: Sequence[str],
+    judges: Sequence[str],
+    n_from_cache: int,
+    n_generated: int,
+) -> None:
+    """Print one run's report. A two-tone run also gets the neutral-only
+    comparison and a manifest file.
+
+    ``n_from_cache`` and ``n_generated`` describe the process that writes the
+    manifest, so an ``--analyse-only`` run records zero of both.
+    """
+    print(
+        format_report(
+            run_judge_swap_analysis(
+                replies,
+                scores,
+                generator_alt=generators[0],
+                generator_ref=generators[1],
+                judge_alt=judges[0],
+                judge_ref=judges[1],
+            )
+        )
+    )
+    if design != "two_tone":
+        return
+
+    two_tone = run_two_tone_analysis(
+        replies,
+        scores,
+        generator_alt=generators[0],
+        generator_ref=generators[1],
+        judge_alt=judges[0],
+        judge_ref=judges[1],
+    )
+    print()
+    print(format_two_tone_report(two_tone))
+
+    manifest = build_two_tone_manifest(
+        two_tone,
+        generators=generators,
+        judges=judges,
+        n_from_cache=n_from_cache,
+        n_generated=n_generated,
+    )
+    JUDGE_SWAP_TWO_TONE_MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
+    JUDGE_SWAP_TWO_TONE_MANIFEST_PATH.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8"
+    )
+    log.info("wrote %s", JUDGE_SWAP_TWO_TONE_MANIFEST_PATH)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -638,12 +1072,55 @@ def main() -> None:
     parser.add_argument(
         "--limit", type=int, default=None, help="Cap cells per generator, for smoke tests."
     )
-    parser.add_argument("--out", default=str(JUDGE_SWAP_GRID_PATH))
-    parser.add_argument("--scores-out", default=str(JUDGE_SWAP_SCORES_PATH))
+    parser.add_argument(
+        "--design",
+        choices=("pilot", "two_tone"),
+        default="pilot",
+        help=(
+            "Which scenarios to run. 'pilot' is the 6 neutral-tone scenarios "
+            "sections 23 and 41 report (120 replies with 10 personas and two "
+            "generators). 'two_tone' adds the assertive tone (240 replies), "
+            "and contains the pilot."
+        ),
+    )
+    parser.add_argument(
+        "--progress-every",
+        type=int,
+        default=20,
+        help="Log a progress line every N cells, and every N judge calls.",
+    )
+    parser.add_argument(
+        "--analyse-only",
+        action="store_true",
+        help="Re-fit from the stored reply and score files. Calls no model.",
+    )
+    parser.add_argument("--out", default=None, help="Where to write the replies.")
+    parser.add_argument("--scores-out", default=None, help="Where to write the scores.")
     args = parser.parse_args()
+    design: JudgeSwapDesign = args.design
+    judges: list[str] = args.judges if args.judges is not None else list(args.generators)
 
     configure_logging()
     ensure_dirs()
+
+    default_grid = JUDGE_SWAP_GRID_PATH if design == "pilot" else JUDGE_SWAP_TWO_TONE_GRID_PATH
+    default_scores = (
+        JUDGE_SWAP_SCORES_PATH if design == "pilot" else JUDGE_SWAP_TWO_TONE_SCORES_PATH
+    )
+    out_path = Path(args.out) if args.out else default_grid
+    scores_out = Path(args.scores_out) if args.scores_out else default_scores
+
+    if args.analyse_only:
+        _report(
+            pd.read_parquet(out_path),
+            pd.read_parquet(scores_out),
+            design=design,
+            generators=args.generators,
+            judges=judges,
+            n_from_cache=0,
+            n_generated=0,
+        )
+        return
 
     from thesis.llm.ollama_client import OllamaClient, OllamaUnavailableError
 
@@ -651,8 +1128,6 @@ def main() -> None:
         return (
             OllamaClient(model, host=args.ollama_host) if args.ollama_host else OllamaClient(model)
         )
-
-    judges: list[str] = args.judges if args.judges is not None else list(args.generators)
 
     grids: list[JudgeSwapGrid] = []
     for model in args.generators:
@@ -664,7 +1139,12 @@ def main() -> None:
             )
             raise OllamaUnavailableError(msg)
         grid = generate_judge_swap_grid(
-            client, model=model, cache_only=args.cache_only, limit=args.limit
+            client,
+            model=model,
+            cache_only=args.cache_only,
+            limit=args.limit,
+            design=design,
+            progress_every=args.progress_every,
         )
         log.info(
             "generator %s: %d cells (%d cached, %d generated)",
@@ -676,7 +1156,6 @@ def main() -> None:
         grids.append(grid)
 
     replies = combine_generator_grids(grids)
-    out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     replies.to_parquet(out_path, compression="zstd", index=False)
 
@@ -694,7 +1173,13 @@ def main() -> None:
             )
             raise OllamaUnavailableError(msg)
         scores = score_judge_swap_replies(
-            replies, client, judge_model=judge_model, cache=cache, ledger=ledger, run_id=run_id
+            replies,
+            client,
+            judge_model=judge_model,
+            cache=cache,
+            ledger=ledger,
+            run_id=run_id,
+            progress_every=args.progress_every,
         )
         log.info(
             "judge %s: %d scored (%d cached, %d invalid)",
@@ -706,19 +1191,18 @@ def main() -> None:
         scores_list.append(scores)
 
     scores_frame = combine_judge_scores(scores_list)
-    scores_out = Path(args.scores_out)
     scores_out.parent.mkdir(parents=True, exist_ok=True)
     scores_frame.to_parquet(scores_out, compression="zstd", index=False)
 
-    result = run_judge_swap_analysis(
+    _report(
         replies,
         scores_frame,
-        generator_alt=args.generators[0],
-        generator_ref=args.generators[1],
-        judge_alt=judges[0],
-        judge_ref=judges[1],
+        design=design,
+        generators=args.generators,
+        judges=judges,
+        n_from_cache=sum(g.n_from_cache for g in grids),
+        n_generated=sum(g.n_generated for g in grids),
     )
-    print(format_report(result))
 
 
 if __name__ == "__main__":

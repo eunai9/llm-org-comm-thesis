@@ -28,7 +28,7 @@ you to read, not for a computer to run. Updated after each work session.
 | Build the AI judge (scoring rubric and pipeline) | Done, on the free path |
 | Statistics that compare real vs. AI-written emails | Done, on the free path |
 | AI replies to a real email, compared to the real reply | Done — 183 pairs on the rebuilt corpus, see section 38 |
-| Does the judge favour its own kind of AI? (Q3) | Re-run against the rebuilt corpus — headline result weaker, one item now significant, see section 41 |
+| Does the judge favour its own kind of AI? (Q3) | Re-run at twice the size under the current prompt — self-preference is significant, p=.005. Section 41's number was stale. See section 52 |
 | Does hierarchy shape what gets written? (Q1) | Re-run at 1,440 replies under the current prompt. Writing down is +0.134 (p=.092), measured six times better than before. Section 39's numbers are stale. See section 51 |
 | Does real email show a direction pattern? (benchmark for Q1) | Measured. Writing down gives more orders in every check. The simulator's estimate is the same size but too noisy to detect. See section 48 |
 | Is each result tied to the prompt that produced it? | It was not. A prompt change on Sep 5 silently moved Q1's numbers and nothing caught it. Run manifests now record a prompt hash. See section 51 |
@@ -1929,6 +1929,20 @@ disagree with the table for a few minutes today.
 
 ### 41. The judge-swap pilot on the rebuilt corpus (Sep 4)
 
+> **Note added Sep 17: the numbers in this section are stale.** The replies
+> were generated on Sep 4 at 21:54. On Sep 5 at 16:46, commit `8f8df1e` added
+> a paragraph to `TASK_FRAMING` in `src/thesis/sim/prompt.py`, the "you are the
+> person this message was sent to" instruction from section 43. It applies to
+> every reply, with no variant switch. The response cache is keyed on the
+> prompt text, so that commit changed every reply this section scored. This was
+> checked directly, not inferred: for one cell, the cached entry holding this
+> section's reply has a 5,260-character system prompt against today's 5,975,
+> and the only difference is that paragraph. The same failure hit section 39,
+> and section 51 is where it was found. Section 52 re-runs this design under
+> the current prompt at twice the size. The numbers here are left exactly as
+> they were, because they are correct for the prompt that produced them. They
+> should not be compared with any result generated after Sep 5.
+
 Section 37 rebuilt the corpus and left three stale results. Q2 was checked in
 section 38 and Q1 in section 39. This is the third: the judge-swap pilot from
 section 23, the free stand-in for Q3 (does a judge favor its own kind of AI?).
@@ -3353,6 +3367,130 @@ changes. No test calls a model. black, ruff and mypy are clean.
 
 ---
 
+### 52. Self-preference is real at twice the size, on the current prompt (Sep 17)
+
+**Result first.** The judge favors its own kind of AI. Run at twice the size
+and under the current prompt, the self-preference interaction is +0.397,
+p=.005. Section 41 reported the same interaction as +0.32, p=.142, and called
+it not confirmed. This is now a real finding.
+
+**Why this step follows.** Section 41 called its own result too small to
+trust. Section 51 then found that section 41's replies came from a prompt
+commit `8f8df1e` changed on Sep 5, one day after they were generated. Section
+41 needed two fixes, not one: more replies, and the current prompt. This run
+does both at once. It adds the assertive tone next to neutral, which doubles
+the design to 240 replies, and every reply is generated fresh, so all of them
+come from the prompt as it stands today.
+
+**What self-preference means here.** Two 3B local models, llama3.2:3b and
+qwen2.5:3b, each write replies and each judge replies, including their own.
+Three numbers separate three explanations for the same raw pattern:
+
+- **Generator quality** — one model may just write better replies, whichever
+  model judges them.
+- **Judge generosity** — one model may just score everything higher,
+  whichever model wrote it.
+- **Self-preference** — what is left after those two are accounted for: does
+  a judge score its own family's replies higher than its own generosity and
+  that generator's own quality would already predict on their own? This is
+  the interaction term, and it is the number Q3 asks about.
+
+**The design, and why one run gives two answers.** The 6 neutral-tone
+scenarios are the same design section 41 used. Adding the assertive tone
+gives 12 scenarios, 120 replies per generator, 240 in total, scored by both
+judges: 480 scores. The 6 neutral scenarios sit inside the 12, so refitting
+on just those rows gives the same design as section 41, at the same size,
+under the current prompt. One run gives three numbers to compare instead of
+one.
+
+**The three comparisons, side by side.**
+
+| Self-preference (overall rubric mean) | Replies | Prompt | Coefficient | SE | p |
+|---|---:|---|---:|---:|---:|
+| Section 41 | 120 | before Sep 5 | +0.32 | n/a | .142 |
+| Neutral-only, this run | 120 | current | +0.40 | 0.196 | .042 |
+| Full, this run | 240 | current | +0.40 | 0.142 | **.005** |
+
+**Two different comparisons sit in this table, and they answer different
+questions.**
+
+Neutral-only against full compares the same prompt at two sizes, 120 replies
+against 240. The coefficient does not move. The standard error falls from
+0.196 to 0.142, close to what doubling the data should give on its own
+(0.196 divided by the square root of 2 is 0.139). This is a clean case of
+more data buying precision, and it is what took p from .042 to .005.
+
+Section 41 against the neutral-only row compares two prompts at the same
+size, 120 replies each. This comparison is not clean. The prompt changed and
+the draw changed together, with one draw of each. Section 50 already showed
+this matters: two draws of one identical prompt disagree substantially on
+other measures. So the move from p=.142 to p=.042 at the same sample size
+cannot be assigned to the prompt alone. Some of it may be draw noise. This is
+the same caution section 51 gave for Q1's writing-up number, and it applies
+here for the same reason.
+
+**The full run is the number to use going forward.** Whatever mix of prompt
+and noise explains the neutral-only shift, the full run's p=.005 is measured
+at 240 replies under the prompt this project uses today. That is the current
+number for Q3.
+
+**One item moved the other way.** The `corpus_plausibility`-only interaction
+was section 41's clearest signal, at +0.70, p=.014. Now it is +0.367, p=.055
+at full size, and p=.155 at the matched 120-reply size. This is one narrow
+rubric item, and section 41 already warned that a single item can be moved by
+chance. It moved, in both directions across these runs. The overall-rubric
+interaction is the steadier of the two, since it averages six items instead
+of trusting one.
+
+**The main effects grew too.** Generator quality (how much better qwen
+writes than llama, by both judges) and judge generosity (how much more
+llama scores everything than qwen) both got larger under the current prompt:
+−0.54 and +0.61 in section 41, against −0.69 and +0.75 in the full run here.
+The current prompt did not only change the interaction. It shifted the whole
+grid these three numbers are built from, which fits section 51's finding
+that the Sep 5 change moved more than the one thing it was meant to fix.
+
+**Power.** The number of replies an effect this size would need for 80%
+power, using this run's own coefficient and precision, is 239. This run has
+240. So this sits close to the smallest run that would have found this
+effect at all. A slightly smaller true effect, or a noisier draw, could have
+kept it below significance again.
+
+**Own-family scores**, the number the figure below plots: llama, judged by
+llama, scores 4.143 (was 4.103 in section 41). qwen, judged by qwen, scores
+3.683 (was 3.714). llama's own-family score rose a little; qwen's fell a
+little.
+
+![Own-family judge score, section 41 against this run. Both llama's and
+qwen's bars sit close to before; the interaction that separates them from
+chance grew from p=.142 to
+p=.005.](docs/figures/judge_swap_two_tone_interaction.png)
+
+**Section 41 is now marked stale**, the same way section 39 was in section
+51: its numbers stand exactly as written, with a dated note pointing here.
+
+**Limits.** Two 3B local models stand in for the plan's cross-provider
+design; that gap is unchanged. One draw per cell — section 50 measured how
+noisy a single draw is for the decision field and for word-count measures,
+but not for rubric scores directly, so the size of that noise for scores
+themselves is still unmeasured. Persona variance for the overall-rubric
+model is 0.0000 again, the same degenerate case sections 33, 34 and 41 hit.
+
+**How it was run.**
+
+```
+python -m thesis.analysis.judge_swap --generators llama3.2:3b qwen2.5:3b --design two_tone
+```
+
+240 replies generated and 480 judge calls, nothing served from cache, since
+the prompt is new to this run. Cost was zero. `prompt_text_hash` is now
+recorded in the run manifest
+(`outputs/manifests/judge_swap_two_tone.json`), the same fix section 51 made
+for Q1, so a later run can check this one against a recorded value instead
+of finding a mismatch by hand, the way this section had to.
+
+---
+
 ## What's next
 
 *(Rewritten Aug 31 — the previous version was written before the corpus
@@ -3470,6 +3608,15 @@ now carries that note. Second, the same two runs give a noise floor for every
 other paired comparison here: the flag counts section 49 reported are smaller
 than what two identical-prompt draws produce, while its borrowed-words mean
 (−0.067, p=.0009) sits far above a noise floor of −0.004.
+
+**Q3 (judge-swap) is also settled now, and it changed (section 52).**
+Section 41's replies turned out to share the same stale-prompt problem as
+Q1's: generated the day before the Sep 5 change, and never re-run since.
+Re-run at twice the size and the current prompt, the self-preference
+interaction is +0.397, p=.005, a real result, where section 41 could only
+call its own +0.32 "not confirmed" at p=.142. Section 41 is now marked
+stale, the way section 39 was. This closes the last of the sections built
+on the pre-Sep-5 prompt without anyone checking.
 
 **Next priority is therefore yours to pick**, since the cheap technical
 work in this thread is finished. The strongest candidates are re-coding
