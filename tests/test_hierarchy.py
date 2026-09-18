@@ -25,6 +25,8 @@ from thesis.analysis.hierarchy import (
     MixedModelResult,
     SentenceModelResult,
     _fit_with_fallback,
+    aggregate_replicates,
+    cell_id_without_replicate,
     direction_decision_association,
     fit_direction_fixed_effects,
     fit_direction_mixed_model,
@@ -764,3 +766,99 @@ def test_fit_raises_when_every_optimizer_raises() -> None:
     model = _FakeModel({m: ValueError("bad") for m in ("lbfgs", "powell", "nm")})
     with pytest.raises(InsufficientDataError, match="no optimizer"):
         _fit_with_fallback(model, label="x")
+
+
+# --------------------------------------------------------- replicate handling
+
+
+def test_cell_id_without_replicate_strips_the_draw_suffix() -> None:
+    ids = pd.Series(["sim_q1__p0__scen__r1", "sim_q1__p0__scen__r2"])
+    assert cell_id_without_replicate(ids).tolist() == ["sim_q1__p0__scen"] * 2
+
+
+def test_cell_id_without_replicate_only_strips_the_trailing_suffix() -> None:
+    """A persona or scenario id that happens to contain ``r1`` elsewhere in
+    the string must survive -- only the trailing draw index goes."""
+    ids = pd.Series(["sim_q1__rank1_p__scen__r1"])
+    assert cell_id_without_replicate(ids).tolist() == ["sim_q1__rank1_p__scen"]
+
+
+def test_aggregate_replicates_averages_the_value_columns() -> None:
+    df = pd.DataFrame(
+        {
+            "cell_id": ["c__r1", "c__r2"],
+            "persona_id": ["p0", "p0"],
+            "direction": ["up", "up"],
+            "imperative_ratio": [0.2, 0.6],
+        }
+    )
+    result = aggregate_replicates(df, ["imperative_ratio"], keep_cols=["persona_id", "direction"])
+    assert len(result) == 1
+    assert result["imperative_ratio"].iloc[0] == pytest.approx(0.4)
+    assert result["persona_id"].iloc[0] == "p0"
+    assert result["n_draws"].iloc[0] == 2
+
+
+def test_aggregate_replicates_keeps_cells_separate() -> None:
+    df = pd.DataFrame(
+        {
+            "cell_id": ["a__r1", "a__r2", "b__r1", "b__r2"],
+            "persona_id": ["p0", "p0", "p0", "p0"],
+            "imperative_ratio": [0.0, 0.0, 1.0, 1.0],
+        }
+    )
+    result = aggregate_replicates(df, ["imperative_ratio"], keep_cols=["persona_id"])
+    assert len(result) == 2
+    assert set(result["imperative_ratio"]) == {0.0, 1.0}
+
+
+def _persona_cell_sentences(
+    effects: dict[str, float],
+    *,
+    n_personas: int = 16,
+    cells_per_persona: int = 12,
+    sentences_per_draw: int = 3,
+    n_draws: int = 2,
+    seed: int = 5,
+) -> pd.DataFrame:
+    """Sentences nested in cells nested in personas -- the shape
+    ``run_q1_analysis`` builds for a multi-draw Q1 grid: each cell is
+    answered ``n_draws`` times, and each reply contributes
+    ``sentences_per_draw`` sentences that are not independent of each
+    other."""
+    rng = np.random.default_rng(seed)
+    directions = list(effects)
+    rows = []
+    for p in range(n_personas):
+        persona_offset = rng.normal(0.0, 0.3)
+        for c in range(cells_per_persona):
+            direction = directions[c % len(directions)]
+            cell_offset = rng.normal(0.0, 0.4)
+            logit = -0.3 + effects[direction] + persona_offset + cell_offset
+            prob = 1.0 / (1.0 + np.exp(-logit))
+            for _draw in range(1, n_draws + 1):
+                for _ in range(sentences_per_draw):
+                    rows.append(
+                        {
+                            "persona_id": f"p{p}",
+                            "cell_base_id": f"p{p}_c{c}",
+                            "direction": direction,
+                            "is_imperative": int(rng.random() < prob),
+                        }
+                    )
+    return pd.DataFrame(rows)
+
+
+def test_sentence_model_recovers_effect_with_cells_nested_in_persona() -> None:
+    """The two-grouping-level shape a multi-draw Q1 grid needs: a random
+    intercept per persona and a second one per cell, since two draws of one
+    cell give two replies whose sentences are not independent of each
+    other. A known effect must still come back close to its true value."""
+    df = _persona_cell_sentences({"lateral": 0.0, "up": 1.2, "down": -0.9})
+    result = fit_sentence_level_model(df, "is_imperative", nested_col="cell_base_id")
+
+    assert result.contrast("up")[0] == pytest.approx(1.2, abs=0.35)
+    assert result.contrast("up")[1] < 0.01
+    assert result.contrast("down")[0] == pytest.approx(-0.9, abs=0.35)
+    assert result.contrast("down")[1] < 0.01
+    assert result.nested_sd is not None and result.nested_sd > 0

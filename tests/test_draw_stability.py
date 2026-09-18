@@ -12,12 +12,15 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from thesis.analysis.draw_stability import (
     decision_stability,
+    grid_draw_reliability,
     imperative_ratios,
     merge_draws,
     plot,
+    spearman_brown,
 )
 
 
@@ -123,3 +126,116 @@ def test_plot_writes_a_figure(tmp_path: Path) -> None:
     result = decision_stability(_frame(["accept", "defer"]), _frame(["accept", "accept"]))
     path = plot(result, path=tmp_path / "test_retest_decision_agreement.png")
     assert path.is_file()
+
+
+# ---------------------------------------------------- grid-shaped reliability
+
+
+def _reply_features_two_draws(
+    imperative_ratio_1: list[float],
+    imperative_ratio_2: list[float],
+    hedge_rate_1: list[float],
+    hedge_rate_2: list[float],
+    decision_1: list[str],
+    decision_2: list[str],
+    *,
+    shuffle_draw2: bool = False,
+) -> pd.DataFrame:
+    """A grid's `extract_q1_reply_features` shape, narrowed to the columns
+    `grid_draw_reliability` needs: `cell_id` ending in `__r{replicate}`, and
+    `replicate` itself."""
+    n = len(imperative_ratio_1)
+    draw1 = [
+        {
+            "cell_id": f"c{i}__r1",
+            "replicate": 1,
+            "decision": decision_1[i],
+            "imperative_ratio": imperative_ratio_1[i],
+            "hedge_rate": hedge_rate_1[i],
+        }
+        for i in range(n)
+    ]
+    draw2 = [
+        {
+            "cell_id": f"c{i}__r2",
+            "replicate": 2,
+            "decision": decision_2[i],
+            "imperative_ratio": imperative_ratio_2[i],
+            "hedge_rate": hedge_rate_2[i],
+        }
+        for i in range(n)
+    ]
+    if shuffle_draw2:
+        draw2 = draw2[::-1]
+    return pd.DataFrame(draw1 + draw2)
+
+
+def test_grid_draw_reliability_is_perfect_when_draws_match() -> None:
+    values = [0.1, 0.2, 0.3, 0.4, 0.5]
+    decisions = ["accept", "accept", "defer", "defer", "escalate"]
+    frame = _reply_features_two_draws(values, values, values, values, decisions, decisions)
+
+    result = grid_draw_reliability(frame)
+
+    assert result.n_cells == 5
+    assert result.imperative_ratio.pearson == 1.0
+    assert result.imperative_ratio.icc == 1.0
+    assert result.hedge_rate.pearson == 1.0
+    assert result.decision.share_agree == 1.0
+    assert result.decision.kappa == 1.0
+
+
+def test_grid_draw_reliability_pairs_cells_not_row_order() -> None:
+    """The merge is on cell identity, not row position -- draw 2 shuffled
+    must give the same numbers as draw 2 in order."""
+    values1 = [0.1, 0.3, 0.5, 0.2, 0.4]
+    values2 = [0.2, 0.1, 0.6, 0.3, 0.5]
+    decisions = ["accept"] * 5
+    ordered = _reply_features_two_draws(values1, values2, values1, values2, decisions, decisions)
+    shuffled = _reply_features_two_draws(
+        values1, values2, values1, values2, decisions, decisions, shuffle_draw2=True
+    )
+
+    assert grid_draw_reliability(ordered).imperative_ratio.pearson == pytest.approx(
+        grid_draw_reliability(shuffled).imperative_ratio.pearson
+    )
+
+
+def test_grid_draw_reliability_reports_spearman_brown_projections() -> None:
+    values = [0.1, 0.2, 0.3, 0.4, 0.5]
+    decisions = ["accept"] * 5
+    frame = _reply_features_two_draws(values, values, values, values, decisions, decisions)
+
+    result = grid_draw_reliability(frame)
+
+    assert result.imperative_ratio.spearman_brown_k2 == spearman_brown(
+        result.imperative_ratio.pearson, 2
+    )
+    assert result.imperative_ratio.spearman_brown_k3 == spearman_brown(
+        result.imperative_ratio.pearson, 3
+    )
+
+
+def test_grid_draw_reliability_requires_exactly_two_draws() -> None:
+    frame = pd.DataFrame(
+        {
+            "cell_id": ["c0__r1", "c0__r2", "c0__r3"],
+            "replicate": [1, 2, 3],
+            "decision": ["accept"] * 3,
+            "imperative_ratio": [0.1, 0.2, 0.3],
+            "hedge_rate": [0.0, 0.0, 0.0],
+        }
+    )
+    with pytest.raises(ValueError, match="exactly draws 1 and 2"):
+        grid_draw_reliability(frame)
+
+
+def test_spearman_brown_is_identity_at_one_draw() -> None:
+    assert spearman_brown(0.42, 1) == pytest.approx(0.42)
+
+
+def test_spearman_brown_matches_section_50s_projection() -> None:
+    """Section 50 measured r=0.15 between two draws of orders per reply, and
+    reported that two draws would reach about 0.26 and three about 0.35."""
+    assert spearman_brown(0.15, 2) == pytest.approx(0.26, abs=0.005)
+    assert spearman_brown(0.15, 3) == pytest.approx(0.35, abs=0.005)

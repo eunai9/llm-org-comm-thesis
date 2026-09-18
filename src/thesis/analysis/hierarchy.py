@@ -157,6 +157,49 @@ def _indicator_matrix(values: pd.Series) -> sparse.csr_matrix:
     )
 
 
+# A draw's own index, appended by thesis.sim.grid.expand to every cell id
+# ("...__r1", "...__r2", ...). Stripping it recovers the cell's identity --
+# what two draws of the same cell have in common.
+_REPLICATE_SUFFIX = re.compile(r"__r\d+$")
+
+
+def cell_id_without_replicate(cell_ids: pd.Series) -> pd.Series:
+    """A cell's identity: its ``cell_id`` with the trailing ``__r{replicate}``
+    draw index removed.
+
+    Two draws of the same cell get different ``cell_id`` values -- see
+    :func:`thesis.sim.grid.expand`, which appends the suffix. This recovers
+    what the two draws share, so they can be grouped back into one cell.
+    """
+    return cell_ids.str.replace(_REPLICATE_SUFFIX, "", regex=True)
+
+
+def aggregate_replicates(
+    df: pd.DataFrame,
+    value_cols: Sequence[str],
+    *,
+    cell_id_col: str = "cell_id",
+    keep_cols: Sequence[str] = (),
+) -> pd.DataFrame:
+    """One row per cell, each of ``value_cols`` averaged across its draws.
+
+    Fitting a model on one row per draw would treat two draws of the same
+    cell as two independent observations, which understates how uncertain
+    the estimate really is. This collapses the draws first, so a model
+    fitted on the result sees one row per cell, as the design intends.
+
+    ``keep_cols`` (e.g. persona_id, direction) must be constant within a
+    cell; the first row's value is kept. The result also carries
+    ``n_draws``, how many rows each cell had before averaging.
+    """
+    working = df.assign(**{cell_id_col: cell_id_without_replicate(df[cell_id_col])})
+    grouped = working.groupby(cell_id_col, as_index=False).agg(
+        {**{col: "mean" for col in value_cols}, **{col: "first" for col in keep_cols}}
+    )
+    n_draws = working.groupby(cell_id_col).size().rename("n_draws")
+    return grouped.merge(n_draws, on=cell_id_col)
+
+
 class InsufficientDataError(ValueError):
     """Raised when there is not enough data to fit the requested model.
 

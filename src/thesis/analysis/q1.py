@@ -60,10 +60,13 @@ from scipy import stats
 from spacy.tokens import Doc
 from statsmodels.stats.multitest import multipletests
 
+from thesis.analysis.draw_stability import GridReliability, grid_draw_reliability
 from thesis.analysis.hierarchy import (
     AssociationResult,
     MixedModelResult,
     SentenceModelResult,
+    aggregate_replicates,
+    cell_id_without_replicate,
     direction_decision_association,
     fit_direction_mixed_model,
     fit_interaction_model,
@@ -456,9 +459,10 @@ def extract_q1_sentence_features(
 
     # stakes and task_type come straight off the result rows (see
     # sim.run.RESULT_SCHEMA). The full grid crosses both, and the
-    # exploratory models need them at this grain.
+    # exploratory models need them at this grain. replicate is carried so a
+    # multi-draw grid can be split by draw (see run_q1_analysis).
     meta = frame[
-        ["cell_id", "persona_id", "direction", "scenario_id", "stakes", "task_type"]
+        ["cell_id", "persona_id", "direction", "scenario_id", "stakes", "task_type", "replicate"]
     ].copy()
     meta["tone"] = meta["scenario_id"].map(_tone_from_scenario_id)
     return sentences.merge(meta, on="cell_id", how="left", validate="many_to_one")
@@ -520,7 +524,16 @@ def format_comparison_table(comparisons: Sequence[ContrastComparison], *, label:
 class Q1Result:
     """Everything one run of this module produces, in one place -- what
     :func:`main` prints and what a caller wanting the numbers rather than
-    the printout should use instead of re-parsing stdout."""
+    the printout should use instead of re-parsing stdout.
+
+    ``reply_model``, ``sentence_model``, ``hedge_model`` and
+    ``decision_association`` are fitted on draw 1 only, even when the grid
+    holds more draws -- this is what keeps a single-draw grid's report
+    identical to before, and what a multi-draw grid's headline numbers are
+    compared against. The four fields below are the multi-draw analysis:
+    ``None`` when the grid has one draw, since there is nothing to average
+    or compare.
+    """
 
     grid: Q1Grid
     reply_features: pd.DataFrame
@@ -531,6 +544,11 @@ class Q1Result:
     decision_association: AssociationResult
     reply_level_comparison: list[ContrastComparison]
     sentence_level_comparison: list[ContrastComparison]
+    n_draws: int = 1
+    aggregated_reply_model: MixedModelResult | None = None
+    aggregated_hedge_model: MixedModelResult | None = None
+    sentence_model_clustered: SentenceModelResult | None = None
+    reliability: GridReliability | None = None
 
 
 def run_q1_analysis(grid: Q1Grid) -> Q1Result:
@@ -538,17 +556,50 @@ def run_q1_analysis(grid: Q1Grid) -> Q1Result:
     model this project has used, in one call -- the analysis half of what
     ``main`` reports, kept separate from CLI parsing and generation so it can
     be called directly (from a notebook, or a test) on a grid that already
-    exists."""
+    exists.
+
+    A grid with more than one draw per cell (``--replicates`` > 1) also gets
+    the multi-draw analysis: the reply-level fit on draws averaged per cell,
+    the sentence-level fit with a second random intercept per cell, and the
+    draw 1 vs draw 2 reliability table. See :class:`Q1Result`.
+    """
     docs = parse_replies(grid.frame)
     reply_features = extract_q1_reply_features(grid.frame, docs=docs)
     sentence_features = extract_q1_sentence_features(grid.frame, docs=docs)
 
-    reply_model = fit_direction_mixed_model(reply_features, "imperative_ratio", reference="lateral")
-    hedge_model = fit_direction_mixed_model(reply_features, "hedge_rate", reference="lateral")
-    sentence_model = fit_sentence_level_model(
-        sentence_features, "is_imperative", reference="lateral"
-    )
-    decision_association = direction_decision_association(reply_features)
+    n_draws = int(grid.frame["replicate"].nunique())
+    draw1_replies = reply_features[reply_features["replicate"] == 1]
+    draw1_sentences = sentence_features[sentence_features["replicate"] == 1]
+
+    reply_model = fit_direction_mixed_model(draw1_replies, "imperative_ratio", reference="lateral")
+    hedge_model = fit_direction_mixed_model(draw1_replies, "hedge_rate", reference="lateral")
+    sentence_model = fit_sentence_level_model(draw1_sentences, "is_imperative", reference="lateral")
+    decision_association = direction_decision_association(draw1_replies)
+
+    aggregated_reply_model = None
+    aggregated_hedge_model = None
+    sentence_model_clustered = None
+    reliability = None
+    if n_draws > 1:
+        aggregated = aggregate_replicates(
+            reply_features,
+            ["imperative_ratio", "hedge_rate"],
+            keep_cols=["persona_id", "direction", "scenario_id", "tone", "stakes", "task_type"],
+        )
+        aggregated_reply_model = fit_direction_mixed_model(
+            aggregated, "imperative_ratio", reference="lateral"
+        )
+        aggregated_hedge_model = fit_direction_mixed_model(
+            aggregated, "hedge_rate", reference="lateral"
+        )
+
+        clustered_sentences = sentence_features.assign(
+            cell_base_id=cell_id_without_replicate(sentence_features["cell_id"])
+        )
+        sentence_model_clustered = fit_sentence_level_model(
+            clustered_sentences, "is_imperative", reference="lateral", nested_col="cell_base_id"
+        )
+        reliability = grid_draw_reliability(reply_features)
 
     return Q1Result(
         grid=grid,
@@ -560,6 +611,11 @@ def run_q1_analysis(grid: Q1Grid) -> Q1Result:
         decision_association=decision_association,
         reply_level_comparison=compare_to_historical(reply_model, HISTORICAL_REPLY_LEVEL),
         sentence_level_comparison=compare_to_historical(sentence_model, HISTORICAL_SENTENCE_LEVEL),
+        n_draws=n_draws,
+        aggregated_reply_model=aggregated_reply_model,
+        aggregated_hedge_model=aggregated_hedge_model,
+        sentence_model_clustered=sentence_model_clustered,
+        reliability=reliability,
     )
 
 
@@ -605,7 +661,63 @@ def format_report(result: Q1Result) -> str:
         "mean imperative_ratio / hedge_rate by direction:",
         means.to_string(),
     ]
-    return "\n".join(sections)
+    report = "\n".join(sections)
+    multi_draw = format_multi_draw_report(result)
+    return f"{report}\n{multi_draw}" if multi_draw else report
+
+
+def format_multi_draw_report(result: Q1Result) -> str:
+    """The extra report for a grid with more than one draw per cell: the
+    aggregated reply-level fit, the sentence-level fit clustered by cell, and
+    the draw 1 vs draw 2 reliability table -- printed next to the
+    draw-1-only numbers :func:`format_report` already shows. Returns an
+    empty string for a single-draw grid, so :func:`format_report` prints
+    nothing extra in that case.
+    """
+    if result.n_draws <= 1 or result.reliability is None:
+        return ""
+    assert result.aggregated_reply_model is not None
+    assert result.aggregated_hedge_model is not None
+    assert result.sentence_model_clustered is not None
+
+    agg = result.aggregated_reply_model
+    agg_hedge = result.aggregated_hedge_model
+    clustered = result.sentence_model_clustered
+    rel = result.reliability
+
+    def _pair(fit: MixedModelResult | SentenceModelResult) -> str:
+        up_c, up_p = fit.contrast("up")
+        down_c, down_p = fit.contrast("down")
+        return f"up: {up_c:+.3f} (p={up_p:.3f})  down: {down_c:+.3f} (p={down_p:.3f})"
+
+    lines = [
+        "",
+        f"Multi-draw grid: {result.n_draws} draws per cell",
+        "=" * 64,
+        "",
+        "Reply-level (linear), one row per cell, averaged over draws:",
+        f"  imperative_ratio ~ direction: {_pair(agg)}",
+        f"    draw 1 only, for comparison: {_pair(result.reply_model)}",
+        f"  hedge_rate ~ direction:       {_pair(agg_hedge)}",
+        f"    draw 1 only, for comparison: {_pair(result.hedge_model)}",
+        "",
+        "Sentence-level (logistic, logit scale), random intercept per persona " "and per cell:",
+        f"  is_imperative ~ direction: {_pair(clustered)}",
+        f"    draw 1 only, for comparison: {_pair(result.sentence_model)}",
+        "",
+        "Draw 1 vs draw 2, across every cell (section 50's check, generalized):",
+        f"  imperative_ratio: pearson={rel.imperative_ratio.pearson:.3f} "
+        f"spearman={rel.imperative_ratio.spearman:.3f} icc={rel.imperative_ratio.icc:.3f} "
+        f"(2 draws ~{rel.imperative_ratio.spearman_brown_k2:.3f}, "
+        f"3 draws ~{rel.imperative_ratio.spearman_brown_k3:.3f})",
+        f"  hedge_rate:       pearson={rel.hedge_rate.pearson:.3f} "
+        f"spearman={rel.hedge_rate.spearman:.3f} icc={rel.hedge_rate.icc:.3f} "
+        f"(2 draws ~{rel.hedge_rate.spearman_brown_k2:.3f}, "
+        f"3 draws ~{rel.hedge_rate.spearman_brown_k3:.3f})",
+        f"  decision:         {rel.decision.share_agree:.1%} agree, "
+        f"kappa={rel.decision.kappa:.3f} (n={rel.decision.n} cells)",
+    ]
+    return "\n".join(lines)
 
 
 def grid_contrasts(result: Q1Result) -> dict[str, tuple[float, float]]:
@@ -1003,6 +1115,18 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--replicates",
+        type=int,
+        default=1,
+        help=(
+            "How many draws of each cell to generate. Each draw sends the "
+            "identical prompt and differs only in the cache's draw index, so "
+            "draw 1 is served from cache and only the new draws cost anything. "
+            "Section 50 measured how much a single draw moves on its own; more "
+            "draws average that out."
+        ),
+    )
+    parser.add_argument(
         "--progress-every",
         type=int,
         default=100,
@@ -1060,6 +1184,7 @@ def main() -> None:
         limit=args.limit,
         design=args.design,
         progress_every=args.progress_every,
+        n_replicates=args.replicates,
     )
     if args.design == "full":
         default_out = full_grid_path(default_out)

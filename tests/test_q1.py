@@ -37,7 +37,9 @@ from thesis.analysis.q1 import (
     extract_q1_reply_features,
     extract_q1_sentence_features,
     format_comparison_table,
+    format_multi_draw_report,
     format_real_comparison,
+    format_report,
     full_grid_path,
     generate_q1_grid,
     grid_contrasts,
@@ -351,6 +353,79 @@ def test_run_q1_analysis_produces_a_complete_result(small_grid) -> None:  # type
     assert len(result.sentence_level_comparison) == 2
     assert {c.level for c in result.reply_level_comparison} == {"up", "down"}
     assert result.decision_association.n_observations == len(small_grid.frame)
+
+
+def test_run_q1_analysis_single_draw_has_no_multi_draw_fields(small_grid) -> None:  # type: ignore[no-untyped-def]
+    """When a grid has one draw, behaviour must be exactly as it is today --
+    the four multi-draw fields stay unset, and the headline fits still see
+    every row, since the replicate==1 filter is then a no-op."""
+    result = run_q1_analysis(small_grid)
+
+    assert result.n_draws == 1
+    assert result.aggregated_reply_model is None
+    assert result.aggregated_hedge_model is None
+    assert result.sentence_model_clustered is None
+    assert result.reliability is None
+    assert result.reply_model.n_observations == len(small_grid.frame)
+    assert result.decision_association.n_observations == len(small_grid.frame)
+
+
+# ----------------------------------------------------------- multi-draw grid
+
+
+@pytest.fixture
+def small_grid_two_draws(tmp_path: Path):  # type: ignore[no-untyped-def]
+    """Same shape as ``small_grid``, but two draws per cell -- what a
+    ``--replicates 2`` run produces."""
+    personas = [_persona(f"p{i}", seniority_rank=i + 1) for i in range(3)]
+    client = FakeClient()
+    grid = generate_q1_grid(
+        client,
+        model="llama3.2:3b",
+        personas=personas,
+        stores={},
+        cache=ResponseCache(tmp_path / "cache"),
+        ledger=CostLedger(tmp_path / "ledger.csv"),
+        n_replicates=2,
+    )
+    return grid
+
+
+def test_generate_q1_grid_respects_n_replicates_for_q1(small_grid_two_draws) -> None:  # type: ignore[no-untyped-def]
+    assert small_grid_two_draws.n_cells == 3 * 24 * 2
+    assert set(small_grid_two_draws.frame["replicate"]) == {1, 2}
+
+
+def test_run_q1_analysis_populates_multi_draw_fields(small_grid_two_draws) -> None:  # type: ignore[no-untyped-def]
+    result = run_q1_analysis(small_grid_two_draws)
+
+    assert result.n_draws == 2
+    assert result.aggregated_reply_model is not None
+    assert result.aggregated_hedge_model is not None
+    assert result.sentence_model_clustered is not None
+    assert result.reliability is not None
+    # One row per cell after pairing draw 1 with draw 2: 3 personas x 24 scenarios.
+    assert result.reliability.n_cells == 3 * 24
+    # The headline (draw-1-only) fields see only half the rows.
+    assert result.reply_model.n_observations == 3 * 24
+
+
+def test_format_multi_draw_report_is_empty_for_a_single_draw(small_grid) -> None:  # type: ignore[no-untyped-def]
+    result = run_q1_analysis(small_grid)
+    assert format_multi_draw_report(result) == ""
+    assert "Multi-draw grid" not in format_report(result)
+
+
+def test_multi_draw_report_shows_the_fit_and_reliability(small_grid_two_draws) -> None:  # type: ignore[no-untyped-def]
+    result = run_q1_analysis(small_grid_two_draws)
+    report = format_multi_draw_report(result)
+
+    assert "Multi-draw grid: 2 draws per cell" in report
+    assert "averaged over draws" in report
+    assert "per cell" in report
+    assert "icc=" in report
+    assert "draw 1 only, for comparison" in report
+    assert report in format_report(result)
 
 
 # ------------------------------------------------------- against real email
