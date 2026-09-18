@@ -27,12 +27,12 @@ you to read, not for a computer to run. Updated after each work session.
 | Two working demos (terminal + browser), runnable by anyone | Done |
 | Build the AI judge (scoring rubric and pipeline) | Done, on the free path |
 | Statistics that compare real vs. AI-written emails | Done, on the free path |
-| AI replies to a real email, compared to the real reply | Done — 183 pairs on the rebuilt corpus, see section 38 |
+| AI replies to a real email, compared to the real reply | Section 38's judged pairs predate the Sep 5 prompt change and have not been re-judged yet — see "Ready to do" below |
 | Does the judge favour its own kind of AI? (Q3) | Re-run at twice the size under the current prompt — self-preference is significant, p=.005. Section 41's number was stale. See section 52 |
 | Does hierarchy shape what gets written? (Q1) | Re-run at 1,440 replies under the current prompt. Writing down is +0.134 (p=.092), measured six times better than before. Section 39's numbers are stale. See section 51 |
 | Does real email show a direction pattern? (benchmark for Q1) | Measured. Writing down gives more orders in every check. The simulator's estimate is the same size but too noisy to detect. See section 48 |
 | Is each result tied to the prompt that produced it? | It was not. A prompt change on Sep 5 silently moved Q1's numbers and nothing caught it. Run manifests now record a prompt hash. See section 51 |
-| Validation pass: embedding map, 100 replies read by hand | Done — see section 35 |
+| Validation pass: embedding map, 100 replies read by hand | Done — checked again under the current prompt, barely moves, see sections 35 and 53 |
 | Measure the mirroring failure automatically | Done — see section 42 |
 | Fix the mirroring failure by instructing the persona | Tried and did not work — phrasing moved, behavior did not, see section 43 |
 | Fix it by making the persona decide before it writes | Tried and did not work — the gain is only a length effect, and the decision field turns out unstable, see section 49 |
@@ -1892,6 +1892,11 @@ checked with one command. 505 tests pass. ruff, black and mypy are clean.
 
 ### 40. The embedding check, re-run on the rebuilt corpus (Sep 4)
 
+> **Checked against the current prompt on Sep 18 (section 53).** Unlike
+> sections 39 and 41, this result did not depend on the Sep 5 prompt change.
+> Re-run on replies generated with the current prompt, both AUC numbers below
+> move by about a hundredth. The numbers here stand as current, not stale.
+
 Section 35's embedding check was the one part of that session never re-run
 after the rebuild. I re-ran it. It costs nothing. The replies come from cache
 and the embedding model is local.
@@ -3491,6 +3496,70 @@ of finding a mismatch by hand, the way this section had to.
 
 ---
 
+### 53. The embedding check, re-run on the current prompt: it barely moves (Sep 18)
+
+**Result first.** Sections 39 and 41 both changed when re-run on the current
+prompt. This one does not. The numbers hold.
+
+**Why this step follows.** Section 40's embedding check, like sections 39 and
+41, used replies generated before the Sep 5 prompt change. It was never
+checked against the current prompt. This closes that gap, the last one left
+from the audit that found sections 39 and 41 stale.
+
+**What the check does, in plain words.** Every reply, real and generated, is
+turned into a vector by a local embedding model. A simple classifier is then
+asked to guess, from the vector alone, whether a reply is real or generated.
+The score is how often it guesses right: 0.5 is a coin flip, 1.0 is always
+right. This is run twice, once on the real reply as it is, and once with the
+real reply cut down to the generated reply's own length, since a real reply
+is longer and length alone is a clue that has nothing to do with writing
+style.
+
+**The numbers, old against new:**
+
+| | Section 40 (stale prompt) | This run (current prompt) |
+|---|---:|---:|
+| Real reply as stored | 0.882 | 0.89 |
+| Cut to the generated reply's length | 0.813 | 0.817 |
+| Generated reply length | 19.8 words | 22.7 words |
+| Topical tracking: closer to its own real reply | 86% | 86.3% |
+
+![Two rounds of the guessing test on the current prompt: 0.89, then
+0.817. Almost identical to section 40's 0.882 and
+0.813.](docs/figures/embedding_act_separability_auc.png)
+
+Both AUC numbers moved by about a hundredth. Topical tracking, whether a
+generated reply sits closer to the real reply it was matched with than to a
+real reply from another thread, moved by three tenths of a point. None of
+this is a real change.
+
+**This is worth noting because generated length did move.** The current
+prompt makes replies 15% longer, 19.8 to 22.7 words, the same shift section
+43 already reported. A measure built mostly on length, like the model-free
+word-count check in sections 25 and 29, would be expected to move with that.
+This one barely did. So whatever this classifier is picking up on, it is not
+only length, and the current prompt did not change it much.
+
+**Section 40 does not need a stale note.** Sections 39 and 41 got dated notes
+because their numbers changed enough to mislead a reader who used them going
+forward. Section 40's numbers do not. They are checked, not corrected.
+
+**How it was run.** No new model calls beyond the embedding step itself,
+which is local and free.
+
+```
+python -m thesis.analysis.embedding_map \
+  --pairs data/interim/real_vs_generated_pairs_act.parquet \
+  --figure-prefix embedding_act_ \
+  --out outputs/manifests/embedding_map_act.json
+```
+
+65 stimulus-and-reply pairs' texts were embedded fresh (the rest came from
+cache), a few seconds. Figures carry the `embedding_act_` prefix, so section
+35's and section 40's own figures are untouched.
+
+---
+
 ## What's next
 
 *(Rewritten Aug 31 — the previous version was written before the corpus
@@ -3615,8 +3684,20 @@ Q1's: generated the day before the Sep 5 change, and never re-run since.
 Re-run at twice the size and the current prompt, the self-preference
 interaction is +0.397, p=.005, a real result, where section 41 could only
 call its own +0.32 "not confirmed" at p=.142. Section 41 is now marked
-stale, the way section 39 was. This closes the last of the sections built
-on the pre-Sep-5 prompt without anyone checking.
+stale, the way section 39 was. One more result from before Sep 5 still
+needed checking: the embedding check.
+
+**The embedding check turned out to be the one result that did not need
+fixing (section 53).** Re-run on the current prompt, both separability
+numbers move by about a hundredth, and topical tracking barely moves either.
+Section 40 stands as current. That leaves exactly one section still resting
+on the pre-Sep-5 prompt with no re-check: **Q2 (section 38)**, the paired
+real-vs-generated fidelity result, where role consistency was the one
+dimension that failed equivalence. Its 183 judged pairs were generated on
+Sep 2, three days before the prompt changed. Fixing it needs a real module,
+the same as Q1 and the judge-swap did, since the judging step behind section
+38 was never committed as a reusable script. Scoring both sides of 183 pairs
+is about 366 judge calls, roughly 2 to 3 hours, not a quick repair.
 
 **Next priority is therefore yours to pick**, since the cheap technical
 work in this thread is finished. The strongest candidates are re-coding
@@ -3625,6 +3706,12 @@ and the better automatic measure, and the four supervisor questions.
 
 **Ready to do:**
 
+- **Re-judge Q2 under the current prompt** (section 38). The last stale
+  result from before Sep 5. Needs a real module built first, the way Q1 and
+  the judge-swap got one, then about 366 judge calls, roughly 2 to 3 hours.
+  Not a quick repair, but the fidelity headline (role consistency failing
+  equivalence) should not be trusted until it is checked the way sections 39,
+  41 and 52 already were.
 - **Re-code the 100-item review packet yourself** (section 35). This is now
   the only open route to a better mirroring measure, after section 46 closed
   the model-based one. The codes currently in
