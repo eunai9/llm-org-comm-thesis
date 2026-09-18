@@ -226,6 +226,26 @@ def full_grid_path(pilot_path: Path) -> Path:
     return pilot_path.with_name(f"{pilot_path.stem}_full{pilot_path.suffix}")
 
 
+def full_grid_manifest_path(n_draws: int) -> Path:
+    """Where a full-grid run's manifest goes, derived from how many draws
+    per cell the grid holds.
+
+    A single-draw run writes :data:`Q1_FULL_MANIFEST_PATH` -- the file
+    section 51 points at. A run with more draws writes its own file, so
+    generating a second draw and re-running the report never overwrites the
+    numbers a written-up section already cites -- the same mistake section
+    40 hit with a figure, and close to the staleness problem section 51
+    itself is about. Applies the same way whether the grid was just
+    generated or loaded with ``--grid``, since both go through
+    :func:`_report_full_grid`.
+    """
+    if n_draws <= 1:
+        return Q1_FULL_MANIFEST_PATH
+    return Q1_FULL_MANIFEST_PATH.with_name(
+        f"{Q1_FULL_MANIFEST_PATH.stem}_{n_draws}draws{Q1_FULL_MANIFEST_PATH.suffix}"
+    )
+
+
 def build_q1_cells(
     personas: Sequence[Persona],
     model: str,
@@ -890,6 +910,57 @@ def run_exploratory_tests(reply_features: pd.DataFrame) -> list[ExploratoryTest]
     ]
 
 
+def _contrast_block(fit: MixedModelResult | SentenceModelResult) -> dict[str, dict[str, float]]:
+    """Coefficient, standard error and p-value for both direction contrasts
+    of one fitted model -- the shape the manifest stores a fit as."""
+    block = {}
+    for level in ("down", "up"):
+        coefficient, p_value = fit.contrast(level)
+        block[level] = {
+            "coefficient": round(coefficient, 4),
+            "std_error": round(contrast_se(fit, level), 4),
+            "p_value": float(f"{p_value:.4g}"),
+        }
+    return block
+
+
+def multi_draw_manifest_section(full: Q1Result) -> dict[str, Any] | None:
+    """The multi-draw analysis, in the shape the manifest stores it: the
+    aggregated reply-level fit and the sentence-level fit clustered by cell,
+    each next to its draw-1-only baseline, plus the draw 1 vs draw 2
+    reliability table. This, not the printed report alone, is what a later
+    write-up should read the numbers from -- section 51 exists because a
+    number lived only in a printout once already.
+
+    ``None`` when ``full`` has one draw, since there is nothing to report.
+    """
+    if full.n_draws <= 1:
+        return None
+    assert full.aggregated_reply_model is not None
+    assert full.aggregated_hedge_model is not None
+    assert full.sentence_model_clustered is not None
+    assert full.reliability is not None
+    reliability = full.reliability
+
+    return {
+        "n_draws": full.n_draws,
+        "n_rows": full.grid.n_cells,
+        "n_cells": reliability.n_cells,
+        "prompt_text_hash": prompt_text_hash(),
+        "imperative_ratio_aggregated": _contrast_block(full.aggregated_reply_model),
+        "imperative_ratio_draw1_only": _contrast_block(full.reply_model),
+        "hedge_rate_aggregated": _contrast_block(full.aggregated_hedge_model),
+        "hedge_rate_draw1_only": _contrast_block(full.hedge_model),
+        "is_imperative_clustered": _contrast_block(full.sentence_model_clustered),
+        "is_imperative_draw1_only": _contrast_block(full.sentence_model),
+        "reliability": {
+            "imperative_ratio": asdict(reliability.imperative_ratio),
+            "hedge_rate": asdict(reliability.hedge_rate),
+            "decision": asdict(reliability.decision),
+        },
+    }
+
+
 def build_full_manifest(
     full: Q1Result, pilot: Q1Result, real_manifest: Mapping[str, Any]
 ) -> dict[str, Any]:
@@ -898,7 +969,9 @@ def build_full_manifest(
 
     ``pilot`` is the same 24-scenario design refit on the subset of rows
     inside ``full``. Reporting both keeps "more data" apart from "a wider
-    set of situations".
+    set of situations". The ``"multi_draw"`` key
+    (:func:`multi_draw_manifest_section`) is ``None`` unless ``full`` has
+    more than one draw per cell.
     """
     from thesis.analysis.q1_real import implied_se
 
@@ -938,6 +1011,7 @@ def build_full_manifest(
             "model": full.grid.model,
             "design": full.grid.design,
             "prompt_text_hash": prompt_text_hash(),
+            "n_draws": full.n_draws,
             "n_cells": full.grid.n_cells,
             "n_from_cache": full.grid.n_from_cache,
             "n_generated": full.grid.n_generated,
@@ -972,6 +1046,7 @@ def build_full_manifest(
             "reply_level": round(full.reply_model.group_variance, 4),
             "sentence_level_sd": round(full.sentence_model.group_sd, 4),
         },
+        "multi_draw": multi_draw_manifest_section(full),
     }
 
 
@@ -1054,8 +1129,9 @@ def _report_full_grid(grid: Q1Grid, result: Q1Result) -> None:
     pilot_result = run_q1_analysis(pilot_grid)
 
     manifest = build_full_manifest(result, pilot_result, real_manifest)
-    Q1_FULL_MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
-    Q1_FULL_MANIFEST_PATH.write_text(
+    manifest_path = full_grid_manifest_path(result.n_draws)
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     figure = plot_full_vs_real(manifest, DOCS_FIGURES_DIR / "q1_full_grid_vs_real.png")
@@ -1064,7 +1140,7 @@ def _report_full_grid(grid: Q1Grid, result: Q1Result) -> None:
     print(format_precision_table(manifest))
     print()
     print(format_exploratory_table(manifest))
-    log.info("wrote %s and %s", Q1_FULL_MANIFEST_PATH, figure)
+    log.info("wrote %s and %s", manifest_path, figure)
 
 
 def main() -> None:

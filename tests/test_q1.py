@@ -11,6 +11,7 @@ tests/test_run.py uses) stands in for Ollama.
 
 from __future__ import annotations
 
+import json
 import math
 from collections.abc import Sequence
 from pathlib import Path
@@ -23,11 +24,14 @@ from thesis.analysis.q1 import (
     ANALYSIS_PLAN,
     HISTORICAL_REPLY_LEVEL,
     Q1_FULL_GRID_PATH,
+    Q1_FULL_MANIFEST_PATH,
     Q1_GRID_PATH,
     Q1_TASK_STAKES,
     REAL_CONTRAST_KEYS,
+    REAL_MANIFEST_PATH,
     ContrastComparison,
     _tone_from_scenario_id,
+    build_full_manifest,
     build_q1_cells,
     build_q1_scenarios,
     compare_to_historical,
@@ -40,9 +44,11 @@ from thesis.analysis.q1 import (
     format_multi_draw_report,
     format_real_comparison,
     format_report,
+    full_grid_manifest_path,
     full_grid_path,
     generate_q1_grid,
     grid_contrasts,
+    multi_draw_manifest_section,
     parse_replies,
     run_q1_analysis,
     scenarios_for_design,
@@ -586,3 +592,81 @@ def test_contrast_se_is_undefined_when_the_p_value_leaves_no_room() -> None:
     implies one of zero. Neither is a number worth printing."""
     assert math.isnan(contrast_se(_FakeContrast({"down": (0.0, 1.0)}), "down"))
     assert math.isnan(contrast_se(_FakeContrast({"down": (0.3, 0.0)}), "down"))
+
+
+# --------------------------------------------------- multi-draw manifest
+
+
+def test_full_grid_manifest_path_is_the_section_51_file_for_one_draw() -> None:
+    """A single-draw grid must keep writing the file section 51 points at --
+    nothing here is allowed to move that path."""
+    assert full_grid_manifest_path(1) == Q1_FULL_MANIFEST_PATH
+
+
+def test_full_grid_manifest_path_is_distinct_for_more_draws() -> None:
+    """A multi-draw run must not overwrite section 51's manifest -- the same
+    mistake section 40 hit with a figure."""
+    path = full_grid_manifest_path(2)
+    assert path != Q1_FULL_MANIFEST_PATH
+    assert path.name == "q1_full_grid_2draws.json"
+    assert full_grid_manifest_path(3).name == "q1_full_grid_3draws.json"
+
+
+def test_multi_draw_manifest_section_is_none_for_a_single_draw(small_grid) -> None:  # type: ignore[no-untyped-def]
+    result = run_q1_analysis(small_grid)
+    assert multi_draw_manifest_section(result) is None
+
+
+def test_multi_draw_manifest_section_reports_every_number(small_grid_two_draws) -> None:  # type: ignore[no-untyped-def]
+    result = run_q1_analysis(small_grid_two_draws)
+    section = multi_draw_manifest_section(result)
+
+    assert section is not None
+    assert section["n_draws"] == 2
+    assert section["n_rows"] == small_grid_two_draws.n_cells
+    assert section["n_cells"] == 3 * 24  # 3 personas x 24 scenarios, paired across draws
+    assert section["prompt_text_hash"]
+
+    for key in (
+        "imperative_ratio_aggregated",
+        "imperative_ratio_draw1_only",
+        "hedge_rate_aggregated",
+        "hedge_rate_draw1_only",
+        "is_imperative_clustered",
+        "is_imperative_draw1_only",
+    ):
+        block = section[key]
+        for level in ("up", "down"):
+            assert {"coefficient", "std_error", "p_value"} <= set(block[level])
+
+    reliability = section["reliability"]
+    assert "pearson" in reliability["imperative_ratio"]
+    assert "kappa" in reliability["decision"]
+
+
+def test_build_full_manifest_carries_the_multi_draw_section(small_grid_two_draws) -> None:  # type: ignore[no-untyped-def]
+    """The manifest a written-up multi-draw number should be read from, not
+    only the printed report -- section 51 exists because a number once
+    lived only in a printout."""
+    result = run_q1_analysis(small_grid_two_draws)
+    real_manifest = json.loads(REAL_MANIFEST_PATH.read_text(encoding="utf-8"))
+
+    manifest = build_full_manifest(result, result, real_manifest)
+
+    assert manifest["run"]["n_draws"] == 2
+    # Compared through JSON, not `==`: a degenerate fit here (the fixture's
+    # hedge_rate never varies) produces NaN, and NaN != NaN under `==` even
+    # when both sides are the exact same computation.
+    assert json.dumps(manifest["multi_draw"], sort_keys=True) == json.dumps(
+        multi_draw_manifest_section(result), sort_keys=True
+    )
+
+
+def test_build_full_manifest_multi_draw_is_none_for_a_single_draw(small_grid) -> None:  # type: ignore[no-untyped-def]
+    result = run_q1_analysis(small_grid)
+    real_manifest = json.loads(REAL_MANIFEST_PATH.read_text(encoding="utf-8"))
+
+    manifest = build_full_manifest(result, result, real_manifest)
+
+    assert manifest["run"]["n_draws"] == 1
+    assert manifest["multi_draw"] is None
