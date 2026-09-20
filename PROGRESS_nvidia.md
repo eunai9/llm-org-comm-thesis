@@ -928,8 +928,27 @@ The daily token cap never bit. 129 replies at about 1,930 tokens is roughly
 249,000 tokens, above the stated 200,000 per day, so the cap is either looser
 than documented or counted differently.
 
-**Mirroring.** Same measure and tests as section 8, with every reply cut to
-the length of its Llama partner.
+**Mirroring, at full length.** Each reply as the model actually wrote it, no
+length cut. This is the raw measure before section 8's length correction.
+
+| Model | Mean borrowed words | Flagged | Mean length |
+|---|---:|---:|---:|
+| Llama 3.2 3B, no instruction | 0.579 | 25.7% | 19.8 words |
+| Llama 3.2 3B, with instruction | 0.565 | 19.1% | 22.7 words |
+| DeepSeek V4 Flash | 0.413 | 1.1% | 40.1 words |
+| gpt-oss-20b@low | 0.322 | 1.1% | 32.8 words |
+| gpt-oss-120b@low | 0.405 | 2.2% | 28.6 words |
+| Real replies | 0.301 | | 65.0 words |
+
+At full length, gpt-oss-20b sits closest to real replies, 0.322 against
+0.301. But this ranking mixes two things: how much a model copies, and how
+long it writes. Borrowed words is a share of a reply's own distinct words, so
+a longer reply scores lower for length alone. All three large models write
+longer than Llama, and all four write shorter than real people. The
+same-length table below removes that length effect.
+
+**Mirroring, at the same length.** Same measure and tests as section 8, with
+every reply cut to the length of its Llama partner.
 
 | | Mean borrowed words | Flagged |
 |---|---:|---:|
