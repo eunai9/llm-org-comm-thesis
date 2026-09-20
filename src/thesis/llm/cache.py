@@ -29,12 +29,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from thesis.llm.base import CompletionRequest, CompletionResponse, Message, Usage
+from thesis.logging_setup import get_logger
+
+log = get_logger(__name__)
 
 CACHE_FORMAT_VERSION = 1
 
@@ -127,8 +131,23 @@ class ResponseCache:
                 raise CacheMissError(msg)
             return None
 
-        record = json.loads(path.read_text(encoding="utf-8"))
-        response = record["response"]
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+            response = record["response"]
+        except (OSError, ValueError, KeyError):
+            # A damaged entry is a miss, not a crash. A hard power-off can
+            # leave a zero-length file here even though put() renames into
+            # place: the rename survives the crash and the contents do not.
+            # Two such files out of 8,214 stopped a 2,880-cell run dead on
+            # restart, which is the wrong trade -- one unreadable reply is
+            # worth regenerating, not worth losing the run for.
+            log.warning("cache entry %s is unreadable; treating it as a miss", key)
+            path.unlink(missing_ok=True)
+            self._misses += 1
+            if self.cache_only:
+                msg = f"cache-only run, but {key} is cached in an unreadable state"
+                raise CacheMissError(msg) from None
+            return None
         self._hits += 1
         return CompletionResponse(
             text=response["text"],
@@ -169,11 +188,18 @@ class ResponseCache:
                 "request_id": response.request_id,
             },
         }
-        # Write to a temporary file and move it into place, so an interrupted
-        # run can never leave a half-written entry that later parses as valid
-        # JSON or crashes the next read.
+        # Write to a temporary file and move it into place, so a reader never
+        # sees a half-written entry. The rename is atomic, but on its own it
+        # is not durable: a hard power-off can keep the rename and lose the
+        # contents, leaving a zero-length file. That happened here on Sep 19.
+        # So flush and fsync before renaming. get() still treats an
+        # unreadable entry as a miss, because this narrows the window rather
+        # than closing it.
         tmp = path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(record, indent=2, sort_keys=True), encoding="utf-8")
+        with tmp.open("w", encoding="utf-8") as handle:
+            json.dump(record, handle, indent=2, sort_keys=True)
+            handle.flush()
+            os.fsync(handle.fileno())
         tmp.replace(path)
 
     def entries(self) -> list[Path]:

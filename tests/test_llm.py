@@ -140,6 +140,52 @@ def test_cache_only_run_raises_on_miss(tmp_path: Path) -> None:
         cache.get(cache_key(_request(), "anthropic"))
 
 
+def test_zero_length_entry_is_a_miss_not_a_crash(tmp_path: Path) -> None:
+    """The failure that stopped the Sep 19 run.
+
+    A hard power-off left two zero-length files in a cache of 8,214. On
+    restart the run replayed 2,050 cells and then died on the first of them.
+    One unreadable reply is worth regenerating. It is not worth losing the
+    whole run for.
+    """
+    cache = ResponseCache(tmp_path)
+    key = cache_key(_request(), "anthropic")
+    cache.put(key, _request(), _response(), "anthropic")
+
+    entry = cache.entries()[0]
+    entry.write_text("", encoding="utf-8")
+
+    assert cache.get(key) is None
+    assert cache.misses == 1
+    # The damaged file is cleared, so the next put() replaces it cleanly.
+    assert not entry.exists()
+
+
+def test_truncated_entry_is_a_miss(tmp_path: Path) -> None:
+    """Half-written JSON reads the same way as an empty file: as a miss."""
+    cache = ResponseCache(tmp_path)
+    key = cache_key(_request(), "anthropic")
+    cache.put(key, _request(), _response(), "anthropic")
+    cache.entries()[0].write_text('{"key": "abc", "resp', encoding="utf-8")
+
+    assert cache.get(key) is None
+
+
+def test_cache_only_run_raises_on_a_damaged_entry(tmp_path: Path) -> None:
+    """A cache-only run must not quietly regenerate what it cannot read.
+
+    Returning None here would turn "this run cost nothing" into a claim the
+    archive no longer supports.
+    """
+    cache = ResponseCache(tmp_path)
+    key = cache_key(_request(), "anthropic")
+    cache.put(key, _request(), _response(), "anthropic")
+    cache.entries()[0].write_text("", encoding="utf-8")
+
+    with pytest.raises(CacheMissError):
+        ResponseCache(tmp_path, cache_only=True).get(key)
+
+
 def test_manifest_covers_every_entry_and_changes_with_content(tmp_path: Path) -> None:
     cache = ResponseCache(tmp_path)
     cache.put(cache_key(_request(), "anthropic"), _request(), _response(), "anthropic")
