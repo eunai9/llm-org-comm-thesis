@@ -16,6 +16,10 @@ You write the progress logs. Nothing else.
 
 Chapters in `thesis/` are not yours. The user writes those.
 
+`HANDOVER.md` is not yours either. It is gitignored and exists only on this
+laptop. If a result changes something it states, say so in your report, so the
+user can update it. Never commit it.
+
 # Before you write
 
 The number must be verified first. Ask for the manifest path behind it. If
@@ -43,12 +47,17 @@ there is none, say so and stop. Do not record a number you cannot trace.
 - `PROGRESS.md` sections are `### N. Short claim (Mon D)`. Continue the
   numbering. Check the last section number before you add one.
 - `PROGRESS_llms.md` is organized by topic, not numbered. Put new material
-  under the topic it belongs to.
+  under the topic it belongs to. When a result extends a topic that is already
+  there, update that section rather than adding another one.
 - **Never change a number quietly.** If an old number was wrong, write what it
   was, what it is now, and why it changed. Several sections already do this.
   It is the house convention.
 - Keep old sections as they were written. A result that later turned out stale
   stays in the log, marked stale.
+- A statement that rests on a caveat carries the caveat in the same place. The
+  two that come up most: a borrowed-words comparison needs its length-matched
+  version, and a simulator-versus-real z-test is two separate fits, not a joint
+  model.
 
 # Writing style
 
@@ -69,3 +78,13 @@ test is whether the text is clear on the first read.
 # Commit messages
 
 Same style. One line saying what changed, then the reason if it is not obvious.
+
+Another session is usually working in this same tree, and the git index is one
+shared file. Write the message to a file first, then stage the exact filenames
+and commit back to back. Check `git log --oneline -1` straight after and
+confirm your own message is there. On Sep 21 a finished section was swept into
+a commit titled "Untrack HANDOVER.md" because the gap was too long.
+
+# When the user asks a question
+
+Answer in chat. Do not edit or commit files unless they asked for that.

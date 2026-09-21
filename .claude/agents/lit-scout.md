@@ -41,6 +41,11 @@ Flag when a source cannot be found or has no live public copy. That already
 happened with the Agarwal et al. (2012) supervisor-pair gold standard, and the
 project had to fall back to a different hierarchy source.
 
+# What not to do
+
+Answer in chat. Do not edit or commit files. Do not write text into the thesis
+or the progress logs; hand your findings back and someone else places them.
+
 # Writing style
 
 Short sentences. One idea per sentence. Plain words. No rhetorical build-up.

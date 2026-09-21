@@ -21,6 +21,15 @@ else
 fi
 echo
 
+# Files named in HANDOVER.md as existing only on this laptop. Untracked code
+# here is a real risk: nothing outside this machine has a copy.
+for path in src/thesis/analysis/blind_review.py tests/test_blind_review.py; do
+  if [ -f "$path" ] && ! git ls-files --error-unmatch "$path" >/dev/null 2>&1; then
+    echo "Laptop-only, untracked, no copy anywhere else: $path"
+  fi
+done
+echo
+
 last_main=$(grep -oP '^### \K[0-9]+' PROGRESS.md 2>/dev/null | tail -1)
 last_llms=$(grep -n '^## ' PROGRESS_llms.md 2>/dev/null | tail -1 | cut -d: -f2-)
 echo "PROGRESS.md last section: ${last_main:-unknown}"
@@ -62,7 +71,21 @@ if untagged:
     print(f"Manifests with no prompt hash recorded: {untagged}. Cannot be checked.")
 PY
 fi
+echo
 
 cache_size=$(du -sh runs/_cache 2>/dev/null | cut -f1)
-echo
 echo "Cache: ${cache_size:-missing} at runs/_cache. Not in git, not backed up."
+
+# A crashed write leaves zero-length entries. These killed a 2,880-cell run on
+# Sep 19. A damaged entry is treated as a miss now, but say so if any exist.
+damaged=$(find runs/_cache -type f -size 0 2>/dev/null | wc -l)
+if [ "$damaged" -gt 0 ]; then
+  echo "Damaged cache entries (zero-length): $damaged. They are treated as misses and will be regenerated."
+fi
+
+running=$(pgrep -af 'thesis\.(analysis|sim|judge)' 2>/dev/null | grep -v pgrep)
+if [ -n "$running" ]; then
+  echo
+  echo "Generation or analysis already running. Do not start a second copy:"
+  printf '%s\n' "$running" | cut -c1-120
+fi

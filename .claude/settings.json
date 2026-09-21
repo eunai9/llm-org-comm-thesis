@@ -22,6 +22,18 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "wsl.exe -e bash /home/eunai9/projects/thesis/.claude/hooks/commit_check.sh",
+            "timeout": 60
+          }
+        ]
+      }
     ]
   }
 }
