@@ -1,5 +1,11 @@
 # NVIDIA Free-Tier Progress Log
 
+**For a topic-by-topic comparison of all four models (mirroring, told-apart
+from real writing, Q1), read `PROGRESS_llms.md` instead.** This file is the
+day-by-day build log: what was tried, in what order, and the exact commit
+history. `PROGRESS_llms.md` reorganizes the same numbers by topic and adds
+nothing new.
+
 A plain-language record of the work that uses NVIDIA's free hosted models.
 It is kept apart from `PROGRESS.md` on purpose. This work is still a trial.
 Nothing here replaces a result in `PROGRESS.md` yet.
