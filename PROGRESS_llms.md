@@ -7,7 +7,9 @@ can be read at once.
 
 `PROGRESS_nvidia.md` still holds the day-by-day build log: what was tried,
 what broke, and the exact commit history. This file only reorganizes its
-numbers by topic. No number here is new. This work is still a trial. Nothing
+numbers by topic. Most numbers here are not new. The exception is the
+gpt-oss-20b Q1 grid (Sep 21), which is first reported in the Q1 section. This
+work is still a trial. Nothing
 here replaces a result in `PROGRESS.md` yet, except where a section says so
 directly (the Q1 real-email comparison).
 
@@ -20,8 +22,8 @@ directly (the Q1 real-email comparison).
 | 183 real-email pairs generated | Yes (see `PROGRESS.md`) | Yes | Yes | Yes |
 | Mirroring measured | Yes | Yes | Yes | Yes |
 | Told apart from real writing (AUC) measured | Yes | Yes | Yes | Yes |
-| Q1 grid (240 replies) generated | Yes | Yes | Not yet | Not yet |
-| Q1 checked against the real-email benchmark | Not yet here (see `PROGRESS.md` section 48) | Yes | Not yet | Not yet |
+| Q1 grid (240 replies) generated | Yes | Yes | Yes | Running: 140 of 240 cells (Groq daily token cap) |
+| Q1 checked against the real-email benchmark | Yes | Yes | Yes | Not yet |
 | Hand-coded by a person | No | No | No | No |
 
 Other open items: a run without the "act" instruction, an embedding map and
@@ -357,7 +359,8 @@ replies are, that is, whether it gives more orders when writing down to a
 junior person than when writing to a peer or up to someone senior. Every
 Llama-only test before this found no clear effect (`PROGRESS.md` sections 33
 to 39), with one borderline exception. The open question is whether a larger
-model shows a pattern the small one does not.
+model shows a pattern the small one does not. DeepSeek does. gpt-oss-20b
+does not. gpt-oss-120b is still generating (see the last caveat).
 
 **How it is measured.** The Q1 grid is 10 personas times 3 directions times
 4 incoming tones times 2 task types, one reply each, 240 replies total. This
@@ -372,21 +375,26 @@ is the design fixed in `PROGRESS.md` section 39.
 - Every coefficient below is the difference from writing to a peer. Positive
   means more imperative.
 
-**Results**, all three grids using the same measurement code.
+**Results**, all four grids using the same measurement code.
 
 | Grid | Reply level, down | Reply level, up | Sentence level, down | Sentence level, up |
 |---|---:|---:|---:|---:|
 | Llama, no instruction (original pilot) | +0.027 (p=.672) | +0.083 (p=.192) | +0.163 (p=.401) | +0.395 (p=.046) |
 | Llama, with instruction | +0.056 (p=.412) | +0.029 (p=.670) | +0.197 (p=.298) | +0.151 (p=.437) |
 | DeepSeek V4 Flash | +0.099 (p=.003) | +0.015 (p=.647) | +0.438 (p<.001) | +0.059 (p=.654) |
+| gpt-oss-20b | +0.036 (p=.348) | +0.023 (p=.537) | +0.136 (p=.296) | +0.085 (p=.537) |
 
-Probability that a sentence is an order, from the sentence-level model:
+Probability that a sentence is an order, from the sentence-level model. The
+gpt-oss-20b row is the plain share of sentences that are orders. The design
+is balanced across directions, so the two agree closely (for DeepSeek they
+differ by 0.2 points).
 
 | Grid | Writing down | Writing to a peer | Writing up |
 |---|---:|---:|---:|
 | Llama, no instruction | 31.7% | 28.3% | 36.9% |
 | Llama, with instruction | 40.7% | 36.0% | 39.6% |
 | DeepSeek V4 Flash | 33.5% | 24.5% | 25.6% |
+| gpt-oss-20b | 41.0% | 37.8% | 39.8% |
 
 ![Predicted probability of an imperative sentence by direction, for Llama and DeepSeek with the same prompt.](docs/figures/nvidia_q1_direction.png)
 
@@ -403,18 +411,29 @@ Probability that a sentence is an order, from the sentence-level model:
   343 for Llama with the same prompt, 3.71 sentences per reply against 1.43.
   `PROGRESS.md` section 34 warned that one-sentence replies make the
   reply-level measure crude. DeepSeek has none, so its estimate rests on
-  more data.
-- **Two side results.** The decision depends on direction for both models
-  (Llama p=.023, DeepSeek p=.002), but this plain chi-square test ignores
-  that replies from one persona are alike, so it is only a hint. Hedging
-  falls for both models when writing down, but DeepSeek almost never hedges
-  at all (at most 0.014 in any direction, against 0.08 to 0.19 for Llama).
+  more data. gpt-oss-20b also writes several sentences per reply: 719
+  across the grid, 3.02 per reply.
+- **gpt-oss-20b shows no writing-down effect.** Orders per sentence, down:
+  +0.136 (p=.296). Orders per reply, down: +0.036 (p=.348). Writing up shows
+  nothing either (+0.085, p=.537). This looks like Llama and not like
+  DeepSeek.
+- **gpt-oss-20b gives orders in about 40% of its sentences in every
+  direction.** Real email does it in 14% to 18%. The level is far too high,
+  and it barely moves with direction (41.0%, 37.8%, 39.8%).
+- **Two side results.** The decision depends on direction for both DeepSeek
+  and Llama (Llama p=.023, DeepSeek p=.002), but not for gpt-oss-20b
+  (p=.308). This plain chi-square test ignores that replies from one persona
+  are alike, so it is only a hint. Hedging falls for Llama and DeepSeek when
+  writing down. gpt-oss-20b almost never hedges (0.000 writing down, 0.003
+  to a peer, 0.000 writing up), so it has nothing to fall. DeepSeek also
+  almost never hedges (at most 0.014 in any direction, against 0.08 to 0.19
+  for Llama).
 
 **Against the real-email benchmark.** `PROGRESS.md` section 48 measured the
 same three things in 2,202 real Enron emails, and compared them only with
-the Llama grid. This log adds the DeepSeek side of that comparison, using a
-rough z-test on the difference (rough because both sides' standard errors
-are backed out of a coefficient and a p-value).
+the Llama grid. This log adds the DeepSeek and gpt-oss-20b sides of that
+comparison, using a rough z-test on the difference (rough because both
+sides' standard errors are backed out of a coefficient and a p-value).
 
 | Contrast | DeepSeek | Real email | Difference | p |
 |---|---:|---:|---:|---:|
@@ -425,10 +444,22 @@ are backed out of a coefficient and a p-value).
 | Hedges per email, down | -0.013 (p=.040) | -0.005 (p=.526) | -0.009 | .362 |
 | Hedges per email, up | -0.007 (p=.274) | -0.005 (p=.429) | -0.002 | .809 |
 
+The same comparison for gpt-oss-20b:
+
+| Contrast | gpt-oss-20b | Real email | Difference | p |
+|---|---:|---:|---:|---:|
+| Orders per email, down | +0.036 (p=.348) | +0.043 (p=.002) | -0.007 | .859 |
+| Orders per email, up | +0.023 (p=.537) | +0.018 (p=.133) | +0.006 | .884 |
+| Orders per sentence, down | +0.136 (p=.296) | +0.253 (p<.001) | -0.118 | .401 |
+| Orders per sentence, up | +0.085 (p=.537) | +0.070 (p=.096) | +0.014 | .921 |
+| Hedges per email, down | -0.003 (p=.218) | -0.005 (p=.526) | +0.001 | .852 |
+| Hedges per email, up | -0.003 (p=.220) | -0.005 (p=.429) | +0.002 | .788 |
+
 | Chance a sentence is an order | Writing down | To a peer | Writing up |
 |---|---:|---:|---:|
 | Real email | 17.5% | 14.2% | 15.0% |
 | DeepSeek | 33.5% | 24.5% | 25.6% |
+| gpt-oss-20b | 41.0% | 37.8% | 39.8% |
 
 ![Chance that a sentence gives an order, by direction, for real email and DeepSeek.](docs/figures/nvidia_q1_deepseek_vs_real.png)
 
@@ -437,10 +468,37 @@ are backed out of a coefficient and a p-value).
 - **DeepSeek's swing is bigger, but not provably so.** Down minus peer is
   +9.0 points in DeepSeek against +3.3 points in real email. No contrast
   between DeepSeek and real email is significant.
-- **Llama sits near the real effect size but detects nothing.** Its down
-  effect is +0.198 against the real +0.253 (p=.298), because its 240 short
-  replies are too few to detect an effect this size. DeepSeek finds it
-  because its replies carry far more sentences.
+- **Llama and gpt-oss-20b sit near the real effect size but detect
+  nothing.** Llama's down effect is +0.198 (p=.298) and gpt-oss-20b's is
+  +0.136 (p=.296), against the real +0.253. Neither is different from real
+  email. Neither is different from zero.
+- **Sentence count does not explain the split.** The first version of this
+  section said DeepSeek finds the effect because its replies carry far more
+  sentences. gpt-oss-20b writes 719 sentences against DeepSeek's 882, and
+  finds nothing. Llama's 343 are fewer, but 20b shows that plenty of
+  sentences is not enough.
+- **DeepSeek and gpt-oss-20b are not provably different.** Their writing-down
+  effects differ by 0.303 (p=.092). So this section cannot say that 20b
+  lacks the effect and DeepSeek has it. It can say that 20b's data are also
+  consistent with the real effect.
+
+**All the models side by side.** The effect is the difference in the log-odds
+that a sentence gives an order, writing down against writing to a peer. Real
+email's +0.253 moves the chance from 14.2% to 17.5%, so a bigger number means
+a bigger jump. Each line is a 95% interval. An interval that crosses zero
+means the grid cannot show the effect. The intervals are rough: the standard
+errors are backed out of the p-values.
+
+![Effect of writing down on the chance that a sentence gives an order, with a 95% interval, for real email and three models.](docs/figures/q1_models_20b_writing_down.png)
+
+- **Only DeepSeek's interval stays clear of zero.** It runs from +0.20 to
+  +0.68, and it also contains the real +0.25.
+- **Every model's interval contains the real effect.** The grids are too
+  small to say a model differs from real email. Their intervals are 0.5 to
+  0.7 wide, against 0.2 for real email's 2,202 emails.
+- **gpt-oss-20b's interval runs from -0.12 to +0.39.** It has about as many
+  sentences as DeepSeek and an interval of nearly the same width (0.51
+  against 0.48). It sits lower, and it crosses zero.
 
 **Caveats.**
 
@@ -450,14 +508,22 @@ are backed out of a coefficient and a p-value).
 - The sentence-level p-values are approximate (a Wald test from a
   variational Bayes fit).
 - The DeepSeek grid has 238 replies, not 240: 2 came back without valid
-  JSON, one writing up and one writing down.
+  JSON, one writing up and one writing down. The gpt-oss-20b grid also has
+  238: one lateral and one writing up.
+- gpt-oss-20b ran with `@low` reasoning effort, as in every other section of
+  this log. The 20b grid took about 2.5 hours, mostly NVIDIA stalls and
+  retries.
 - Real email and the simulator are not the same kind of sample: 2,202 real
   emails from 107 senders against 238 simulator replies from 10 personas,
   one reply each. Real email has no decision field, so decisions cannot be
   compared. The z-test is rough for the reason stated above.
-- gpt-oss-20b and gpt-oss-120b have not been run on the Q1 grid yet, so this
-  section cannot yet say whether the DeepSeek pattern is typical of larger
-  models or specific to DeepSeek.
+- **gpt-oss-120b is not in this section yet.** It runs through Groq, which
+  allows 200,000 tokens per day. A 240-cell grid needs about 460,000, so the
+  run cannot finish in one day. 140 of 240 cells are done and cached. A loop
+  retries every 30 minutes and resumes from the cache. This section will be
+  updated when it finishes. Until then it cannot say whether DeepSeek's
+  pattern is typical of larger models or specific to DeepSeek. One larger
+  model (gpt-oss-20b) now says it is not typical.
 
 ---
 
@@ -476,10 +542,28 @@ different models answering the same email can be compared at all.
 manifest.
 
 **The Q1 backend.** `analysis/q1.py` takes `--local MODEL`, `--nvidia MODEL`,
-or `--grid PATH` to analyse an existing file without calling any model, plus
-`--compare-real` to print the comparison against the real-email benchmark in
-one command. `analysis/q1_real.py`'s `implied_se` is public so both modules
-share one formula.
+`--groq MODEL`, or `--grid PATH` to analyse an existing file without calling
+any model, plus `--compare-real` to print the comparison against the
+real-email benchmark in one command. `analysis/q1_real.py`'s `implied_se` is
+public so both modules share one formula.
+
+**The model comparison.** `analysis/q1_models.py` takes one `--grid
+LABEL=PATH` per model and writes one manifest and one figure, named by
+`--manifest` and `--figure-prefix`. It calls no model. Adding gpt-oss-120b
+later is one more `--grid` argument, with a new prefix so this section's
+figure is not overwritten.
+
+```
+python -m thesis.analysis.q1 --nvidia openai/gpt-oss-20b@low \
+  --out data/interim/q1_direction_grid_gpt_oss_20b.parquet
+python -m thesis.analysis.q1 --groq openai/gpt-oss-120b@low \
+  --out data/interim/q1_direction_grid_gpt_oss_120b.parquet
+python -m thesis.analysis.q1_models \
+  --grid "Llama 3.2 3B=data/interim/q1_direction_grid_llama_act.parquet" \
+  --grid "DeepSeek V4 Flash=data/interim/q1_direction_grid_deepseek.parquet" \
+  --grid "gpt-oss-20b=data/interim/q1_direction_grid_gpt_oss_20b.parquet" \
+  --figure-prefix q1_models_20b_ --manifest outputs/manifests/q1_models_20b.json
+```
 
 Exact commits and the day-by-day build order, including two corrections
 made along the way, are in `PROGRESS_nvidia.md`.
@@ -490,11 +574,12 @@ made along the way, are in `PROGRESS_nvidia.md`.
 
 Most valuable first.
 
-1. **Run the Q1 grid with gpt-oss-20b and gpt-oss-120b.** This would show
-   whether the DeepSeek writing-down effect is typical of larger models, or
-   specific to DeepSeek. Both models generate fast enough that this takes
-   minutes, not hours, and each can then be checked against the real-email
-   benchmark with `--compare-real`.
+1. **Finish the Q1 grid with gpt-oss-120b.** gpt-oss-20b is done and shows
+   no writing-down effect. gpt-oss-120b has 140 of 240 cells. Groq's daily
+   token cap stops it, so it needs about one more day. When it finishes,
+   add it to `q1_models` and update the Q1 section again. A larger sample
+   would help all four models more than another model would: every simulator
+   interval is 0.5 to 0.7 wide.
 2. **Hand-code a sample of replies by a person.** The mirroring cutoff and
    its validation rest on Claude's first-pass codes of Llama replies only.
    A coding page is already built: 50 emails, two replies each from two

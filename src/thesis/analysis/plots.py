@@ -420,6 +420,55 @@ def plot_discrimination_auc(
     return _finish(fig, ax, title, subtitle, path)
 
 
+def plot_effect_intervals(
+    labels: Sequence[str],
+    estimates: Sequence[float],
+    lower: Sequence[float],
+    upper: Sequence[float],
+    path: Path,
+    *,
+    title: str,
+    subtitle: str = "",
+    x_label: str = "",
+) -> Path:
+    """One estimate with a 95% interval per row, and a line at zero.
+
+    The first row is drawn in the second series color. In the Q1 comparison
+    that row is real email, the benchmark every model is held against.
+    """
+    if not len(labels) == len(estimates) == len(lower) == len(upper):
+        msg = "labels, estimates, lower and upper must all be the same length"
+        raise ValueError(msg)
+
+    # Index 0 sits at the bottom of the axis; reverse so the first row reads first.
+    y = list(range(len(labels)))[::-1]
+
+    fig, ax = plt.subplots(figsize=(7.4, 0.62 * len(labels) + 1.8))
+    _style_axes(ax)
+    ax.xaxis.grid(True, color=GRIDLINE, linewidth=1)
+    ax.set_axisbelow(True)
+    ax.axvline(0.0, color=BASELINE, linewidth=1.5, zorder=3)
+
+    for i, (yi, est, lo, hi) in enumerate(zip(y, estimates, lower, upper, strict=True)):
+        color = SERIES_2 if i == 0 else SERIES_1
+        ax.plot([lo, hi], [yi, yi], color=color, linewidth=2.2, zorder=2)
+        ax.plot([est], [yi], marker="o", markersize=7, color=color, zorder=4)
+        ax.annotate(
+            f"{est:+.2f}",
+            (hi, yi),
+            textcoords="offset points",
+            xytext=(8, 0),
+            va="center",
+            color=INK_SECONDARY,
+            fontsize=9.5,
+        )
+
+    ax.set_yticks(y, list(labels))
+    ax.set_ylim(-0.6, max(y) + 0.6)
+    ax.set_xlabel(x_label, color=INK_SECONDARY, fontsize=9.5)
+    return _finish(fig, ax, title, subtitle, path)
+
+
 def plot_value_spread(
     groups: dict[str, Sequence[float]],
     path: Path,
