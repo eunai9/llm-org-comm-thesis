@@ -29,14 +29,14 @@ you to read, not for a computer to run. Updated after each work session.
 | Statistics that compare real vs. AI-written emails | Done, on the free path |
 | AI replies to a real email, compared to the real reply | Section 38's judged pairs predate the Sep 5 prompt change and have not been re-judged yet — see "Ready to do" below |
 | Does the judge favour its own kind of AI? (Q3) | Re-run at twice the size under the current prompt — self-preference is significant, p=.005. Section 41's number was stale. See section 52 |
-| Does hierarchy shape what gets written? (Q1) | Re-run at 1,440 replies under the current prompt. Writing down is +0.134 (p=.092), measured six times better than before. Section 39's numbers are stale. See section 51 |
+| Does hierarchy shape what gets written? (Q1) | A second draw shrank the writing-down effect further, to +0.092. The simulator is now significantly smaller than real email on it (p=.043), not just underpowered. Section 39's numbers are stale. See sections 51 and 54 |
 | Does real email show a direction pattern? (benchmark for Q1) | Measured. Writing down gives more orders in every check. The simulator's estimate is the same size but too noisy to detect. See section 48 |
 | Is each result tied to the prompt that produced it? | It was not. A prompt change on Sep 5 silently moved Q1's numbers and nothing caught it. Run manifests now record a prompt hash. See section 51 |
 | Validation pass: embedding map, 100 replies read by hand | Done — checked again under the current prompt, barely moves, see sections 35 and 53 |
 | Measure the mirroring failure automatically | Done — see section 42 |
 | Fix the mirroring failure by instructing the persona | Tried and did not work — phrasing moved, behavior did not, see section 43 |
 | Fix it by making the persona decide before it writes | Tried and did not work — the gain is only a length effect, and the decision field turns out unstable, see section 49 |
-| How much does the model disagree with itself? | Measured. Same prompt twice: only 60% of decisions repeat (kappa 0.25). Flag changes are noise; the borrowed-words mean is not. See section 50 |
+| How much does the model disagree with itself? | Measured on 183 pairs (section 50), then on all 1,440 Q1 cells (section 54): reliability is weak either way, and a second draw shrinks Q1's effect rather than sharpening it |
 | Does the model follow an instructed reply length? | Measured — the slope is 0.157, weak but real, see section 47 |
 | Measure mirroring by meaning rather than by words | Tried and does not work — every variant scores worse, see section 44 |
 | Measure mirroring by asking a model directly | Tried and does not work — both local models score near chance, see section 46 |
@@ -3560,6 +3560,199 @@ cache), a few seconds. Figures carry the `embedding_act_` prefix, so section
 
 ---
 
+### 54. A second draw shrinks the writing-down effect, and now it is
+significantly smaller than real email (Sep 21)
+
+**Result first.** Averaging a second draw did not tighten the writing-down
+estimate toward significance. It moved the estimate itself down, from +0.134
+to +0.092 on the logit scale, and the p-value got slightly worse, from .092
+to .130. Once measured this carefully, the simulator's writing-down effect is
+now significantly smaller than real email's: p=.043. Section 51 could only
+say the two could not be told apart. Now they can.
+
+**Why this step follows.** Section 50 measured how much one draw disagrees
+with itself, on 183 pairs. Section 51's whole result rested on one draw per
+cell, with no way to tell a real effect from draw noise. This section
+generates a second draw of every one of the 1,440 cells and checks two
+things: does averaging rescue the writing-down effect, and how unreliable is
+a single draw across the full grid, not just 183 pairs.
+
+#### What was run, and a real crash along the way
+
+10 personas x 144 scenarios x 2 draws = 2,880 rows. Draw 1 is every reply
+section 51 already generated, served from cache. Draw 2 is new: 1,440 fresh
+replies, about 11 hours of local generation.
+
+**WSL was shut down mid-run.** The job had reached 2,050 of 2,880 cells when
+the machine restarted overnight. Nothing was lost from the response cache,
+which is the whole point of keeping one, but two cache files came back
+zero-length: the write's rename had completed, the data underneath it had
+not. `cache.get()` crashed on the first one it read, which stopped the whole
+run cold on restart. Fixed in `thesis/llm/cache.py`: a damaged entry is now
+treated as a miss, not a crash, and a write flushes and calls `fsync` before
+the rename, which narrows the window this can happen in again. Committed and
+pushed separately (`7e99f40`), with its own tests, since it is an
+infrastructure fix, not a result. The run then resumed and finished cleanly:
+392 replies generated in the second pass, the rest already cached from the
+first attempt.
+
+**A second bug, found while making this section's own figure.** The figure
+comparing the simulator against real email was written to one fixed
+filename regardless of how many draws the grid held, the same mistake
+section 40 hit with a figure and section 51 already fixed for the manifest.
+No written-up section had cited that figure yet, so nothing went stale, but
+today's run would have silently overwritten whatever section 51's run had
+produced. Fixed the same way as the manifest: a multi-draw run now writes
+`q1_full_grid_vs_real_2draws.png`, and a single-draw run keeps
+`q1_full_grid_vs_real.png`. Both are regenerated from their own saved grids
+so neither is missing.
+
+#### The aggregated fit against the draw-1-only fit
+
+**Orders per reply** (`imperative_ratio ~ direction`, one row per cell,
+averaged across its two draws) and **orders per sentence**
+(`is_imperative ~ direction`, a logistic model with a random intercept per
+persona *and* per cell, since sentences from the same cell's two replies are
+not independent). Both are reported against draw-1-only, the number section
+51 gave.
+
+| | Writing down | Writing up |
+|---|---|---|
+| Orders per reply, draw 1 only | +0.030 (p=.269) | +0.014 (p=.607) |
+| Orders per reply, averaged | +0.010 (p=.664) | −0.003 (p=.904) |
+| Orders per sentence, draw 1 only | +0.134 (p=.092) | +0.064 (p=.434) |
+| Orders per sentence, averaged/clustered | +0.092 (p=.130) | +0.017 (p=.786) |
+| Hedges, draw 1 only | −0.065 (p&lt;.001) | −0.025 (p=.198) |
+| Hedges, averaged | −0.057 (p&lt;.001) | −0.022 (p=.141) |
+
+Every contrast moved toward zero once the second draw was added. Hedging
+survives, since it was already the clearest signal in this run. The two
+directional contrasts do not.
+
+**Precision did improve, just less than the estimate shrank.** The
+sentence-level standard error for writing down fell from 0.0795 to 0.0606, a
+real gain from more data, about 24% narrower rather than the 29% a doubling
+of fully independent data would give. That smaller gain fits the reliability
+numbers below: the two draws are correlated, not independent, so a second
+one does not buy a full second unit of information. The coefficient fell
+from 0.134 to 0.092, a bigger move than the SE tightened by. The net effect
+on the test statistic is a slightly weaker result, not a stronger one.
+
+**One honest reading: draw 1 happened to sit on the high side.** Two draws
+cannot prove that on their own. What they show is that the number section 51
+quoted was not a stable estimate, and the more carefully measured one is
+smaller.
+
+#### How unreliable one draw is, across the whole grid
+
+Section 50 measured this on 183 real-vs-generated pairs. This generalizes it
+to all 1,440 Q1 cells, comparing draw 1 against draw 2 for the same cell.
+
+- **Orders per reply:** Pearson r=0.346, Spearman ρ=0.368, ICC(2,1)=0.346.
+- **Hedges:** Pearson r=0.287, Spearman ρ=0.304, ICC(2,1)=0.287.
+- **Decision:** the two draws agree on 67.7% of cells (975 of 1,440).
+  Guessing with the same totals would agree 50.1% of the time. Cohen's
+  kappa=0.352.
+
+All three sit above section 50's 183-pair numbers (0.15 for orders per
+reply, 60% and kappa 0.25 for decision). This grid's replies are a little
+more self-consistent than that sample was. Not by much, though, and not
+enough to change the conclusion. A single draw is still a noisy measurement
+of any one cell.
+
+**What more draws would buy, from the data rather than a guess.**
+Spearman-Brown projects reliability at k draws from the reliability at one:
+`r_k = k*r / (1 + (k-1)*r)`. For orders per reply, two draws give an
+implied 0.514, three give 0.614. For hedges, 0.446 and 0.547. A third draw
+would help. It would not transform either measure into something a single
+cell's value could be trusted on. It is also not likely to rescue the
+writing-down contrast. The problem found above was not only noise width.
+The point estimate itself moved down when measured more carefully.
+
+#### The simulator against real email, done properly this time
+
+Section 51 approximated this with standard errors backed out of rounded
+p-values, and called neither contrast significant. The manifest now stores
+exact standard errors, so this redoes that test properly: two independent
+estimates, `z = (real − simulator) / sqrt(real_se² + simulator_se²)`.
+
+| Orders per sentence, writing down | Estimate | SE | z vs. real | p |
+|---|---:|---:|---:|---:|
+| Real email (section 48) | +0.253 | 0.052 | — | — |
+| Simulator, draw 1 only | +0.134 | 0.080 | 1.26 | .209 |
+| Simulator, averaged | +0.092 | 0.061 | **2.03** | **.043** |
+
+| Orders per sentence, writing up | Estimate | SE | z vs. real | p |
+|---|---:|---:|---:|---:|
+| Real email (section 48) | +0.070 | 0.042 | — | — |
+| Simulator, draw 1 only | +0.064 | 0.082 | 0.07 | .946 |
+| Simulator, averaged | +0.017 | 0.063 | 0.71 | .478 |
+
+**Writing down is the finding here.** The single-draw comparison could not
+tell the simulator and real email apart. The two-draw comparison can: the
+simulator produces significantly fewer orders when writing down than real
+people do. Writing up shows no such gap on either version. Both sides are
+already small there, and stay small.
+
+This arithmetic is mine, not the module's own output, so it is worth
+checking rather than trusting. The standard errors come straight from the
+manifest (`outputs/manifests/q1_full_grid_2draws.json`), not backed out of
+anything.
+
+![Orders per sentence by direction, the two-draw simulator against real
+email and the 240-reply subset. The simulator's writing-down line now sits
+further from real email's than the single-draw version
+did.](docs/figures/q1_full_grid_vs_real_2draws.png)
+
+#### What this means for Q1
+
+The bigger run (section 51) answered whether more cells would help. It did
+not settle writing down, because 1,440 cells is close to the low end of what
+section 48 estimated was needed, and a single draw per cell added noise on
+top. This section answers the question section 51 left open: not "is there
+enough data," but "is one draw enough." It was not, and the direction the
+noise ran was toward overstating the effect, not hiding it.
+
+**The honest state of Q1 now:** real email shows a clear writing-down
+effect. The simulator shows one that is real in direction but roughly a
+third of the size, and that gap is now large enough to call significant
+rather than merely unresolved. Writing up shows nothing on either side. Q1's
+evidence continues to rest more on the real-email benchmark than on the
+simulator.
+
+#### Limits
+
+- Two draws, not three. The reliability numbers say a third would help a
+  little; nothing here says it would change the direction of this section's
+  finding.
+- One 3B local model, one prompt, 10 personas.
+- The decision field is still unstable (67.7% self-agreement), so
+  `decision ~ direction` (chi2=20.21, p=.010 here) carries the same caveat
+  section 50 and section 51 already gave it.
+- Reply-level persona variance is 0.0000 again, the same degenerate case
+  sections 33, 34, 39 and 51 all hit.
+- The real-vs-simulator z-test above treats the two standard errors as
+  independent, which is standard for two separately fitted models on
+  separate data, but it is not a joint model.
+
+#### How it was run
+
+```
+python -m thesis.analysis.q1 --local llama3.2:3b --design full --replicates 2 \
+  --progress-every 50 --out data/interim/q1_direction_grid_full_2draws.parquet
+```
+
+2,880 rows: 2,488 served from cache across both attempts, 392 generated
+fresh. Manifest at `outputs/manifests/q1_full_grid_2draws.json`, which
+`full_grid_manifest_path` and `full_grid_figure_path` route there
+automatically once a grid holds more than one draw, so this can never
+overwrite section 51's files. `prompt_text_hash` matches section 51's,
+confirming both runs used the same prompt. 757 tests pass (16 new since
+section 52, from the multi-draw analysis code and its tests), ruff/black/
+mypy clean.
+
+---
+
 ## What's next
 
 *(Rewritten Aug 31 — the previous version was written before the corpus
@@ -3699,6 +3892,16 @@ the same as Q1 and the judge-swap did, since the judging step behind section
 38 was never committed as a reusable script. Scoring both sides of 183 pairs
 is about 366 judge calls, roughly 2 to 3 hours, not a quick repair.
 
+**A second draw closed out section 50's open question (section 54).**
+Averaging two draws of all 1,440 Q1 cells did not sharpen the writing-down
+effect toward significance. It shrank the estimate, from +0.134 to +0.092,
+and made the gap against real email significant, p=.043, where the
+single-draw version could only call it unresolved. Reliability across the
+full grid is weak either way (orders per reply correlate 0.35 between
+draws), and the honest reading is that draw 1 happened to sit on the high
+side, not that more data is still needed. This closes the item this section
+used to flag as the single most useful next generation run.
+
 **Next priority is therefore yours to pick**, since the cheap technical
 work in this thread is finished. The strongest candidates are re-coding
 the 100-item packet (below), which unblocks both the reliability figure
@@ -3727,14 +3930,13 @@ and the better automatic measure, and the four supervisor questions.
   nothing but time. The question for your supervisor is whether Q1 is worth
   that, given the answer would still come from one 3B model with 10 personas.
   For Q1 the real-email arm remains the stronger one.
-- **Spend the next generation on draws, not on more cells.** Section 50 found
-  orders per reply correlate only 0.15 between two draws of one prompt, and
-  that the model repeats its own decision 60% of the time. Every number in
-  section 51 rests on a single draw. Three draws per cell on the existing
-  1,440 would give a spread to report and would average out the noise, instead
-  of buying more cells whose individual values stay this unstable. It would
-  also let a prompt effect be separated from draw noise, which section 51 could
-  not do. If only one generation run happens next, this is the one worth doing.
+- **Done: a second draw (section 54).** It did not rescue Q1's writing-down
+  effect. Averaging pulled the estimate down, from +0.134 to +0.092, and the
+  simulator is now significantly smaller than real email on it (p=.043)
+  rather than merely too noisy to compare. A third draw is not likely to
+  change that conclusion, since the problem section 54 found is not only
+  noise width — the point estimate itself moved down, not just its error
+  bar. Not currently planned.
 - **Watch the hedging gap.** Section 51 found the simulator hedges less when
   writing down while real email does not, −0.060 at p=.004, surviving a Holm
   correction. It is the first clear place the simulator behaves unlike real

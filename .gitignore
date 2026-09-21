@@ -45,3 +45,4 @@ thesis/*.synctex.gz
 
 # machine-specific symlink to the OneDrive reference library
 refs
+HANDOVER.md

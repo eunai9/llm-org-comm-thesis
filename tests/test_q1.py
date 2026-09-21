@@ -44,6 +44,7 @@ from thesis.analysis.q1 import (
     format_multi_draw_report,
     format_real_comparison,
     format_report,
+    full_grid_figure_path,
     full_grid_manifest_path,
     full_grid_path,
     generate_q1_grid,
@@ -610,6 +611,19 @@ def test_full_grid_manifest_path_is_distinct_for_more_draws() -> None:
     assert path != Q1_FULL_MANIFEST_PATH
     assert path.name == "q1_full_grid_2draws.json"
     assert full_grid_manifest_path(3).name == "q1_full_grid_3draws.json"
+
+
+def test_full_grid_figure_path_is_distinct_for_more_draws() -> None:
+    """The figure had the same bug the manifest did, just not yet caught by
+    a written-up section citing it -- one fixed name for every draw count,
+    so a second-draw run silently overwrote a single-draw run's picture.
+    Section 54 is the first run to actually reference this figure, which is
+    what surfaced it."""
+    one_draw = full_grid_figure_path(1)
+    two_draws = full_grid_figure_path(2)
+    assert one_draw.name == "q1_full_grid_vs_real.png"
+    assert two_draws != one_draw
+    assert two_draws.name == "q1_full_grid_vs_real_2draws.png"
 
 
 def test_multi_draw_manifest_section_is_none_for_a_single_draw(small_grid) -> None:  # type: ignore[no-untyped-def]

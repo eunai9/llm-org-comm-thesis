@@ -246,6 +246,23 @@ def full_grid_manifest_path(n_draws: int) -> Path:
     )
 
 
+def full_grid_figure_path(n_draws: int) -> Path:
+    """Where a full-grid run's own-family figure goes, by the same rule as
+    :func:`full_grid_manifest_path` and for the same reason.
+
+    Before this, ``_report_full_grid`` wrote every run's figure to one fixed
+    name, so a second-draw run silently overwrote whatever a single-draw run
+    had produced. Section 51 never happened to cite that figure, so no
+    written-up number went stale -- but the bug was live, and the fix already
+    made for the manifest had not been made here. Section 54 is the first run
+    to actually reference this figure, which is what surfaced it.
+    """
+    base = DOCS_FIGURES_DIR / "q1_full_grid_vs_real.png"
+    if n_draws <= 1:
+        return base
+    return base.with_name(f"{base.stem}_{n_draws}draws{base.suffix}")
+
+
 def build_q1_cells(
     personas: Sequence[Persona],
     model: str,
@@ -1134,7 +1151,7 @@ def _report_full_grid(grid: Q1Grid, result: Q1Result) -> None:
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
-    figure = plot_full_vs_real(manifest, DOCS_FIGURES_DIR / "q1_full_grid_vs_real.png")
+    figure = plot_full_vs_real(manifest, full_grid_figure_path(result.n_draws))
 
     print()
     print(format_precision_table(manifest))
