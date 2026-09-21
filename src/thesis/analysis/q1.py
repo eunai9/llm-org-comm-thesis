@@ -101,6 +101,7 @@ log = get_logger(__name__)
 Q1_GRID_PATH: Path = INTERIM_DIR / "q1_direction_grid.parquet"
 # A separate default for NVIDIA runs, so they never overwrite a local grid.
 Q1_NVIDIA_GRID_PATH: Path = INTERIM_DIR / "q1_direction_grid_nvidia.parquet"
+Q1_GROQ_GRID_PATH: Path = INTERIM_DIR / "q1_direction_grid_groq.parquet"
 # Where a local full-grid run writes. A separate file, so the 1,440-cell run
 # never overwrites the 240-cell one every earlier section reports.
 Q1_FULL_GRID_PATH: Path = INTERIM_DIR / "q1_direction_grid_full.parquet"
@@ -1181,6 +1182,11 @@ def main() -> None:
         metavar="PATH",
         help="Analyse a grid file that already exists, without calling any model.",
     )
+    backend.add_argument(
+        "--groq",
+        metavar="MODEL",
+        help="Generate with a free Groq-hosted model (needs GROQ_API_KEY).",
+    )
     parser.add_argument(
         "--compare-real",
         action="store_true",
@@ -1254,6 +1260,10 @@ def main() -> None:
         from thesis.llm.nvidia_client import NvidiaClient
 
         client, model, default_out = NvidiaClient(), args.nvidia, Q1_NVIDIA_GRID_PATH
+    elif args.groq:
+        from thesis.llm.groq_client import GroqClient
+
+        client, model, default_out = GroqClient(), args.groq, Q1_GROQ_GRID_PATH
     else:
         from thesis.llm.ollama_client import OllamaClient, OllamaUnavailableError
 
