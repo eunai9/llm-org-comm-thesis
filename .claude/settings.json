@@ -1,0 +1,27 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "wsl.exe -e bash /home/eunai9/projects/thesis/.claude/hooks/session_start.sh",
+            "timeout": 90
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "wsl.exe -e bash /home/eunai9/projects/thesis/.claude/hooks/git_guard.sh",
+            "timeout": 300
+          }
+        ]
+      }
+    ]
+  }
+}
