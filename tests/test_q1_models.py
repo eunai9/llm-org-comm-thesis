@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from thesis.analysis.plots import plot_effect_intervals
@@ -14,6 +15,7 @@ from thesis.analysis.q1_models import (
     PRIMARY,
     Z_95,
     format_table,
+    load_grid,
     parse_grid_arg,
     plot_models_vs_real,
     real_row,
@@ -94,6 +96,29 @@ def test_plot_models_vs_real_puts_real_email_first(tmp_path: Path) -> None:
     real = real_row(REAL_MANIFEST)
     out = plot_models_vs_real(real, {"model a": _model(0.14, 0.296)}, tmp_path / "m.png")
     assert out.exists()
+
+
+def test_load_grid_counts_cache_and_generation_from_the_from_cache_column(
+    tmp_path: Path,
+) -> None:
+    """load_grid used to hard-code n_from_cache=len(frame), n_generated=0,
+    regardless of the grid's real split -- the from_cache column a saved
+    grid already carries (thesis.sim.run._result_row) was sitting unread.
+    """
+    frame = pd.DataFrame(
+        {
+            "model": ["m", "m", "m"],
+            "scenario_id": ["s1", "s2", "s3"],
+            "from_cache": [True, False, False],
+        }
+    )
+    path = tmp_path / "grid.parquet"
+    frame.to_parquet(path)
+
+    grid = load_grid(path)
+
+    assert grid.n_from_cache == 1
+    assert grid.n_generated == 2
 
 
 REAL_MANIFEST_FULL = {

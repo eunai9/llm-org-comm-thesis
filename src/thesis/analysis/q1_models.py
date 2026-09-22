@@ -58,15 +58,30 @@ def parse_grid_arg(text: str) -> tuple[str, Path]:
 
 
 def load_grid(path: Path) -> Q1Grid:
-    """A saved grid file as a :class:`Q1Grid`, with nothing generated."""
+    """A saved grid file as a :class:`Q1Grid`.
+
+    ``n_from_cache``/``n_generated`` come from the ``from_cache`` column
+    every grid row already carries (:func:`thesis.sim.run._result_row`),
+    not a stand-in -- a grid loaded from a file used to hard-code
+    ``n_from_cache=len(frame), n_generated=0`` regardless of the run's real
+    split, which is wrong for any grid that generated anything this run.
+    A grid saved before that column existed reports both as unknown (0/0)
+    rather than guessing.
+    """
     frame = pd.read_parquet(path)
+    if "from_cache" in frame.columns:
+        n_from_cache = int(frame["from_cache"].sum())
+        n_generated = len(frame) - n_from_cache
+    else:
+        n_from_cache = 0
+        n_generated = 0
     return Q1Grid(
         frame=frame,
         run_id="from-file",
         model=str(frame["model"].iloc[0]),
         n_cells=len(frame),
-        n_from_cache=len(frame),
-        n_generated=0,
+        n_from_cache=n_from_cache,
+        n_generated=n_generated,
         prompt_text_hash=prompt_hash_of_frame(frame),
         design=design_of_frame(frame),
     )
