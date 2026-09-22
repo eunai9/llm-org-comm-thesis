@@ -570,32 +570,45 @@ whatever its p-value says.
 that a sentence gives an order, writing down against writing to a peer. Real
 email's +0.253 moves the chance from 14.2% to 17.5%, so a bigger number means
 a bigger jump. Each line is a 95% interval. An interval that crosses zero
-means the grid cannot show the effect. The intervals are rough: the standard
-errors are backed out of the p-values, and for gpt-oss-120b that means the
-plotted interval is too narrow, for the reason given above. Its honest
-interval, from a persona bootstrap, is +0.42 to +1.47, wider than the figure
-shows.
+means the grid cannot show the effect. This figure and its intervals are
+regenerated with the persona-clustered fit (commit `85e833a`), not the
+variational-Bayes fit the "vs real email" tables above still use, so
+numbers here differ slightly from the "orders per sentence" rows in those
+tables -- same effect, two different standard errors.
+
+| | coefficient | p | 95% interval |
+|---|---:|---:|---:|
+| Real email | +0.253 | <.001 | [+0.15, +0.35] |
+| DeepSeek V4 Flash | +0.464 | .001 | [+0.19, +0.73] |
+| gpt-oss-120b | +0.921 | .002 | [+0.35, +1.50] |
+| Llama 3.2 3B | +0.207 | .515 | [-0.42, +0.83] |
+| gpt-oss-20b | +0.155 | .239 | [-0.10, +0.41] |
 
 ![Effect of writing down on the chance that a sentence gives an order, with a 95% interval, for real email and four models.](docs/figures/q1_models_all_writing_down.png)
 
 - **DeepSeek's and gpt-oss-120b's intervals stay clear of zero.** DeepSeek
-  runs from +0.20 to +0.68 and also contains the real +0.25. gpt-oss-120b, on
-  its honest interval, runs from +0.42 to +1.47 and also contains the real
-  +0.25, but only just at the top of real email's own interval.
+  runs from +0.19 to +0.73 and also contains the real +0.25. gpt-oss-120b
+  runs from +0.35 to +1.50 and also contains the real +0.25, but only just
+  at the bottom of its own interval, which is the top of real email's own
+  interval.
 - **Llama's and gpt-oss-20b's intervals cross zero.** The grids are too
   small to say either model shows an effect at all, let alone whether it
   differs from real email.
-- **gpt-oss-20b's interval runs from -0.12 to +0.39.** It has about as many
-  sentences as DeepSeek and an interval of nearly the same width (0.51
-  against 0.48). It sits lower, and it crosses zero.
+- **gpt-oss-20b's interval runs from -0.10 to +0.41.** It has about as many
+  sentences as DeepSeek and an interval of nearly the same width (0.52
+  against 0.54). It sits lower, and it crosses zero.
 
 **Caveats.**
 
 - One reply per cell, 10 personas. In the reply-level model the persona
   variance is 0 for both grids, so the model works like a plain regression;
   the fit warns it sits at the edge of its range.
-- The sentence-level p-values are approximate (a Wald test from a
-  variational Bayes fit).
+- The "vs real email" tables above still use the variational-Bayes
+  sentence-level p-value, which is approximate (a Wald test from that fit)
+  and understates uncertainty on a large effect -- see the gpt-oss-120b
+  footnote earlier in this section. The persona-clustered fit table just
+  above does not have this problem, but has not been substituted into
+  those earlier tables yet.
 - The DeepSeek grid has 238 replies, not 240: 2 came back without valid
   JSON, one writing up and one writing down. The gpt-oss-20b grid also has
   238: one lateral and one writing up.
@@ -652,10 +665,14 @@ public so both modules share one formula.
 
 **The model comparison.** `analysis/q1_models.py` takes one `--grid
 LABEL=PATH` per model and writes one manifest and one figure, named by
-`--manifest` and `--figure-prefix`. It calls no model. Two known bugs, not yet
-fixed: it does not write the prompt hash into its own manifest, and its grid
-loader marks every row "from cache" regardless of how the grid was actually
-generated.
+`--manifest` and `--figure-prefix`. It calls no model. Its grid loader used
+to mark every row "from cache" regardless of how the grid was actually
+generated -- fixed, commit `36fbc3e`. One small gap remains: each grid it
+loads now carries a `prompt_text_hash` (commit `5ee4b46`), but
+`q1_models.py`'s own output manifest (the JSON this command writes) does not
+copy that hash into its per-model entries yet, so checking a grid's prompt
+still means opening the grid file itself rather than the comparison
+manifest.
 
 ```
 python -m thesis.analysis.q1 --nvidia openai/gpt-oss-20b@low \
@@ -688,15 +705,17 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   variational-Bayes fit that understated uncertainty. `q1_models.py` reports
   the clustered coefficient/p/interval as the headline numbers now, with the
   VB ones kept alongside as `coefficient_vb`/`p_vb`. Commit `85e833a`. The
-  four-model table above has not been regenerated with this fit yet, so it
-  still shows the one-off manual check from last session, for gpt-oss-120b
-  only — rerunning `q1_models.py` on all four grids is the next step for
-  this item, not done here.
+  four-model table and figure in the Q1 section above are now regenerated
+  with this fit. The "vs real email" tables further up that section still
+  use the older VB fit -- rewriting those, and the length-matched
+  comparison, are separate, larger steps (see items below).
 - **The prompt hash is now written into every saved Q1 grid.** `Q1Grid`
   carries `prompt_text_hash`, also saved as a column on the grid's parquet
   file, so a saved grid records which prompt made it instead of needing a
   by-hand check. A grid saved before this fix reads back as `"unknown"`
-  rather than raising. Commit `5ee4b46`.
+  rather than raising. Commit `5ee4b46`. One small gap remains:
+  `q1_models.py`'s own output manifest does not copy this hash into its
+  per-model entries yet, so checking it still means opening the grid file.
 - **`q1_models.py`'s grid loader no longer marks every row "from cache".**
   `load_grid` now counts the real split from the `from_cache` column every
   row already carries, instead of hard-coding `n_from_cache=len(frame)`.

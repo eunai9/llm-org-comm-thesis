@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-22T18:48:08+00:00",
+  "generated_at": "2026-09-22T20:01:16+00:00",
   "models": {
     "DeepSeek V4 Flash": {
       "levels_by_direction": {
@@ -11,12 +11,14 @@
       "n_replies": 238,
       "n_sentences": 882,
       "primary": {
-        "ci_high": 0.6817,
-        "ci_low": 0.1952,
-        "coefficient": 0.4385,
+        "ci_high": 0.7344,
+        "ci_low": 0.1927,
+        "coefficient": 0.4636,
+        "coefficient_vb": 0.4385,
         "contrast": "is_imperative:down",
-        "p": 0.0004,
-        "se": 0.1241
+        "p": 0.0008,
+        "p_vb": 0.0004,
+        "se": 0.1382
       },
       "sentences_per_reply": 3.71,
       "vs_real": {
@@ -80,12 +82,14 @@
       "n_replies": 240,
       "n_sentences": 343,
       "primary": {
-        "ci_high": 0.5694,
-        "ci_low": -0.1744,
-        "coefficient": 0.1975,
+        "ci_high": 0.8314,
+        "ci_low": -0.4172,
+        "coefficient": 0.2071,
+        "coefficient_vb": 0.1975,
         "contrast": "is_imperative:down",
-        "p": 0.298,
-        "se": 0.1897
+        "p": 0.5155,
+        "p_vb": 0.298,
+        "se": 0.3185
       },
       "sentences_per_reply": 1.43,
       "vs_real": {
@@ -149,12 +153,14 @@
       "n_replies": 240,
       "n_sentences": 474,
       "primary": {
-        "ci_high": 1.2187,
-        "ci_low": 0.5737,
-        "coefficient": 0.8962,
+        "ci_high": 1.4968,
+        "ci_low": 0.3453,
+        "coefficient": 0.921,
+        "coefficient_vb": 0.8962,
         "contrast": "is_imperative:down",
-        "p": 0.0,
-        "se": 0.1645
+        "p": 0.0017,
+        "p_vb": 0.0,
+        "se": 0.2937
       },
       "sentences_per_reply": 1.98,
       "vs_real": {
@@ -218,12 +224,14 @@
       "n_replies": 238,
       "n_sentences": 719,
       "primary": {
-        "ci_high": 0.3904,
-        "ci_low": -0.1189,
-        "coefficient": 0.1357,
+        "ci_high": 0.4134,
+        "ci_low": -0.1029,
+        "coefficient": 0.1552,
+        "coefficient_vb": 0.1357,
         "contrast": "is_imperative:down",
-        "p": 0.2962,
-        "se": 0.1299
+        "p": 0.2386,
+        "p_vb": 0.2962,
+        "se": 0.1317
       },
       "sentences_per_reply": 3.02,
       "vs_real": {
