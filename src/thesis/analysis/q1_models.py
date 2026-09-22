@@ -71,10 +71,24 @@ def load_grid(path: Path) -> Q1Grid:
 
 
 def summarize_model(result: Q1Result, real_manifest: Mapping[str, Any]) -> dict[str, Any]:
-    """One model's row: size, levels, contrasts and the comparison with real email."""
+    """One model's row: size, levels, contrasts and the comparison with real email.
+
+    ``PRIMARY`` is a sentence-level ``is_imperative`` contrast, so
+    ``result.sentence_model``'s variational-Bayes (VB) fit is not the only
+    one available for it -- ``result.sentence_model_persona_fe`` fits the
+    same outcome by persona-clustered fixed effects. The VB fit's p-value
+    comes from a posterior SD that understates uncertainty on a large
+    effect (found checking the gpt-oss-120b result, PROGRESS_llms.md's Q1
+    section), so the reported ``coefficient``/``p``/``se``/interval come
+    from the clustered fit, all from the same model rather than mixing a
+    VB coefficient with a clustered SE. The VB numbers stay in
+    ``coefficient_vb``/``p_vb`` for comparison, not dropped.
+    """
     contrasts = grid_contrasts(result)
-    coefficient, p_value = contrasts[PRIMARY]
-    se = implied_se(coefficient, p_value)
+    vb_coefficient, p_vb = contrasts[PRIMARY]
+    level = PRIMARY.split(":")[1]
+    coefficient, p_value = result.sentence_model_persona_fe.contrast(level)
+    se = result.sentence_model_persona_fe.std_errors[f"direction[T.{level}]"]
     n_replies = len(result.reply_features)
     n_sentences = len(result.sentence_features)
     return {
@@ -90,6 +104,8 @@ def summarize_model(result: Q1Result, real_manifest: Mapping[str, Any]) -> dict[
             "se": round(se, 4),
             "ci_low": round(coefficient - Z_95 * se, 4),
             "ci_high": round(coefficient + Z_95 * se, 4),
+            "coefficient_vb": round(vb_coefficient, 4),
+            "p_vb": round(p_vb, 4),
         },
         "vs_real": compare_with_real(contrasts, real_manifest),
     }

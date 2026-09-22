@@ -63,11 +63,13 @@ from statsmodels.stats.multitest import multipletests
 from thesis.analysis.draw_stability import GridReliability, grid_draw_reliability
 from thesis.analysis.hierarchy import (
     AssociationResult,
+    FixedEffectsResult,
     MixedModelResult,
     SentenceModelResult,
     aggregate_replicates,
     cell_id_without_replicate,
     direction_decision_association,
+    fit_direction_fixed_effects,
     fit_direction_mixed_model,
     fit_interaction_model,
     fit_sentence_level_model,
@@ -571,6 +573,15 @@ class Q1Result:
     compared against. The four fields below are the multi-draw analysis:
     ``None`` when the grid has one draw, since there is nothing to average
     or compare.
+
+    ``sentence_model_persona_fe`` fits the same ``is_imperative`` outcome a
+    second way, by persona-clustered fixed effects instead of
+    ``sentence_model``'s variational-Bayes random intercept. The VB
+    p-value comes from a posterior SD that understates uncertainty on a
+    large effect (found checking the gpt-oss-120b result, PROGRESS_llms.md's
+    Q1 section); this fit is the honest cross-check, kept alongside the VB
+    one rather than replacing it, the same way q1_real.py already
+    cross-checks the real-email benchmark.
     """
 
     grid: Q1Grid
@@ -582,6 +593,7 @@ class Q1Result:
     decision_association: AssociationResult
     reply_level_comparison: list[ContrastComparison]
     sentence_level_comparison: list[ContrastComparison]
+    sentence_model_persona_fe: FixedEffectsResult
     n_draws: int = 1
     aggregated_reply_model: MixedModelResult | None = None
     aggregated_hedge_model: MixedModelResult | None = None
@@ -612,6 +624,13 @@ def run_q1_analysis(grid: Q1Grid) -> Q1Result:
     reply_model = fit_direction_mixed_model(draw1_replies, "imperative_ratio", reference="lateral")
     hedge_model = fit_direction_mixed_model(draw1_replies, "hedge_rate", reference="lateral")
     sentence_model = fit_sentence_level_model(draw1_sentences, "is_imperative", reference="lateral")
+    sentence_model_persona_fe = fit_direction_fixed_effects(
+        draw1_sentences,
+        "is_imperative",
+        cluster_col="persona_id",
+        reference="lateral",
+        family="logistic",
+    )
     decision_association = direction_decision_association(draw1_replies)
 
     aggregated_reply_model = None
@@ -649,6 +668,7 @@ def run_q1_analysis(grid: Q1Grid) -> Q1Result:
         decision_association=decision_association,
         reply_level_comparison=compare_to_historical(reply_model, HISTORICAL_REPLY_LEVEL),
         sentence_level_comparison=compare_to_historical(sentence_model, HISTORICAL_SENTENCE_LEVEL),
+        sentence_model_persona_fe=sentence_model_persona_fe,
         n_draws=n_draws,
         aggregated_reply_model=aggregated_reply_model,
         aggregated_hedge_model=aggregated_hedge_model,
@@ -684,6 +704,12 @@ def format_report(result: Q1Result) -> str:
         f"sentence-level persona sd:    {result.sentence_model.group_sd:.4f}",
         f"n replies: {result.reply_model.n_observations}  |  "
         f"n sentences: {result.sentence_model.n_observations}",
+        "",
+        "is_imperative ~ direction (persona-clustered fixed effects, cross-checks the VB fit above):",
+        f"  up:   {result.sentence_model_persona_fe.contrast('up')[0]:.3f} "
+        f"(p={result.sentence_model_persona_fe.contrast('up')[1]:.3f})",
+        f"  down: {result.sentence_model_persona_fe.contrast('down')[0]:.3f} "
+        f"(p={result.sentence_model_persona_fe.contrast('down')[1]:.3f})",
         "",
         "hedge_rate ~ direction (new run only, no historical comparison tracked):",
         f"  up:   {result.hedge_model.contrast('up')[0]:.3f} "

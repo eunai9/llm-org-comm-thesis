@@ -20,6 +20,7 @@ from typing import ClassVar
 import pandas as pd
 import pytest
 
+from thesis.analysis.hierarchy import FixedEffectsResult
 from thesis.analysis.q1 import (
     ANALYSIS_PLAN,
     HISTORICAL_REPLY_LEVEL,
@@ -360,6 +361,33 @@ def test_run_q1_analysis_produces_a_complete_result(small_grid) -> None:  # type
     assert len(result.sentence_level_comparison) == 2
     assert {c.level for c in result.reply_level_comparison} == {"up", "down"}
     assert result.decision_association.n_observations == len(small_grid.frame)
+
+
+def test_format_report_prints_the_persona_clustered_check_for_is_imperative(small_grid) -> None:  # type: ignore[no-untyped-def]
+    """format_report must show the clustered cross-check next to the VB
+    sentence-level fit, not just leave it in the Q1Result unreported."""
+    result = run_q1_analysis(small_grid)
+    report = format_report(result)
+
+    assert "is_imperative ~ direction (persona-clustered fixed effects" in report
+
+
+def test_run_q1_analysis_reports_a_persona_clustered_check_for_is_imperative(small_grid) -> None:  # type: ignore[no-untyped-def]
+    """The sentence-level p-value comes from a variational-Bayes posterior
+    SD that understates uncertainty on a large effect (PROGRESS_llms.md,
+    Q1 section). A persona-clustered fixed-effects fit, alongside the VB
+    fit, is the honest cross-check -- see hierarchy.fit_direction_fixed_effects.
+    """
+    result = run_q1_analysis(small_grid)
+
+    assert isinstance(result.sentence_model_persona_fe, FixedEffectsResult)
+    assert result.sentence_model_persona_fe.outcome == "is_imperative"
+    assert result.sentence_model_persona_fe.family == "logistic"
+    # Clustering by persona changes the standard error, so the clustered
+    # p-value is not simply a rounding of the VB p-value.
+    _, vb_p = result.sentence_model.contrast("down")
+    _, clustered_p = result.sentence_model_persona_fe.contrast("down")
+    assert vb_p != clustered_p
 
 
 def test_run_q1_analysis_single_draw_has_no_multi_draw_fields(small_grid) -> None:  # type: ignore[no-untyped-def]

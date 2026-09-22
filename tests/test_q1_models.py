@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from thesis.analysis.plots import plot_effect_intervals
+from thesis.analysis.q1 import generate_q1_grid, run_q1_analysis
 from thesis.analysis.q1_models import (
     PRIMARY,
     Z_95,
@@ -16,7 +17,12 @@ from thesis.analysis.q1_models import (
     parse_grid_arg,
     plot_models_vs_real,
     real_row,
+    summarize_model,
 )
+from thesis.llm.base import Capabilities, CompletionRequest, CompletionResponse, Provider, Usage
+from thesis.llm.cache import ResponseCache
+from thesis.llm.cost import CostLedger
+from thesis.sim.persona import Persona, PersonaStyle
 
 REAL_MANIFEST = {"simulator_vs_real": {PRIMARY: {"real": 0.253, "real_p": 0.0004}}}
 
@@ -88,3 +94,112 @@ def test_plot_models_vs_real_puts_real_email_first(tmp_path: Path) -> None:
     real = real_row(REAL_MANIFEST)
     out = plot_models_vs_real(real, {"model a": _model(0.14, 0.296)}, tmp_path / "m.png")
     assert out.exists()
+
+
+REAL_MANIFEST_FULL = {
+    "simulator_vs_real": {
+        f"{outcome}:{level}": {"real": 0.2, "real_p": 0.01}
+        for outcome in ("imperative_ratio", "is_imperative", "hedge_rate")
+        for level in ("down", "up")
+    }
+}
+
+
+class _FakeClient:
+    """Direction-dependent body, no network -- the same pattern
+    tests/test_q1.py's FakeClient uses, duplicated here rather than
+    imported because it is test-only setup local to this file's scope."""
+
+    provider: Provider = "ollama"
+
+    def capabilities(self, model: str) -> Capabilities:
+        return Capabilities(
+            supports_sampling_params=True,
+            min_cacheable_prompt_tokens=10**9,
+            thinking_on_by_default=False,
+        )
+
+    def count_tokens(self, request: CompletionRequest) -> int:
+        return 100
+
+    def complete(self, request: CompletionRequest) -> CompletionResponse:
+        content = request.messages[0].content
+        if "senior to you" in content:
+            body = "Could you take a look at this when you have a moment?"
+        elif "reports into" in content:
+            body = "Send me the updated numbers by end of day."
+        else:
+            body = "Let's sync on this sometime this week."
+        payload = {
+            "subject": "Re: update",
+            "body": body,
+            "decision": "accept",
+            "confidence": "medium",
+            "reasoning_brief": "Routine, within my remit.",
+        }
+        return CompletionResponse(
+            text="{}",
+            usage=Usage(input_tokens=200, output_tokens=20),
+            model=f"local/{request.model}",
+            stop_reason="end_turn",
+            parsed=payload,
+        )
+
+    def submit_batch(self, requests: object) -> str:
+        raise NotImplementedError
+
+    def fetch_batch(self, batch_id: str) -> None:
+        raise NotImplementedError
+
+
+def _small_result(tmp_path: Path):  # type: ignore[no-untyped-def]
+    personas = [
+        Persona(
+            persona_id=f"p{i}",
+            seniority_rank=i + 1,
+            rank_label=f"Rank {i + 1}",
+            department="Trading",
+            style=PersonaStyle(
+                mean_tokens=40.0 + 10.0 * (i + 1),
+                mean_recipients=2.0,
+                imperative_ratio=0.10 + 0.02 * (i + 1),
+                hedge_rate=0.03,
+                deference_rate=0.005,
+                question_ratio=0.09,
+            ),
+            n_people=10,
+            n_messages=100,
+            derivation="cell",
+        )
+        for i in range(3)
+    ]
+    grid = generate_q1_grid(
+        _FakeClient(),
+        model="llama3.2:3b",
+        personas=personas,
+        stores={},
+        cache=ResponseCache(tmp_path / "cache"),
+        ledger=CostLedger(tmp_path / "ledger.csv"),
+    )
+    return run_q1_analysis(grid)
+
+
+def test_summarize_model_reports_a_persona_clustered_p_alongside_the_vb_one(
+    tmp_path: Path,
+) -> None:
+    """The VB fit's p-value understates uncertainty on a large effect
+    (PROGRESS_llms.md, Q1 section). summarize_model must report the
+    persona-clustered cross-check next to it, not swap it in silently, and
+    the interval must be centered on the coefficient it belongs to."""
+    result = _small_result(tmp_path)
+
+    row = summarize_model(result, REAL_MANIFEST_FULL)
+
+    vb_coefficient, vb_p = result.sentence_model.contrast("down")
+    clustered_coefficient, clustered_p = result.sentence_model_persona_fe.contrast("down")
+    primary = row["primary"]
+    assert primary["p"] == pytest.approx(clustered_p, abs=1e-4)
+    assert primary["p_vb"] == pytest.approx(vb_p, abs=1e-4)
+    assert primary["coefficient"] == pytest.approx(clustered_coefficient, abs=1e-4)
+    assert primary["coefficient_vb"] == pytest.approx(vb_coefficient, abs=1e-4)
+    assert primary["ci_low"] < primary["coefficient"] < primary["ci_high"]
