@@ -7,9 +7,9 @@ can be read at once.
 
 `PROGRESS_nvidia.md` still holds the day-by-day build log: what was tried,
 what broke, and the exact commit history. This file only reorganizes its
-numbers by topic. Most numbers here are not new. The exception is the
-gpt-oss-20b Q1 grid (Sep 21), which is first reported in the Q1 section. This
-work is still a trial. Nothing
+numbers by topic. Most numbers here are not new. The exceptions are the
+gpt-oss-20b Q1 grid (Sep 21) and the gpt-oss-120b Q1 grid (Sep 22), both first
+reported in the Q1 section. This work is still a trial. Nothing
 here replaces a result in `PROGRESS.md` yet, except where a section says so
 directly (the Q1 real-email comparison).
 
@@ -22,8 +22,8 @@ directly (the Q1 real-email comparison).
 | 183 real-email pairs generated | Yes (see `PROGRESS.md`) | Yes | Yes | Yes |
 | Mirroring measured | Yes | Yes | Yes | Yes |
 | Told apart from real writing (AUC) measured | Yes | Yes | Yes | Yes |
-| Q1 grid (240 replies) generated | Yes | Yes | Yes | Running: 140 of 240 cells (Groq daily token cap) |
-| Q1 checked against the real-email benchmark | Yes | Yes | Yes | Not yet |
+| Q1 grid (240 replies) generated | Yes | Yes | Yes | Yes |
+| Q1 checked against the real-email benchmark | Yes | Yes | Yes | Yes |
 | Hand-coded by a person | No | No | No | No |
 
 Other open items: a run without the "act" instruction, an embedding map and
@@ -359,8 +359,10 @@ replies are, that is, whether it gives more orders when writing down to a
 junior person than when writing to a peer or up to someone senior. Every
 Llama-only test before this found no clear effect (`PROGRESS.md` sections 33
 to 39), with one borderline exception. The open question is whether a larger
-model shows a pattern the small one does not. DeepSeek does. gpt-oss-20b
-does not. gpt-oss-120b is still generating (see the last caveat).
+model shows a pattern the small one does not. DeepSeek and gpt-oss-120b show
+it. gpt-oss-20b does not. Whether any of them shows it more strongly than
+real email does is a separate question, answered below, and the answer is no
+for all three once the numbers are checked properly.
 
 **How it is measured.** The Q1 grid is 10 personas times 3 directions times
 4 incoming tones times 2 task types, one reply each, 240 replies total. This
@@ -375,7 +377,7 @@ is the design fixed in `PROGRESS.md` section 39.
 - Every coefficient below is the difference from writing to a peer. Positive
   means more imperative.
 
-**Results**, all four grids using the same measurement code.
+**Results**, all five grids using the same measurement code.
 
 | Grid | Reply level, down | Reply level, up | Sentence level, down | Sentence level, up |
 |---|---:|---:|---:|---:|
@@ -383,11 +385,21 @@ is the design fixed in `PROGRESS.md` section 39.
 | Llama, with instruction | +0.056 (p=.412) | +0.029 (p=.670) | +0.197 (p=.298) | +0.151 (p=.437) |
 | DeepSeek V4 Flash | +0.099 (p=.003) | +0.015 (p=.647) | +0.438 (p<.001) | +0.059 (p=.654) |
 | gpt-oss-20b | +0.036 (p=.348) | +0.023 (p=.537) | +0.136 (p=.296) | +0.085 (p=.537) |
+| gpt-oss-120b | +0.195 (p=.001) | +0.052 (p=.361) | +0.896 (p≈.001)* | +0.297 (p=.088) |
+
+\* The sentence-level p-value the code prints for gpt-oss-120b is p=5e-08.
+That number is too small and should not be quoted. It comes from a
+variational-Bayes fit whose posterior standard deviation understates
+uncertainty. A persona-clustered standard error and a persona bootstrap both
+put it at p≈.001. The coefficient itself, +0.896, is stable across five
+different ways of computing it (plain logistic, clustered by reply, clustered
+by persona, a permutation test, a persona bootstrap), all landing between
++0.90 and +0.93. Only the p-value the code reports is wrong, not the effect.
 
 Probability that a sentence is an order, from the sentence-level model. The
-gpt-oss-20b row is the plain share of sentences that are orders. The design
-is balanced across directions, so the two agree closely (for DeepSeek they
-differ by 0.2 points).
+gpt-oss-20b and gpt-oss-120b rows are the plain share of sentences that are
+orders. The design is balanced across directions, so this agrees closely with
+the model's fitted probability (for DeepSeek they differ by 0.2 points).
 
 | Grid | Writing down | Writing to a peer | Writing up |
 |---|---:|---:|---:|
@@ -395,6 +407,7 @@ differ by 0.2 points).
 | Llama, with instruction | 40.7% | 36.0% | 39.6% |
 | DeepSeek V4 Flash | 33.5% | 24.5% | 25.6% |
 | gpt-oss-20b | 41.0% | 37.8% | 39.8% |
+| gpt-oss-120b | 43.0% | 23.2% | 29.6% |
 
 ![Predicted probability of an imperative sentence by direction, for Llama and DeepSeek with the same prompt.](docs/figures/nvidia_q1_direction.png)
 
@@ -428,6 +441,30 @@ differ by 0.2 points).
   to a peer, 0.000 writing up), so it has nothing to fall. DeepSeek also
   almost never hedges (at most 0.014 in any direction, against 0.08 to 0.19
   for Llama).
+- **gpt-oss-120b is the only model of the four that clearly shows the
+  writing-down effect.** Orders per sentence, down: +0.896 (p≈.001, corrected
+  as above). Orders per reply, down: +0.195 (p=.001). Writing up shows
+  nothing (+0.297, p=.088).
+- **The reply-level persona term collapses for gpt-oss-120b**, the same way
+  it does for the other three grids: the model reports a persona variance of
+  0.0008, which is a fit sitting at the edge of its range rather than a real
+  estimate of zero. This does not threaten the contrast, because every
+  persona answers all three directions, so persona cannot confound direction.
+- **gpt-oss-120b's replies are short: 1.98 sentences each**, the fewest of
+  the four models (Llama 1.43, gpt-oss-20b 3.02, DeepSeek 3.71). The effect
+  holds inside every reply-length group checked (1-sentence, 2-sentence,
+  3-sentence replies all show more orders when writing down), so the short
+  replies do not manufacture the within-model effect. They do matter for the
+  comparison against real email, below.
+- **The decision gpt-oss-120b gives also changes with direction**, more so
+  than for any other model (chi2=24.95, p=.002). Writing down brings more
+  "decline" (21 of 80, against 10 to a peer) and much less "defer" (22
+  against 36 to a peer). "Escalate" appears only when writing up (6 replies,
+  zero in the other two directions). gpt-oss-120b also answers "none" far
+  more often than the other models: 24% of its replies, against 12% for
+  gpt-oss-20b and about 1% for Llama. The decision field is not fully
+  reliable on its own (section 50: 67.7% agreement between two draws), so
+  read this as a pattern worth watching, not a settled result.
 
 **Against the real-email benchmark.** `PROGRESS.md` section 48 measured the
 same three things in 2,202 real Enron emails, and compared them only with
@@ -455,11 +492,43 @@ The same comparison for gpt-oss-20b:
 | Hedges per email, down | -0.003 (p=.218) | -0.005 (p=.526) | +0.001 | .852 |
 | Hedges per email, up | -0.003 (p=.220) | -0.005 (p=.429) | +0.002 | .788 |
 
+The same comparison for gpt-oss-120b, first with the code's own p-values and
+then read plainly below the table.
+
+| Contrast | gpt-oss-120b | Real email | Difference | p |
+|---|---:|---:|---:|---:|
+| Orders per email, down | +0.195 (p=.001) | +0.043 (p=.002) | +0.152 | .009 |
+| Orders per email, up | +0.052 (p=.361) | +0.018 (p=.133) | +0.034 | .554 |
+| Orders per sentence, down | +0.896 (p≈.001) | +0.253 (p<.001) | +0.643 | .000\* |
+| Orders per sentence, up | +0.297 (p=.088) | +0.070 (p=.096) | +0.226 | .206 |
+| Hedges per email, down | -0.004 (p=.221) | -0.005 (p=.526) | +0.000 | .957 |
+| Hedges per email, up | -0.004 (p=.221) | -0.005 (p=.429) | +0.001 | .908 |
+
+\* Do not read this as gpt-oss-120b showing a significantly bigger effect
+than real email. The difference-of-p column here uses the code's flawed
+sentence-level standard error, the same one flagged above. With a
+persona-clustered standard error the difference is p≈.03, and that does not
+survive a Holm correction across the six contrasts in this table (adjusted
+p≈.16), let alone across all four models' contrasts together. The honest
+statement is that gpt-oss-120b's point estimate is larger than real email's,
+and that this gap is not established as more than chance.
+
+There is a second, separate reason not to trust the size of that gap.
+gpt-oss-120b writes 1.98 sentences per reply; real email averages 4.75
+sentences per message (`outputs/manifests/q1_real.json`). Orders per sentence
+is a share over a reply's sentences, so a short reply produces a more
+extreme share for the same underlying behavior. This is the same length
+problem `borrowed_words` has (see the mirroring section above), showing up in
+a different measure. No length-matched version of this comparison exists
+yet. Until one does, the +0.643 gap against real email is not verified,
+whatever its p-value says.
+
 | Chance a sentence is an order | Writing down | To a peer | Writing up |
 |---|---:|---:|---:|
 | Real email | 17.5% | 14.2% | 15.0% |
 | DeepSeek | 33.5% | 24.5% | 25.6% |
 | gpt-oss-20b | 41.0% | 37.8% | 39.8% |
+| gpt-oss-120b | 43.0% | 23.2% | 29.6% |
 
 ![Chance that a sentence gives an order, by direction, for real email and DeepSeek.](docs/figures/nvidia_q1_deepseek_vs_real.png)
 
@@ -476,26 +545,40 @@ The same comparison for gpt-oss-20b:
   section said DeepSeek finds the effect because its replies carry far more
   sentences. gpt-oss-20b writes 719 sentences against DeepSeek's 882, and
   finds nothing. Llama's 343 are fewer, but 20b shows that plenty of
-  sentences is not enough.
+  sentences is not enough. gpt-oss-120b confirms this the other way: it
+  writes the fewest sentences of the four (474) and shows the clearest
+  effect of the four.
 - **DeepSeek and gpt-oss-20b are not provably different.** Their writing-down
   effects differ by 0.303 (p=.092). So this section cannot say that 20b
   lacks the effect and DeepSeek has it. It can say that 20b's data are also
   consistent with the real effect.
+- **gpt-oss-120b gets the shape right and overshoots it.** Writing down is
+  highest, writing up sits above writing to a peer, both as in real email.
+  The down-versus-peer swing is +19.5 points against real email's +3.3, and
+  unlike DeepSeek's swing this one is a real effect on its own (p≈.001). Read
+  the last two paragraphs above before treating the size of the overshoot as
+  established: the standard comparison test does not survive correction, and
+  gpt-oss-120b's short replies inflate the per-sentence share regardless.
 
 **All the models side by side.** The effect is the difference in the log-odds
 that a sentence gives an order, writing down against writing to a peer. Real
 email's +0.253 moves the chance from 14.2% to 17.5%, so a bigger number means
 a bigger jump. Each line is a 95% interval. An interval that crosses zero
 means the grid cannot show the effect. The intervals are rough: the standard
-errors are backed out of the p-values.
+errors are backed out of the p-values, and for gpt-oss-120b that means the
+plotted interval is too narrow, for the reason given above. Its honest
+interval, from a persona bootstrap, is +0.42 to +1.47, wider than the figure
+shows.
 
-![Effect of writing down on the chance that a sentence gives an order, with a 95% interval, for real email and three models.](docs/figures/q1_models_20b_writing_down.png)
+![Effect of writing down on the chance that a sentence gives an order, with a 95% interval, for real email and four models.](docs/figures/q1_models_all_writing_down.png)
 
-- **Only DeepSeek's interval stays clear of zero.** It runs from +0.20 to
-  +0.68, and it also contains the real +0.25.
-- **Every model's interval contains the real effect.** The grids are too
-  small to say a model differs from real email. Their intervals are 0.5 to
-  0.7 wide, against 0.2 for real email's 2,202 emails.
+- **DeepSeek's and gpt-oss-120b's intervals stay clear of zero.** DeepSeek
+  runs from +0.20 to +0.68 and also contains the real +0.25. gpt-oss-120b, on
+  its honest interval, runs from +0.42 to +1.47 and also contains the real
+  +0.25, but only just at the top of real email's own interval.
+- **Llama's and gpt-oss-20b's intervals cross zero.** The grids are too
+  small to say either model shows an effect at all, let alone whether it
+  differs from real email.
 - **gpt-oss-20b's interval runs from -0.12 to +0.39.** It has about as many
   sentences as DeepSeek and an interval of nearly the same width (0.51
   against 0.48). It sits lower, and it crosses zero.
@@ -514,16 +597,30 @@ errors are backed out of the p-values.
   this log. The 20b grid took about 2.5 hours, mostly NVIDIA stalls and
   retries.
 - Real email and the simulator are not the same kind of sample: 2,202 real
-  emails from 107 senders against 238 simulator replies from 10 personas,
-  one reply each. Real email has no decision field, so decisions cannot be
-  compared. The z-test is rough for the reason stated above.
-- **gpt-oss-120b is not in this section yet.** It runs through Groq, which
-  allows 200,000 tokens per day. A 240-cell grid needs about 460,000, so the
-  run cannot finish in one day. 140 of 240 cells are done and cached. A loop
-  retries every 30 minutes and resumes from the cache. This section will be
-  updated when it finishes. Until then it cannot say whether DeepSeek's
-  pattern is typical of larger models or specific to DeepSeek. One larger
-  model (gpt-oss-20b) now says it is not typical.
+  emails from 107 senders against 238 (or 240) simulator replies from 10
+  personas, one reply each. Real email has no decision field, so decisions
+  cannot be compared. The z-test is rough for the reason stated above.
+- The gpt-oss-120b grid took two days, not because of anything about the
+  model: Groq allows 200,000 tokens per day and the grid needs about
+  460,000. A loop retried every 30 minutes and resumed from the cache each
+  time it hit the cap. 238 of 240 cells were cached from Sep 21; the last 2
+  generated on Sep 22.
+- **The sentence-level p-value this project's own code reports is not
+  trustworthy when an effect is large.** It comes from a variational-Bayes
+  posterior standard deviation (`hierarchy.py`), which understates
+  uncertainty. This was not visible before because no sentence-level effect
+  here had been this large. gpt-oss-120b's case (reported p=5e-08, honest
+  p≈.001) is the first result that exposed it. The same fix (a
+  persona-clustered standard error, or a bootstrap) should be applied before
+  any sentence-level p-value from this code is quoted in the thesis, not
+  only gpt-oss-120b's.
+- **Two small bugs found while checking this result, not yet fixed.** The Q1
+  grid generator builds a manifest with the current `prompt_text_hash()` but
+  never writes it to disk, so no Q1 grid file has its own record of which
+  prompt made it. Confirmed by hand instead: all five grids in this section
+  share hash `d4c18550ed56f2de`. Separately, `q1_models.py`'s grid loader
+  hard-codes every row as "from cache", so its printed cache counts are not
+  measured and should not be quoted as evidence a grid came from cache.
 
 ---
 
@@ -549,9 +646,10 @@ public so both modules share one formula.
 
 **The model comparison.** `analysis/q1_models.py` takes one `--grid
 LABEL=PATH` per model and writes one manifest and one figure, named by
-`--manifest` and `--figure-prefix`. It calls no model. Adding gpt-oss-120b
-later is one more `--grid` argument, with a new prefix so this section's
-figure is not overwritten.
+`--manifest` and `--figure-prefix`. It calls no model. Two known bugs, not yet
+fixed: it does not write the prompt hash into its own manifest, and its grid
+loader marks every row "from cache" regardless of how the grid was actually
+generated.
 
 ```
 python -m thesis.analysis.q1 --nvidia openai/gpt-oss-20b@low \
@@ -562,7 +660,8 @@ python -m thesis.analysis.q1_models \
   --grid "Llama 3.2 3B=data/interim/q1_direction_grid_llama_act.parquet" \
   --grid "DeepSeek V4 Flash=data/interim/q1_direction_grid_deepseek.parquet" \
   --grid "gpt-oss-20b=data/interim/q1_direction_grid_gpt_oss_20b.parquet" \
-  --figure-prefix q1_models_20b_ --manifest outputs/manifests/q1_models_20b.json
+  --grid "gpt-oss-120b=data/interim/q1_direction_grid_gpt_oss_120b.parquet" \
+  --figure-prefix q1_models_all_ --manifest outputs/manifests/q1_models_all.json
 ```
 
 Exact commits and the day-by-day build order, including two corrections
@@ -574,35 +673,50 @@ made along the way, are in `PROGRESS_nvidia.md`.
 
 Most valuable first.
 
-1. **Finish the Q1 grid with gpt-oss-120b.** gpt-oss-20b is done and shows
-   no writing-down effect. gpt-oss-120b has 140 of 240 cells. Groq's daily
-   token cap stops it, so it needs about one more day. When it finishes,
-   add it to `q1_models` and update the Q1 section again. A larger sample
-   would help all four models more than another model would: every simulator
-   interval is 0.5 to 0.7 wide.
-2. **Hand-code a sample of replies by a person.** The mirroring cutoff and
+1. **Fix the sentence-level p-value before quoting another one.** The
+   variational-Bayes standard error understates uncertainty, caught here on
+   gpt-oss-120b's result. `hierarchy.py`'s `SentenceModelResult` should carry
+   a persona-clustered or bootstrap standard error alongside the current one,
+   and every sentence-level p-value already reported in this log should be
+   rechecked against it before it goes into the thesis.
+2. **Build the length-matched version of the Q1-versus-real comparison.**
+   `borrowed_words` already has this rule; orders-per-sentence needs it too.
+   gpt-oss-120b writes 1.98 sentences per reply against real email's 4.75,
+   and that gap alone could produce part of the +0.643 difference reported
+   above. Without a length-matched version, no Q1-versus-real comparison in
+   this log should be called established, gpt-oss-120b's least of all.
+3. **Write the prompt hash into the Q1 grid manifest**, and into
+   `q1_models.py`'s own manifest. Right now every check that a Q1 grid is on
+   the current prompt has to be done by hand, by recomputing the hash from
+   `prompt.py` at the commit that made the grid. Also fix `q1_models.py`'s
+   grid loader, which marks every row "from cache" whether or not it was.
+4. **A larger sample would help every model more than another model would.**
+   Every simulator interval in the four-model figure is 0.5 to 0.7 wide,
+   against 0.2 for real email's 2,202 emails. This is the same 14-more-hours
+   question already open for the main Q1 run (`HANDOVER.md` section 6.2).
+5. **Hand-code a sample of replies by a person.** The mirroring cutoff and
    its validation rest on Claude's first-pass codes of Llama replies only.
    A coding page is already built: 50 emails, two replies each from two
    models, in random order, with the model hidden. It is waiting for a
    coder. One small fix is needed first: the first pass used a label,
    `wrong_register`, that the codebook never defined.
-3. **A run without the act instruction.** This would show whether a larger
+6. **A run without the act instruction.** This would show whether a larger
    model follows the instruction better than the small local one did
    (`PROGRESS.md` section 43 found only a small effect on Llama). The code
    already has a `--prompt-variant` mechanism; a third variant without the
    instruction would fit it.
-4. **Embedding map and review pack on the newer models.** These only read
+7. **Embedding map and review pack on the newer models.** These only read
    saved replies, so they need no new generation.
-5. **Judge study (Q3).** Four models across three families are now
+8. **Judge study (Q3).** Four models across three families are now
    available. One can write and another can judge, then the roles can be
    swapped. This needs new model calls.
-6. **Move the line-removal rule into the corpus cleaner**, so every analysis
+9. **Move the line-removal rule into the corpus cleaner**, so every analysis
    uses the same clean real-reply text instead of a one-off script.
-7. **Rename one summary key.** `mirroring.py` saves its comparison under
-   `compared_with_previous_prompt`, which is the wrong name for a comparison
-   between models.
-8. **Back up `runs/_cache`.** It holds every reply this project has
-   received and exists only on this laptop. It must never go into git,
-   because the prompts contain Enron text.
-9. **Commit the rest of the code.** Still uncommitted: the blind-coding
-   module and its tests, and the codebook fix that defines `wrong_register`.
+10. **Rename one summary key.** `mirroring.py` saves its comparison under
+    `compared_with_previous_prompt`, which is the wrong name for a comparison
+    between models.
+11. **Back up `runs/_cache`.** It holds every reply this project has
+    received and exists only on this laptop. It must never go into git,
+    because the prompts contain Enron text.
+12. **Commit the rest of the code.** Still uncommitted: the blind-coding
+    module and its tests, and the codebook fix that defines `wrong_register`.

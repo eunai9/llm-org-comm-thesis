@@ -1,0 +1,305 @@
+{
+  "generated_at": "2026-09-22T18:48:08+00:00",
+  "models": {
+    "DeepSeek V4 Flash": {
+      "levels_by_direction": {
+        "down": 0.33676975945017185,
+        "lateral": 0.24745762711864408,
+        "up": 0.26013513513513514
+      },
+      "model": "deepseek-ai/deepseek-v4-flash-0731",
+      "n_replies": 238,
+      "n_sentences": 882,
+      "primary": {
+        "ci_high": 0.6817,
+        "ci_low": 0.1952,
+        "coefficient": 0.4385,
+        "contrast": "is_imperative:down",
+        "p": 0.0004,
+        "se": 0.1241
+      },
+      "sentences_per_reply": 3.71,
+      "vs_real": {
+        "hedge_rate:down": {
+          "difference": -0.0089,
+          "difference_p": 0.3617,
+          "grid": -0.0135,
+          "grid_p": 0.03992,
+          "real": -0.0046,
+          "real_p": 0.5261
+        },
+        "hedge_rate:up": {
+          "difference": -0.0022,
+          "difference_p": 0.8086,
+          "grid": -0.0072,
+          "grid_p": 0.2738,
+          "real": -0.005,
+          "real_p": 0.4293
+        },
+        "imperative_ratio:down": {
+          "difference": 0.0556,
+          "difference_p": 0.1249,
+          "grid": 0.0983,
+          "grid_p": 0.00339,
+          "real": 0.0427,
+          "real_p": 0.001794
+        },
+        "imperative_ratio:up": {
+          "difference": -0.002,
+          "difference_p": 0.9551,
+          "grid": 0.0157,
+          "grid_p": 0.6398,
+          "real": 0.0177,
+          "real_p": 0.1327
+        },
+        "is_imperative:down": {
+          "difference": 0.1852,
+          "difference_p": 0.1686,
+          "grid": 0.4385,
+          "grid_p": 0.0004112,
+          "real": 0.2533,
+          "real_p": 1.032e-06
+        },
+        "is_imperative:up": {
+          "difference": -0.0112,
+          "difference_p": 0.936,
+          "grid": 0.0593,
+          "grid_p": 0.6541,
+          "real": 0.0705,
+          "real_p": 0.09575
+        }
+      }
+    },
+    "Llama 3.2 3B": {
+      "levels_by_direction": {
+        "down": 0.40869565217391307,
+        "lateral": 0.358974358974359,
+        "up": 0.3963963963963964
+      },
+      "model": "llama3.2:3b",
+      "n_replies": 240,
+      "n_sentences": 343,
+      "primary": {
+        "ci_high": 0.5694,
+        "ci_low": -0.1744,
+        "coefficient": 0.1975,
+        "contrast": "is_imperative:down",
+        "p": 0.298,
+        "se": 0.1897
+      },
+      "sentences_per_reply": 1.43,
+      "vs_real": {
+        "hedge_rate:down": {
+          "difference": -0.1079,
+          "difference_p": 0.044,
+          "grid": -0.1125,
+          "grid_p": 0.03407,
+          "real": -0.0046,
+          "real_p": 0.5261
+        },
+        "hedge_rate:up": {
+          "difference": 0.005,
+          "difference_p": 0.9256,
+          "grid": 0.0,
+          "grid_p": 1.0,
+          "real": -0.005,
+          "real_p": 0.4293
+        },
+        "imperative_ratio:down": {
+          "difference": 0.0136,
+          "difference_p": 0.8462,
+          "grid": 0.0563,
+          "grid_p": 0.4116,
+          "real": 0.0427,
+          "real_p": 0.001794
+        },
+        "imperative_ratio:up": {
+          "difference": 0.0115,
+          "difference_p": 0.869,
+          "grid": 0.0292,
+          "grid_p": 0.6703,
+          "real": 0.0177,
+          "real_p": 0.1327
+        },
+        "is_imperative:down": {
+          "difference": -0.0558,
+          "difference_p": 0.7765,
+          "grid": 0.1975,
+          "grid_p": 0.298,
+          "real": 0.2533,
+          "real_p": 1.032e-06
+        },
+        "is_imperative:up": {
+          "difference": 0.0803,
+          "difference_p": 0.6859,
+          "grid": 0.1508,
+          "grid_p": 0.4371,
+          "real": 0.0705,
+          "real_p": 0.09575
+        }
+      }
+    },
+    "gpt-oss-120b": {
+      "levels_by_direction": {
+        "down": 0.4304635761589404,
+        "lateral": 0.23170731707317074,
+        "up": 0.29559748427672955
+      },
+      "model": "openai/gpt-oss-120b@low",
+      "n_replies": 240,
+      "n_sentences": 474,
+      "primary": {
+        "ci_high": 1.2187,
+        "ci_low": 0.5737,
+        "coefficient": 0.8962,
+        "contrast": "is_imperative:down",
+        "p": 0.0,
+        "se": 0.1645
+      },
+      "sentences_per_reply": 1.98,
+      "vs_real": {
+        "hedge_rate:down": {
+          "difference": 0.0004,
+          "difference_p": 0.9569,
+          "grid": -0.0042,
+          "grid_p": 0.2207,
+          "real": -0.0046,
+          "real_p": 0.5261
+        },
+        "hedge_rate:up": {
+          "difference": 0.0008,
+          "difference_p": 0.9076,
+          "grid": -0.0042,
+          "grid_p": 0.2207,
+          "real": -0.005,
+          "real_p": 0.4293
+        },
+        "imperative_ratio:down": {
+          "difference": 0.1521,
+          "difference_p": 0.0094,
+          "grid": 0.1948,
+          "grid_p": 0.0006286,
+          "real": 0.0427,
+          "real_p": 0.001794
+        },
+        "imperative_ratio:up": {
+          "difference": 0.0344,
+          "difference_p": 0.5545,
+          "grid": 0.0521,
+          "grid_p": 0.3606,
+          "real": 0.0177,
+          "real_p": 0.1327
+        },
+        "is_imperative:down": {
+          "difference": 0.6429,
+          "difference_p": 0.0002,
+          "grid": 0.8962,
+          "grid_p": 5.117e-08,
+          "real": 0.2533,
+          "real_p": 1.032e-06
+        },
+        "is_imperative:up": {
+          "difference": 0.226,
+          "difference_p": 0.2063,
+          "grid": 0.2965,
+          "grid_p": 0.08791,
+          "real": 0.0705,
+          "real_p": 0.09575
+        }
+      }
+    },
+    "gpt-oss-20b": {
+      "levels_by_direction": {
+        "down": 0.4098360655737705,
+        "lateral": 0.3779527559055118,
+        "up": 0.39819004524886875
+      },
+      "model": "openai/gpt-oss-20b@low",
+      "n_replies": 238,
+      "n_sentences": 719,
+      "primary": {
+        "ci_high": 0.3904,
+        "ci_low": -0.1189,
+        "coefficient": 0.1357,
+        "contrast": "is_imperative:down",
+        "p": 0.2962,
+        "se": 0.1299
+      },
+      "sentences_per_reply": 3.02,
+      "vs_real": {
+        "hedge_rate:down": {
+          "difference": 0.0014,
+          "difference_p": 0.8521,
+          "grid": -0.0032,
+          "grid_p": 0.2182,
+          "real": -0.0046,
+          "real_p": 0.5261
+        },
+        "hedge_rate:up": {
+          "difference": 0.0018,
+          "difference_p": 0.7882,
+          "grid": -0.0032,
+          "grid_p": 0.2197,
+          "real": -0.005,
+          "real_p": 0.4293
+        },
+        "imperative_ratio:down": {
+          "difference": -0.0071,
+          "difference_p": 0.8594,
+          "grid": 0.0356,
+          "grid_p": 0.3485,
+          "real": 0.0427,
+          "real_p": 0.001794
+        },
+        "imperative_ratio:up": {
+          "difference": 0.0058,
+          "difference_p": 0.8843,
+          "grid": 0.0235,
+          "grid_p": 0.5369,
+          "real": 0.0177,
+          "real_p": 0.1327
+        },
+        "is_imperative:down": {
+          "difference": -0.1176,
+          "difference_p": 0.4007,
+          "grid": 0.1357,
+          "grid_p": 0.2962,
+          "real": 0.2533,
+          "real_p": 1.032e-06
+        },
+        "is_imperative:up": {
+          "difference": 0.0142,
+          "difference_p": 0.9213,
+          "grid": 0.0847,
+          "grid_p": 0.5369,
+          "real": 0.0705,
+          "real_p": 0.09575
+        }
+      }
+    }
+  },
+  "real": {
+    "ci_high": 0.3549,
+    "ci_low": 0.1517,
+    "coefficient": 0.2533,
+    "p": 1.032e-06,
+    "se": 0.0518
+  },
+  "real_levels_by_direction": {
+    "hedge_rate": {
+      "down": 0.0406,
+      "lateral": 0.0452,
+      "up": 0.0403
+    },
+    "imperative_ratio": {
+      "down": 0.186,
+      "lateral": 0.1433,
+      "up": 0.1609
+    },
+    "is_imperative": {
+      "down": 0.1752,
+      "lateral": 0.1417,
+      "up": 0.1504
+    }
+  }
+}
