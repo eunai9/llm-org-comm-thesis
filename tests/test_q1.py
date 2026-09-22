@@ -52,6 +52,7 @@ from thesis.analysis.q1 import (
     grid_contrasts,
     multi_draw_manifest_section,
     parse_replies,
+    prompt_hash_of_frame,
     run_q1_analysis,
     scenarios_for_design,
     subset_to_pilot,
@@ -60,6 +61,7 @@ from thesis.llm.base import Capabilities, CompletionRequest, CompletionResponse,
 from thesis.llm.cache import ResponseCache
 from thesis.llm.cost import CostLedger
 from thesis.sim.persona import Persona, PersonaStyle
+from thesis.sim.prompt import prompt_text_hash
 from thesis.sim.scenario import DIRECTIONS, TONES
 
 
@@ -274,6 +276,14 @@ def test_generate_q1_grid_produces_one_row_per_cell(small_grid) -> None:  # type
     assert len(small_grid.frame) == small_grid.n_cells
     assert small_grid.n_generated == small_grid.n_cells
     assert small_grid.n_from_cache == 0
+
+
+def test_generate_q1_grid_records_the_prompt_hash(small_grid) -> None:  # type: ignore[no-untyped-def]
+    """generate_q1_grid computes a RunManifest with prompt_text_hash but,
+    before this fix, never wrote it anywhere the saved grid file could
+    carry it -- see PROGRESS_llms.md's Q1 next steps, item 1."""
+    assert small_grid.prompt_text_hash == prompt_text_hash()
+    assert (small_grid.frame["prompt_text_hash"] == prompt_text_hash()).all()
 
 
 def test_generate_q1_grid_second_call_is_served_from_cache(tmp_path: Path) -> None:
@@ -579,6 +589,18 @@ def test_design_of_frame_reads_the_design_off_a_stored_grid() -> None:
 
     assert design_of_frame(pd.DataFrame({"scenario_id": pilot_ids})) == "pilot"
     assert design_of_frame(pd.DataFrame({"scenario_id": full_ids})) == "full"
+
+
+def test_prompt_hash_of_frame_reads_the_column_a_saved_grid_carries() -> None:
+    frame = pd.DataFrame({"prompt_text_hash": ["abc123", "abc123"]})
+    assert prompt_hash_of_frame(frame) == "abc123"
+
+
+def test_prompt_hash_of_frame_reports_unknown_for_a_grid_saved_before_this_fix() -> None:
+    """A grid file saved before this fix has no prompt_text_hash column --
+    an older file must not raise, since it exists and is still usable."""
+    frame = pd.DataFrame({"scenario_id": ["s1"]})
+    assert prompt_hash_of_frame(frame) == "unknown"
 
 
 def test_subset_to_pilot_keeps_exactly_the_pilot_scenarios() -> None:

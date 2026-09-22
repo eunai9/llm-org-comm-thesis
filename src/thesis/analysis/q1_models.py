@@ -33,6 +33,7 @@ from thesis.analysis.q1 import (
     compare_with_real,
     design_of_frame,
     grid_contrasts,
+    prompt_hash_of_frame,
     run_q1_analysis,
     sentence_levels_by_direction,
 )
@@ -66,6 +67,7 @@ def load_grid(path: Path) -> Q1Grid:
         n_cells=len(frame),
         n_from_cache=len(frame),
         n_generated=0,
+        prompt_text_hash=prompt_hash_of_frame(frame),
         design=design_of_frame(frame),
     )
 

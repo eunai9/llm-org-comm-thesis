@@ -220,6 +220,16 @@ def design_of_frame(frame: pd.DataFrame) -> Q1Design:
     return "pilot" if frame["scenario_id"].nunique() <= len(build_q1_scenarios()) else "full"
 
 
+def prompt_hash_of_frame(frame: pd.DataFrame) -> str:
+    """The prompt hash a stored grid file carries, or ``"unknown"`` for a
+    grid saved before this column existed -- an older file is still usable,
+    just without this provenance check.
+    """
+    if "prompt_text_hash" not in frame.columns:
+        return "unknown"
+    return str(frame["prompt_text_hash"].iloc[0])
+
+
 def full_grid_path(pilot_path: Path) -> Path:
     """Where a backend's full-grid file goes, derived from its pilot file.
 
@@ -333,7 +343,16 @@ def contrast_se(fit: Any, level: str) -> float:
 
 @dataclass(frozen=True, slots=True)
 class Q1Grid:
-    """The generated (or cache-served) Q1 direction grid, plus provenance."""
+    """The generated (or cache-served) Q1 direction grid, plus provenance.
+
+    ``prompt_text_hash`` ties the grid to the prompt text that produced it
+    -- :func:`generate_q1_grid` always computed this (in the ``RunManifest``
+    it builds for :func:`thesis.sim.run.run_grid`), but never wrote it
+    anywhere the saved grid could carry it, so no file on disk recorded
+    which prompt made it (PROGRESS_llms.md's Q1 next steps, item 1). It is
+    also a column on ``frame``, the same way ``model`` already is, so it
+    survives a round trip through parquet.
+    """
 
     frame: pd.DataFrame
     run_id: str
@@ -341,6 +360,7 @@ class Q1Grid:
     n_cells: int
     n_from_cache: int
     n_generated: int
+    prompt_text_hash: str
     design: Q1Design = "pilot"
 
 
@@ -418,6 +438,7 @@ def generate_q1_grid(
         progress_every=progress_every,
     )
     frame = pd.DataFrame.from_records(rows)
+    frame["prompt_text_hash"] = manifest.design["prompt_text_hash"]
     return Q1Grid(
         frame=frame,
         run_id=run_id,
@@ -425,6 +446,7 @@ def generate_q1_grid(
         n_cells=len(cells),
         n_from_cache=manifest.n_from_cache,
         n_generated=manifest.n_generated,
+        prompt_text_hash=manifest.design["prompt_text_hash"],
         design=design,
     )
 
@@ -1168,6 +1190,7 @@ def _report_full_grid(grid: Q1Grid, result: Q1Result) -> None:
         n_cells=len(pilot_frame),
         n_from_cache=len(pilot_frame),
         n_generated=0,
+        prompt_text_hash=grid.prompt_text_hash,
         design="pilot",
     )
     pilot_result = run_q1_analysis(pilot_grid)
@@ -1276,6 +1299,7 @@ def main() -> None:
             n_cells=len(frame),
             n_from_cache=len(frame),
             n_generated=0,
+            prompt_text_hash=prompt_hash_of_frame(frame),
             design=design_of_frame(frame),
         )
         _report(grid, compare_real=args.compare_real)
