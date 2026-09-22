@@ -396,6 +396,12 @@ different ways of computing it (plain logistic, clustered by reply, clustered
 by persona, a permutation test, a persona bootstrap), all landing between
 +0.90 and +0.93. Only the p-value the code reports is wrong, not the effect.
 
+This was a one-off manual check. The code now computes the persona-clustered
+cross-check itself (`Q1Result.sentence_model_persona_fe`, commit `85e833a`),
+so a rerun would report it without another manual pass. The table above
+still shows this manual check for gpt-oss-120b only; the other three rows
+have not been rechecked against the clustered fit yet.
+
 Probability that a sentence is an order, from the sentence-level model. The
 gpt-oss-20b and gpt-oss-120b rows are the plain share of sentences that are
 orders. The design is balanced across directions, so this agrees closely with
@@ -673,50 +679,62 @@ made along the way, are in `PROGRESS_nvidia.md`.
 
 Most valuable first.
 
-1. **Fix the sentence-level p-value before quoting another one.** The
-   variational-Bayes standard error understates uncertainty, caught here on
-   gpt-oss-120b's result. `hierarchy.py`'s `SentenceModelResult` should carry
-   a persona-clustered or bootstrap standard error alongside the current one,
-   and every sentence-level p-value already reported in this log should be
-   rechecked against it before it goes into the thesis.
-2. **Build the length-matched version of the Q1-versus-real comparison.**
+Done since this list was written: these three code fixes cover what used to
+be items 1 and 3 here (item 3 bundled two separate fixes).
+
+- **The sentence-level p-value now has a persona-clustered cross-check.**
+  `Q1Result.sentence_model_persona_fe` fits `is_imperative ~ direction` a
+  second way, by persona-clustered fixed effects, next to the
+  variational-Bayes fit that understated uncertainty. `q1_models.py` reports
+  the clustered coefficient/p/interval as the headline numbers now, with the
+  VB ones kept alongside as `coefficient_vb`/`p_vb`. Commit `85e833a`. The
+  four-model table above has not been regenerated with this fit yet, so it
+  still shows the one-off manual check from last session, for gpt-oss-120b
+  only — rerunning `q1_models.py` on all four grids is the next step for
+  this item, not done here.
+- **The prompt hash is now written into every saved Q1 grid.** `Q1Grid`
+  carries `prompt_text_hash`, also saved as a column on the grid's parquet
+  file, so a saved grid records which prompt made it instead of needing a
+  by-hand check. A grid saved before this fix reads back as `"unknown"`
+  rather than raising. Commit `5ee4b46`.
+- **`q1_models.py`'s grid loader no longer marks every row "from cache".**
+  `load_grid` now counts the real split from the `from_cache` column every
+  row already carries, instead of hard-coding `n_from_cache=len(frame)`.
+  Commit `36fbc3e`.
+
+1. **Build the length-matched version of the Q1-versus-real comparison.**
    `borrowed_words` already has this rule; orders-per-sentence needs it too.
    gpt-oss-120b writes 1.98 sentences per reply against real email's 4.75,
    and that gap alone could produce part of the +0.643 difference reported
    above. Without a length-matched version, no Q1-versus-real comparison in
    this log should be called established, gpt-oss-120b's least of all.
-3. **Write the prompt hash into the Q1 grid manifest**, and into
-   `q1_models.py`'s own manifest. Right now every check that a Q1 grid is on
-   the current prompt has to be done by hand, by recomputing the hash from
-   `prompt.py` at the commit that made the grid. Also fix `q1_models.py`'s
-   grid loader, which marks every row "from cache" whether or not it was.
-4. **A larger sample would help every model more than another model would.**
+2. **A larger sample would help every model more than another model would.**
    Every simulator interval in the four-model figure is 0.5 to 0.7 wide,
    against 0.2 for real email's 2,202 emails. This is the same 14-more-hours
    question already open for the main Q1 run (`HANDOVER.md` section 6.2).
-5. **Hand-code a sample of replies by a person.** The mirroring cutoff and
+3. **Hand-code a sample of replies by a person.** The mirroring cutoff and
    its validation rest on Claude's first-pass codes of Llama replies only.
    A coding page is already built: 50 emails, two replies each from two
    models, in random order, with the model hidden. It is waiting for a
    coder. One small fix is needed first: the first pass used a label,
    `wrong_register`, that the codebook never defined.
-6. **A run without the act instruction.** This would show whether a larger
+4. **A run without the act instruction.** This would show whether a larger
    model follows the instruction better than the small local one did
    (`PROGRESS.md` section 43 found only a small effect on Llama). The code
    already has a `--prompt-variant` mechanism; a third variant without the
    instruction would fit it.
-7. **Embedding map and review pack on the newer models.** These only read
+5. **Embedding map and review pack on the newer models.** These only read
    saved replies, so they need no new generation.
-8. **Judge study (Q3).** Four models across three families are now
+6. **Judge study (Q3).** Four models across three families are now
    available. One can write and another can judge, then the roles can be
    swapped. This needs new model calls.
-9. **Move the line-removal rule into the corpus cleaner**, so every analysis
+7. **Move the line-removal rule into the corpus cleaner**, so every analysis
    uses the same clean real-reply text instead of a one-off script.
-10. **Rename one summary key.** `mirroring.py` saves its comparison under
-    `compared_with_previous_prompt`, which is the wrong name for a comparison
-    between models.
-11. **Back up `runs/_cache`.** It holds every reply this project has
-    received and exists only on this laptop. It must never go into git,
-    because the prompts contain Enron text.
-12. **Commit the rest of the code.** Still uncommitted: the blind-coding
+8. **Rename one summary key.** `mirroring.py` saves its comparison under
+   `compared_with_previous_prompt`, which is the wrong name for a comparison
+   between models.
+9. **Back up `runs/_cache`.** It holds every reply this project has
+   received and exists only on this laptop. It must never go into git,
+   because the prompts contain Enron text.
+10. **Commit the rest of the code.** Still uncommitted: the blind-coding
     module and its tests, and the codebook fix that defines `wrong_register`.
