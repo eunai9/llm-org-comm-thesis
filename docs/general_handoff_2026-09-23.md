@@ -1,4 +1,4 @@
-# General handoff, 2026-09-23
+# General handoff, 2026-09-23 (updated)
 
 For a fresh agent picking up this thesis. Read this first, then `HANDOVER.md`.
 
@@ -13,15 +13,17 @@ the judging criteria. Those live elsewhere.
 | `PROGRESS_llms.md` | Four-model comparison by topic, plus the newest Q1 run. |
 | `PROGRESS_nvidia.md` | Free-tier build log. How the NVIDIA and Groq clients came about. |
 
+This file replaces an earlier same-day version. That one is stale in two
+places, corrected below: it said Q1's gap to real email was settled at
+p≈.047, and it listed `grid_draw_reliability` as an open, unfixed blocker.
+Both are resolved; see sections 1 and 2.
+
 ---
 
-## 1. Read this before trusting `HANDOVER.md` section 6.2
-
-**Q1 now reaches significance. `HANDOVER.md` section 6.2 says it does not.
-That section is stale as of Sep 23.**
+## 1. Q1 now reaches significance. The gap to real email is not settled.
 
 A third draw was generated overnight on Sep 23. The writing-down effect on
-Llama 3.2 3B is now significant:
+Llama 3.2 3B (main run, local, full design) is now significant:
 
 | Sample | Coefficient | p |
 |---|---:|---:|
@@ -30,128 +32,170 @@ Llama 3.2 3B is now significant:
 | 2,880 replies, 2 draws (s54) | +0.092 | .130 |
 | **4,320 replies, 3 draws** | **+0.157** VB / **+0.127** clustered | **.002** / **.0006** |
 
-Two things follow.
+The earlier nulls were **underpowered, not absent** — the estimate needed
+about 4,028 replies for 80% power, and 4,320 clears it. That part is solid;
+a second Claude session verified it independently.
 
-1. The earlier nulls were **underpowered, not absent**. The estimate needed
-   about 4,028 replies for 80% power. 4,320 clears it.
-2. The simulator's effect is still **smaller than real email's** (+0.127
-   against +0.253, difference p approx .047). That is the same conclusion
-   `PROGRESS.md` section 54 reached at two draws, now on firmer ground.
+**The "smaller than real email" claim is not settled, and was corrected
+today.** An earlier write-up quoted p≈.047 for the gap to real email's own
+effect, unqualified. That number came from one of three legitimate ways to
+estimate it, and it happens to be the one whose standard error (10 persona
+clusters) is known to run anti-conservative:
 
-Full write-up: `PROGRESS_llms.md`, section "The main Q1 run reaches
-significance (Sep 23)". Fixing section 6.2 of `HANDOVER.md` is a small,
-worthwhile first task.
+| Fit | p (gap vs. real email) |
+|---|---:|
+| Draw 1 only, VB | .209 |
+| 3 draws pooled, VB | .182 |
+| 3 draws pooled, persona-clustered | .047 |
+
+Honest statement: the effect itself is real (all fits agree). Whether it is
+smaller than real email's is not established — it depends on the method.
+This has been corrected everywhere it appeared in this repo.
+
+Full write-up: `PROGRESS_llms.md`, sections "The main Q1 run reaches
+significance (Sep 23)" and the estimator-dependence table within it.
+`HANDOVER.md` section 6.2, "Q1 shows the effect, but the gap to real email
+is not settled," has already been rewritten to match — no action needed
+there.
 
 ---
 
-## 2. Known open bug, blocking the 3-draw grid
+## 2. Two bugs found and fixed today, both about multi-draw grids
 
-`grid_draw_reliability` is hard-coded for exactly two draws and crashes on
-three. So `run_q1_analysis` cannot be called on
-`data/interim/q1_direction_grid_full_3draws.parquet` without a workaround.
-The Sep 23 numbers above were produced by calling the fitting functions
-directly and skipping the reliability step.
+**`grid_draw_reliability`** (commit `a9ae1d2`) was hard-coded to expect
+exactly draws 1 and 2 and crashed on the 3-draw grid. Generalized to any
+number of draws: proper multi-rater ICC, mean pairwise correlation, Fleiss'
+kappa for decision agreement (still exactly Cohen's kappa at two draws, so
+no previously published two-draw number changed). `run_q1_analysis` now
+runs on the 3-draw grid without a workaround.
 
-The grid itself is complete and correct. The blocker is a design decision, not
-just a code fix: **what should reliability mean with three or more draws?**
-Draw 1 against draw 2 only, every pair averaged, or something else. Decide
-that first, then fix, then the whole analysis runs end to end again.
+**`grid_contrasts` and `contrast_estimates`** (commit `82cd1ae`) — a second,
+more consequential bug, found by a second Claude session cross-checking
+`PROGRESS_llms.md` against the grid's own printed output. Both always read
+the draw-1-only model fits regardless of how many draws a grid had, so the
+CLI's "Against real email" table and the saved manifest's own headline
+number silently used a third of the 3-draw grid's data (+0.134) while the
+progress log quoted the correctly pooled number (+0.157/+0.127) — two
+different numbers for the same quantity, from the same code path. Both
+functions now prefer the pooled fit
+(`sentence_model_clustered`/`aggregated_reply_model`/`aggregated_hedge_model`)
+when a grid has more than one draw. `outputs/manifests/q1_full_grid_3draws.json`
+is regenerated with the fix.
+
+Both fixes are TDD'd, tested, and pass the full suite plus black/ruff/mypy.
 
 ---
 
-## 3. What the previous session did
+## 3. Open, in progress: is `is_imperative` even measuring the right thing?
 
-All committed and pushed unless noted.
+Not yet written into any log. A second Claude session found, on the 3-draw
+grid, and flagged as "worth knowing, not yet acted on":
 
-| Work | Where |
+1. Generated replies average 1.42 sentences and 93 characters; the real-email
+   benchmark averages 4.75 sentences. 60.8% of generated replies are a
+   single sentence, so `imperative_ratio` can only take about three values
+   per reply — likely most of why its draw-to-draw ICC is only 0.351.
+2. The imperative-detection rule only catches bare imperatives. 10.6% of
+   replies carry a directive cue with no bare imperative and score zero;
+   the miss rate is worst writing down (13.0% down, 8.7% lateral, 10.2%
+   up). A crude recount moves the down-vs-lateral gap from 3.7 to about 8.0
+   points.
+
+Neither changes a number already published. Both are about whether the
+measure itself is valid, not about the model fits. The user was, as of
+this session, discussing a length-matching diagnostic with that other
+session — check with them before duplicating that work.
+
+---
+
+## 4. What the previous sessions did today (all committed and pushed)
+
+| Work | Commit(s) |
 |---|---|
-| Q1 at two draws, plus the aggregated/clustered analysis and a draw-reliability report | `PROGRESS.md` section 54 |
-| Cache made crash-safe: a damaged entry is a miss, not a crash; writes `fsync` before rename | commit `7e99f40` |
-| Figure path made draw-count aware, so a multi-draw run cannot overwrite a single-draw figure | in `q1.py`, `full_grid_figure_path` |
-| `HANDOVER.md` extended with operational context and the three big problems | local only, gitignored |
-
-A note on that last row: `HANDOVER.md` is in `.gitignore` on purpose, so it
-exists only on this laptop and is not on GitHub.
-
----
-
-## 4. What to do next
-
-Ranked. The first two are cheap.
-
-1. **Fix `HANDOVER.md` section 6.2** so it matches section 1 above. Five
-   minutes, and it stops the next agent inheriting a wrong headline.
-2. **Decide what reliability means with 3+ draws, then fix
-   `grid_draw_reliability`.** Unblocks the 3-draw grid.
-3. **Re-judge Q2.** It is the last result still resting on the pre-Sep-5
-   prompt. Needs a reusable module built first, then about 366 judge calls,
-   2 to 3 hours. Its headline, that role consistency fails equivalence, should
-   not be trusted until then. See `HANDOVER.md` section 6.3(b).
-4. **Run Q1 on the larger models.** Only Llama has the full treatment.
-   DeepSeek showed the effect on the old 240-cell design. gpt-oss-20b and
-   gpt-oss-120b have not been run on any Q1 grid.
-5. **Human coding.** The blind coding page exists but `blind_review.py` and
-   its test are **untracked**, so they live only on this laptop. Committing
-   them is a good idea regardless. No person has coded anything yet, so every
-   mirroring validation still rests on Claude's own first-pass codes.
-6. **Not built, named in the research plan:** a contamination probe and an
-   anonymized-stimulus arm. Both cheap, both close an obvious examiner
-   objection.
-
-Supervisor questions are listed in `HANDOVER.md` section 10. Note that item 5
-there, whether Q1 is worth 14 more hours, has now been answered by running it.
+| Persona-clustered cross-check for the sentence-level p-value | `85e833a` |
+| Prompt hash persisted into every saved Q1 grid | `5ee4b46` |
+| `q1_models.py`'s grid loader reports real cache/generation counts | `36fbc3e` |
+| Four-model comparison regenerated with the clustered fit | `9b922af` |
+| Main Q1 run: third draw generated overnight, reaches significance | `3bf5fb3` |
+| `grid_draw_reliability` generalized past two draws | `a9ae1d2`, `e058937` |
+| `grid_contrasts`/`contrast_estimates` use the pooled fit for multi-draw grids | `82cd1ae`, `7402fbc` |
+| `HANDOVER.md` section 6.2 rewritten to match | local only, not a commit (gitignored) |
 
 ---
 
-## 5. Traps that have actually cost days
+## 5. What to do next
 
-Do not rediscover these. Full detail in `HANDOVER.md` section 9.
+Ranked.
 
-- **The laptop must stay awake.** Sleep pauses a run, shutdown kills it. Long
-  runs belong in a detached `tmux` session, not in a Claude session.
-- **A killed run is cheap to resume.** The cache regenerates only what is
-  missing. Never start from zero.
-- **Another session works in this same repo.** Stage explicit filenames, never
-  `git add -A`, and keep the gap between `git add` and `git commit` short.
-  Staged work has been swept into another session's commit before.
-- **Three things exist only on this laptop:** the 59 MB response cache
-  (`runs/_cache`), `blind_review.py`, and `HANDOVER.md`. None is backed up.
-- **Local generation costs no Claude usage.** It keeps running with the
-  session closed. Say so if the user is short on quota.
+1. **Decide on the Q1 measurement-validity question in section 3** with the
+   user, before building anything — it may change what "the effect" even
+   means, which would touch every number in `PROGRESS_llms.md`'s Q1
+   section.
+2. **The length-matched Q1-vs-real comparison.** `borrowed_words` already
+   has this rule; `is_imperative` needs it too. Directly related to item 1
+   — do them together, not separately.
+3. **Run Q1 at scale on the other three models.** Only Llama has had the
+   overnight-sized run. DeepSeek, gpt-oss-20b and gpt-oss-120b are still on
+   the original 240-cell pilot. gpt-oss-120b is Groq-rate-capped to a
+   multi-day job, not an overnight one; the other two are not.
+4. **Human coding.** `blind_review.py` and its test are untracked — commit
+   them regardless of when coding starts. No person has coded anything yet,
+   so every mirroring validation still rests on Claude's own first-pass
+   codes.
+5. **`q1_models.py`'s own output manifest** still doesn't copy a grid's
+   `prompt_text_hash` into its per-model entries — small, not urgent.
+
+Full "Next steps" list, most-valuable-first, with more items: `PROGRESS_llms.md`.
 
 ---
 
-## 6. Suggested skills and agents
+## 6. Traps that have actually cost time
 
-Call these with the Skill tool:
+- **The laptop must stay awake for an overnight run.** Sleep pauses it,
+  shutdown kills it. Long runs belong in a detached `tmux` session.
+- **A killed run is cheap to resume.** The response cache regenerates only
+  what's missing. Never start from zero.
+- **Other sessions work in this same repo, concurrently.** Stage explicit
+  filenames, never `git add -A`, and keep the gap between `git add` and
+  `git commit` short. Check `git status` for files that aren't yours
+  before staging — `review_pack.py` (modified) and `blind_review.py` +
+  its test (untracked) are not this session's; leave them alone unless
+  told otherwise.
+- **Coordinate with concurrent sessions before touching shared files.**
+  `q1.py`, `PROGRESS_llms.md`, and `HANDOVER.md` all had two sessions
+  working on them today; a quick cross-session message before a large
+  edit avoided duplicate or conflicting work more than once.
+- **Local generation costs no API usage.** It keeps running with the
+  session closed. Worth knowing if a user is short on quota.
+
+---
+
+## 7. Suggested skills
+
+Call these with the Skill tool, as the work in section 5 comes up:
 
 | Skill | When |
 |---|---|
-| `superpowers:systematic-debugging` | The `grid_draw_reliability` crash, before proposing a fix. |
-| `superpowers:test-driven-development` | Any fix to that function. This repo's convention is that a model-fitting change ships with a test that recovers a known injected effect. |
-| `superpowers:verification-before-completion` | Before claiming any result or fix is done. This project has been burned repeatedly by stale or unverified numbers. |
+| `superpowers:test-driven-development` | Any change to a model-fitting function. This repo's convention: a fit change ships with a test that recovers a known injected effect, and any bugfix ships with a golden-value regression test captured before the change. |
+| `superpowers:systematic-debugging` | If the section 3 measurement question turns up an actual bug (not just a validity question) in `extract_q1_sentence_features` or the imperative-detection rule. |
+| `superpowers:verification-before-completion` | Before any number goes into a progress log — this project has now twice found a wrong number already published because this step was skipped. |
 
-Call these with the Agent tool:
-
-| Agent | When |
-|---|---|
-| `results-verifier` | Before a number goes into a progress log, a chapter, or a supervisor email. Runs on Opus and costs a lot, so not for routine checks. The Sep 23 significance result is worth one pass. |
-| `experiment-runner` | The Q2 re-judge, Q1 on the larger models, or any re-run from cache. It launches long runs and hands back rather than waiting. |
-| `progress-writer` | Recording a verified result in the logs. |
-| `lit-scout` | Related-work searches only. |
-
-Spawn subagents on Sonnet, not Opus. The user is usage-constrained.
+Agents (via the Agent tool): `results-verifier` before a number goes into a
+progress log or a chapter (Opus, costs a lot, so not for routine checks);
+`experiment-runner` for the other three models' at-scale runs; spawn on
+Sonnet, not Opus — the user is usage-constrained.
 
 ---
 
-## 7. House rules that are easy to get wrong
+## 8. House rules that are easy to get wrong
 
 - **Writing style is a rule, not a preference.** Short sentences, one idea
   each, plain words, result first. No rhetorical build-up, no long comma
-  chains, no dashes bolted onto clauses. Applies to chat, logs, commit
-  messages and docstrings.
-- **Never swap a number quietly.** If a number changes, say what changed and
-  why. The logs record their own corrections on purpose.
-- **Quality gates before every commit:** `black`, `ruff`, `mypy`, and the full
-  test suite. All four.
-- **Push after each result.** The user reads results on GitHub, not locally.
+  chains. Applies to chat, logs, commit messages and docstrings.
+- **Never swap a number quietly.** If a number changes, say what changed
+  and why, in writing, in the log. Section 1 above is an example of this
+  rule in practice, not an exception to it.
+- **Quality gates before every commit:** `black`, `ruff`, `mypy`, and the
+  full test suite. All four, every time.
+- **Push after each result.** The user reads results on GitHub, not
+  locally.
