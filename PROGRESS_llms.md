@@ -624,22 +624,88 @@ tables -- same effect, two different standard errors.
   460,000. A loop retried every 30 minutes and resumed from the cache each
   time it hit the cap. 238 of 240 cells were cached from Sep 21; the last 2
   generated on Sep 22.
-- **The sentence-level p-value this project's own code reports is not
-  trustworthy when an effect is large.** It comes from a variational-Bayes
-  posterior standard deviation (`hierarchy.py`), which understates
-  uncertainty. This was not visible before because no sentence-level effect
-  here had been this large. gpt-oss-120b's case (reported p=5e-08, honest
-  p≈.001) is the first result that exposed it. The same fix (a
-  persona-clustered standard error, or a bootstrap) should be applied before
-  any sentence-level p-value from this code is quoted in the thesis, not
-  only gpt-oss-120b's.
-- **Two small bugs found while checking this result, not yet fixed.** The Q1
-  grid generator builds a manifest with the current `prompt_text_hash()` but
-  never writes it to disk, so no Q1 grid file has its own record of which
-  prompt made it. Confirmed by hand instead: all five grids in this section
-  share hash `d4c18550ed56f2de`. Separately, `q1_models.py`'s grid loader
-  hard-codes every row as "from cache", so its printed cache counts are not
-  measured and should not be quoted as evidence a grid came from cache.
+- **The sentence-level p-value this project's own code reports understates
+  uncertainty when an effect is large**, from a variational-Bayes posterior
+  standard deviation (`hierarchy.py`). gpt-oss-120b's case (reported p=5e-08,
+  honest p≈.001) is what exposed it. Fixed: the code now also fits a
+  persona-clustered cross-check on its own (`Q1Result.sentence_model_persona_fe`,
+  commit `85e833a`) -- see the "Next steps" done-block below for what still
+  needs it substituted in.
+- **Two small bugs found while checking this result, since fixed.** The Q1
+  grid generator now writes `prompt_text_hash()` onto the saved grid instead
+  of only computing it in memory (commit `5ee4b46`), and `q1_models.py`'s
+  grid loader now counts real cache/generation numbers instead of
+  hard-coding every row as "from cache" (commit `36fbc3e`). See "Next steps"
+  for the one small gap that remains.
+
+---
+
+## The main Q1 run reaches significance (Sep 23)
+
+This is a different grid from the four-model comparison above: not the
+24-scenario pilot, but the main 144-scenario "full" design, Llama 3.2 3B
+only, generated locally. It is the run `HANDOVER.md` section 6.2 and
+`PROGRESS.md` sections 39/51/54 track, and the "14-more-hours" question
+`PROGRESS_llms.md`'s Next steps item 2 pointed back to.
+
+**Why this run.** Real email shows the writing-down effect clearly (+0.253,
+p<.001, 2,202 emails). Every earlier size of this same local grid failed to
+show it at a normal significance level, even though the effect kept getting
+more precisely measured as the sample grew:
+
+| Sample | Sentence-level coefficient | p |
+|---|---:|---:|
+| 240 replies (`PROGRESS.md` section 39) | +0.163 | .401 |
+| 1,440 replies (section 51) | +0.134 | .092 |
+| 2,880 replies, 2 draws averaged (section 54) | +0.092 | .130 |
+| **4,320 replies, 3 draws averaged (tonight)** | **+0.157** (VB) / **+0.127** (persona-clustered) | **.002** (VB) / **.0006** (persona-clustered) |
+
+Reaching 80% power on an effect this size needed about 4,028 replies
+(`HANDOVER.md` section 6.2's own estimate). 4,320 clears that.
+
+**What was run.** One command, overnight, in a detached `tmux` session on
+this laptop, no API and no cost:
+
+```
+python -m thesis.analysis.q1 --local llama3.2:3b --design full --replicates 3 \
+  --progress-every 50 --out data/interim/q1_direction_grid_full_3draws.parquet
+```
+
+Draws 1 and 2 were already cached from sections 51 and 54 (the prompt has
+not changed since), so only the 1,440 replies of draw 3 needed real
+generation. That took about 6 hours (22:10 to 04:10), faster than the
+roughly 11 hours draw 2 alone took in section 54, because a warm cache
+means most of the run is instant.
+
+**The effect is real now, on two different ways of computing its standard
+error.** The code's own variational-Bayes fit gives p=.002. A
+persona-clustered fixed-effects fit, the same cross-check added this session
+for the four-model comparison above (`Q1Result.sentence_model_persona_fe`,
+commit `85e833a`), gives p=.0006. Both say the same thing: this was
+underpowered before, not absent.
+
+**It is still smaller than real email's effect.** Comparing the honest,
+persona-clustered coefficient (+0.127) against real email's (+0.253) the
+same way `compare_with_real` does: difference −0.126, z=−1.98, p≈.047.
+Significant, barely, at the usual .05 cutoff -- the same conclusion section
+54 reached at 2 draws (p=.043), now on firmer ground. The honest statement:
+the simulator now clearly shows the writing-down effect, and it is smaller
+than real email's effect.
+
+**A new bug, found by actually using this code path.**
+`draw_stability.grid_draw_reliability`, which `run_q1_analysis` calls
+automatically whenever a grid has more than one draw, is hard-coded to
+expect exactly draws 1 and 2 -- it raises `ValueError` on anything else. No
+grid had ever been run with 3 draws before tonight, so this never got hit.
+The crash is only in that one reliability check, not in generation or in the
+headline models: the grid file itself (`data/interim/q1_direction_grid_full_3draws.parquet`,
+4,320 rows) is complete and correct, and the numbers above were computed by
+calling the same fitting functions `run_q1_analysis` calls, skipping only
+the broken reliability step. **Not yet fixed** -- it needs a decision on
+what "reliability" should mean with 3 draws (still just draw 1 against draw
+2? every pair? something else?) before `run_q1_analysis` can be called on
+this grid without a workaround, and any grid with 3+ draws in the future
+will hit the same crash.
 
 ---
 
@@ -720,40 +786,55 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   `load_grid` now counts the real split from the `from_cache` column every
   row already carries, instead of hard-coding `n_from_cache=len(frame)`.
   Commit `36fbc3e`.
+- **The main Q1 run (Llama, local, full design) now shows the writing-down
+  effect at a normal significance level** -- 4,320 replies overnight,
+  p=.002 (VB) / p=.0006 (persona-clustered). See "The main Q1 run reaches
+  significance (Sep 23)" above. This was the 14-more-hours question for
+  Llama specifically; it does not cover the other three models (next item).
 
-1. **Build the length-matched version of the Q1-versus-real comparison.**
+1. **Fix `draw_stability.grid_draw_reliability` for 3+ draws.** It is
+   hard-coded to expect exactly draws 1 and 2 and raises otherwise, found
+   overnight when the main Q1 run's third draw hit it. `run_q1_analysis`
+   calls it automatically for any grid with more than one draw, so this
+   blocks the normal analysis path on `data/interim/q1_direction_grid_full_3draws.parquet`
+   right now, and will block any future 3+-draw grid the same way. Needs a
+   decision first: does "reliability" with 3 draws still mean draw 1 against
+   draw 2 only, or every pair, or something else.
+2. **Build the length-matched version of the Q1-versus-real comparison.**
    `borrowed_words` already has this rule; orders-per-sentence needs it too.
    gpt-oss-120b writes 1.98 sentences per reply against real email's 4.75,
    and that gap alone could produce part of the +0.643 difference reported
    above. Without a length-matched version, no Q1-versus-real comparison in
    this log should be called established, gpt-oss-120b's least of all.
-2. **A larger sample would help every model more than another model would.**
-   Every simulator interval in the four-model figure is 0.5 to 0.7 wide,
-   against 0.2 for real email's 2,202 emails. This is the same 14-more-hours
-   question already open for the main Q1 run (`HANDOVER.md` section 6.2).
-3. **Hand-code a sample of replies by a person.** The mirroring cutoff and
+3. **A larger sample would help the three NVIDIA/Groq models too.** Every
+   simulator interval in the four-model figure is 0.5 to 0.7 wide, against
+   0.2 for real email's 2,202 emails -- true for DeepSeek, gpt-oss-20b and
+   gpt-oss-120b still, now that Llama's own version of this question is
+   answered above. gpt-oss-120b's Groq rate cap (200,000 tokens/day) makes
+   this a multi-day job there, not an overnight one.
+4. **Hand-code a sample of replies by a person.** The mirroring cutoff and
    its validation rest on Claude's first-pass codes of Llama replies only.
    A coding page is already built: 50 emails, two replies each from two
    models, in random order, with the model hidden. It is waiting for a
    coder. One small fix is needed first: the first pass used a label,
    `wrong_register`, that the codebook never defined.
-4. **A run without the act instruction.** This would show whether a larger
+5. **A run without the act instruction.** This would show whether a larger
    model follows the instruction better than the small local one did
    (`PROGRESS.md` section 43 found only a small effect on Llama). The code
    already has a `--prompt-variant` mechanism; a third variant without the
    instruction would fit it.
-5. **Embedding map and review pack on the newer models.** These only read
+6. **Embedding map and review pack on the newer models.** These only read
    saved replies, so they need no new generation.
-6. **Judge study (Q3).** Four models across three families are now
+7. **Judge study (Q3).** Four models across three families are now
    available. One can write and another can judge, then the roles can be
    swapped. This needs new model calls.
-7. **Move the line-removal rule into the corpus cleaner**, so every analysis
+8. **Move the line-removal rule into the corpus cleaner**, so every analysis
    uses the same clean real-reply text instead of a one-off script.
-8. **Rename one summary key.** `mirroring.py` saves its comparison under
+9. **Rename one summary key.** `mirroring.py` saves its comparison under
    `compared_with_previous_prompt`, which is the wrong name for a comparison
    between models.
-9. **Back up `runs/_cache`.** It holds every reply this project has
-   received and exists only on this laptop. It must never go into git,
-   because the prompts contain Enron text.
-10. **Commit the rest of the code.** Still uncommitted: the blind-coding
+10. **Back up `runs/_cache`.** It holds every reply this project has
+    received and exists only on this laptop. It must never go into git,
+    because the prompts contain Enron text.
+11. **Commit the rest of the code.** Still uncommitted: the blind-coding
     module and its tests, and the codebook fix that defines `wrong_register`.
