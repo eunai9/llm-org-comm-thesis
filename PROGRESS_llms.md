@@ -692,20 +692,38 @@ Significant, barely, at the usual .05 cutoff -- the same conclusion section
 the simulator now clearly shows the writing-down effect, and it is smaller
 than real email's effect.
 
-**A new bug, found by actually using this code path.**
+**A new bug, found by actually using this code path -- since fixed.**
 `draw_stability.grid_draw_reliability`, which `run_q1_analysis` calls
-automatically whenever a grid has more than one draw, is hard-coded to
-expect exactly draws 1 and 2 -- it raises `ValueError` on anything else. No
-grid had ever been run with 3 draws before tonight, so this never got hit.
-The crash is only in that one reliability check, not in generation or in the
-headline models: the grid file itself (`data/interim/q1_direction_grid_full_3draws.parquet`,
-4,320 rows) is complete and correct, and the numbers above were computed by
-calling the same fitting functions `run_q1_analysis` calls, skipping only
-the broken reliability step. **Not yet fixed** -- it needs a decision on
-what "reliability" should mean with 3 draws (still just draw 1 against draw
-2? every pair? something else?) before `run_q1_analysis` can be called on
-this grid without a workaround, and any grid with 3+ draws in the future
-will hit the same crash.
+automatically whenever a grid has more than one draw, was hard-coded to
+expect exactly draws 1 and 2 and raised `ValueError` on anything else. No
+grid had ever been run with 3 draws before that night, so it never got hit.
+The crash was only in that one reliability check, not in generation or in
+the headline models -- the grid file and the numbers above were never in
+doubt.
+
+Fixed (commit `a9ae1d2`) by generalizing each of the three statistics to
+however many draws a grid has, by the standard multi-rater form of each
+rather than by picking one pair or averaging pairs: the ICC calculation was
+already written generically in terms of raters and needed no new formula;
+the correlations become the mean over every pair when there is more than
+one pair; and decision agreement switches from Cohen's kappa to Fleiss'
+kappa (the textbook generalization past two raters), while staying byte-for-
+byte the same Cohen's kappa computation at exactly two draws, so every
+already-published two-draw kappa is unaffected. `run_q1_analysis` now
+completes on the 3-draw grid without a workaround, and running it produced
+the first official manifest and figure for this grid,
+`outputs/manifests/q1_full_grid_3draws.json` and
+`docs/figures/q1_full_grid_vs_real_3draws.png` -- the `is_imperative_clustered`
+entry there (+0.1566, p=.002053) matches the by-hand VB number reported
+above to four digits, now computed by the ordinary code path instead of a
+one-off script.
+
+The grid's own draw-to-draw reliability, now measurable across all three
+draws at once: orders per reply, ICC=0.351 (two draws predicted 0.52, three
+predicted 0.62 -- the prediction says draws should agree more than they
+actually do, a question for later, not answered here); hedges per reply,
+ICC=0.260; decision, 55.5% of cells have all three draws agree exactly,
+Fleiss' kappa=0.367.
 
 ---
 
@@ -791,50 +809,50 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   p=.002 (VB) / p=.0006 (persona-clustered). See "The main Q1 run reaches
   significance (Sep 23)" above. This was the 14-more-hours question for
   Llama specifically; it does not cover the other three models (next item).
+- **`draw_stability.grid_draw_reliability` now handles any number of
+  draws.** It used to require exactly draws 1 and 2 and raised otherwise,
+  found when the main Q1 run's third draw hit it. Generalized each of its
+  three statistics to the standard multi-rater form (proper ICC, mean
+  pairwise correlation, Fleiss' kappa), unchanged at exactly two draws.
+  Commit `a9ae1d2`. `run_q1_analysis` now runs on the 3-draw grid without a
+  workaround; see "The main Q1 run reaches significance (Sep 23)" above for
+  the reliability numbers this produced.
 
-1. **Fix `draw_stability.grid_draw_reliability` for 3+ draws.** It is
-   hard-coded to expect exactly draws 1 and 2 and raises otherwise, found
-   overnight when the main Q1 run's third draw hit it. `run_q1_analysis`
-   calls it automatically for any grid with more than one draw, so this
-   blocks the normal analysis path on `data/interim/q1_direction_grid_full_3draws.parquet`
-   right now, and will block any future 3+-draw grid the same way. Needs a
-   decision first: does "reliability" with 3 draws still mean draw 1 against
-   draw 2 only, or every pair, or something else.
-2. **Build the length-matched version of the Q1-versus-real comparison.**
+1. **Build the length-matched version of the Q1-versus-real comparison.**
    `borrowed_words` already has this rule; orders-per-sentence needs it too.
    gpt-oss-120b writes 1.98 sentences per reply against real email's 4.75,
    and that gap alone could produce part of the +0.643 difference reported
    above. Without a length-matched version, no Q1-versus-real comparison in
    this log should be called established, gpt-oss-120b's least of all.
-3. **A larger sample would help the three NVIDIA/Groq models too.** Every
+2. **A larger sample would help the three NVIDIA/Groq models too.** Every
    simulator interval in the four-model figure is 0.5 to 0.7 wide, against
    0.2 for real email's 2,202 emails -- true for DeepSeek, gpt-oss-20b and
    gpt-oss-120b still, now that Llama's own version of this question is
    answered above. gpt-oss-120b's Groq rate cap (200,000 tokens/day) makes
    this a multi-day job there, not an overnight one.
-4. **Hand-code a sample of replies by a person.** The mirroring cutoff and
+3. **Hand-code a sample of replies by a person.** The mirroring cutoff and
    its validation rest on Claude's first-pass codes of Llama replies only.
    A coding page is already built: 50 emails, two replies each from two
    models, in random order, with the model hidden. It is waiting for a
    coder. One small fix is needed first: the first pass used a label,
    `wrong_register`, that the codebook never defined.
-5. **A run without the act instruction.** This would show whether a larger
+4. **A run without the act instruction.** This would show whether a larger
    model follows the instruction better than the small local one did
    (`PROGRESS.md` section 43 found only a small effect on Llama). The code
    already has a `--prompt-variant` mechanism; a third variant without the
    instruction would fit it.
-6. **Embedding map and review pack on the newer models.** These only read
+5. **Embedding map and review pack on the newer models.** These only read
    saved replies, so they need no new generation.
-7. **Judge study (Q3).** Four models across three families are now
+6. **Judge study (Q3).** Four models across three families are now
    available. One can write and another can judge, then the roles can be
    swapped. This needs new model calls.
-8. **Move the line-removal rule into the corpus cleaner**, so every analysis
+7. **Move the line-removal rule into the corpus cleaner**, so every analysis
    uses the same clean real-reply text instead of a one-off script.
-9. **Rename one summary key.** `mirroring.py` saves its comparison under
+8. **Rename one summary key.** `mirroring.py` saves its comparison under
    `compared_with_previous_prompt`, which is the wrong name for a comparison
    between models.
-10. **Back up `runs/_cache`.** It holds every reply this project has
-    received and exists only on this laptop. It must never go into git,
-    because the prompts contain Enron text.
-11. **Commit the rest of the code.** Still uncommitted: the blind-coding
+9. **Back up `runs/_cache`.** It holds every reply this project has
+   received and exists only on this laptop. It must never go into git,
+   because the prompts contain Enron text.
+10. **Commit the rest of the code.** Still uncommitted: the blind-coding
     module and its tests, and the codebook fix that defines `wrong_register`.
