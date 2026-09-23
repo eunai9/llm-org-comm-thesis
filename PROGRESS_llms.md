@@ -684,13 +684,49 @@ for the four-model comparison above (`Q1Result.sentence_model_persona_fe`,
 commit `85e833a`), gives p=.0006. Both say the same thing: this was
 underpowered before, not absent.
 
-**It is still smaller than real email's effect.** Comparing the honest,
-persona-clustered coefficient (+0.127) against real email's (+0.253) the
-same way `compare_with_real` does: difference −0.126, z=−1.98, p≈.047.
-Significant, barely, at the usual .05 cutoff -- the same conclusion section
-54 reached at 2 draws (p=.043), now on firmer ground. The honest statement:
-the simulator now clearly shows the writing-down effect, and it is smaller
-than real email's effect.
+**It looks smaller than real email's effect, but whether that gap is itself
+significant depends on which fit does the comparing -- corrected below,
+this was wrong in an earlier version of this section.** Three ways of
+comparing against real email's +0.253, each defensible on its own:
+
+| Fit used for the simulator side | Coefficient | Difference | z | p |
+|---|---:|---:|---:|---:|
+| Draw 1 only, VB | +0.134 | −0.119 | −1.26 | .209 |
+| 3 draws pooled, VB (nested by cell) | +0.156 | −0.097 | −1.34 | .182 |
+| 3 draws pooled, persona-clustered | +0.127 | −0.126 | −1.98 | .047 |
+
+Only the third crosses .05, and it is the one whose standard error comes
+from clustering by persona -- with only 10 personas, cluster-robust standard
+errors are known to run anti-conservative (biased toward too small, which
+inflates significance). A first version of this section quoted only that
+third row, unqualified, and that number had already gone onto a supervisor
+slide before this was caught (thanks to a second Claude session checking
+this file independently -- see `HANDOVER.md` section 6.2 for its own
+write-up of the same finding). The honest statement: the simulator now
+clearly shows the writing-down effect (that part is solid, all fits agree),
+and it looks smaller than real email's, but whether that gap is
+statistically established is not settled -- it depends on the method, and
+the method that says yes is the one most likely to be overconfident. Section
+54's own p=.043 for the 2-draw grid has not been checked against other
+estimators either, so it carries the same unstated caveat.
+
+**The number in the table above and the "Against real email" print were two
+different numbers -- a second bug, since fixed.** `grid_contrasts` (which
+feeds `compare_with_real`, the CLI's "Against real email" table) and
+`contrast_estimates` (which feeds the "Precision" table and the manifest's
+`primary`/`precision` sections) both always read `result.sentence_model`,
+`result.reply_model` and `result.hedge_model` -- the draw-1-only fits --
+regardless of how many draws the grid actually had. For this grid that
+meant the printed comparison against real email, and the saved manifest's
+own headline number, silently used a third of the data (+0.134, the
+1,440-replies row) while this write-up quoted the correctly pooled number
+(+0.157/+0.127). Both now prefer the pooled fit
+(`sentence_model_clustered`/`aggregated_reply_model`/`aggregated_hedge_model`)
+when a grid has more than one draw, falling back to the draw-1-only fit
+otherwise, where the two are the same thing anyway. Commit `82cd1ae`.
+`outputs/manifests/q1_full_grid_3draws.json`
+has been regenerated; its `primary.is_imperative:down` now reads
+coefficient=0.1566, p=.0022, matching the pooled VB row in the table above.
 
 **A new bug, found by actually using this code path -- since fixed.**
 `draw_stability.grid_draw_reliability`, which `run_q1_analysis` calls
@@ -817,6 +853,14 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   Commit `a9ae1d2`. `run_q1_analysis` now runs on the 3-draw grid without a
   workaround; see "The main Q1 run reaches significance (Sep 23)" above for
   the reliability numbers this produced.
+- **`grid_contrasts` and `contrast_estimates` now use the pooled fit for a
+  multi-draw grid.** Both always read the draw-1-only fits, so the CLI's
+  "Against real email" table, the "Precision" table, and the manifest's own
+  `primary`/`precision` sections silently used a third of the 3-draw
+  grid's data. Found independently by a second Claude session cross-checking
+  this file. Commit `82cd1ae`. See "The main Q1 run reaches significance
+  (Sep 23)" above for what changed and what didn't (the effect's own
+  significance did not move; the "smaller than real email" comparison did).
 
 1. **Build the length-matched version of the Q1-versus-real comparison.**
    `borrowed_words` already has this rule; orders-per-sentence needs it too.
