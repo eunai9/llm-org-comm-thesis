@@ -808,11 +808,22 @@ def format_multi_draw_report(result: Q1Result) -> str:
 
 
 def grid_contrasts(result: Q1Result) -> dict[str, tuple[float, float]]:
-    """Every direction contrast of one grid, keyed the way the real manifest keys them."""
+    """Every direction contrast of one grid, keyed the way the real manifest keys them.
+
+    Uses the fit pooled across every draw when the grid has more than one
+    (``aggregated_reply_model``, ``aggregated_hedge_model``,
+    ``sentence_model_clustered``), falling back to the draw-1-only fit for a
+    single-draw grid, where the two are the same thing. Before this, every
+    outcome here always came from the draw-1-only fit regardless of how many
+    draws the grid had, so ``compare_with_real`` silently compared real
+    email against a third of a 3-draw grid's data instead of all of it --
+    found checking the main Q1 run (PROGRESS_llms.md, Sep 23; independently
+    verified by a second session).
+    """
     fits: dict[str, MixedModelResult | SentenceModelResult] = {
-        "imperative_ratio": result.reply_model,
-        "is_imperative": result.sentence_model,
-        "hedge_rate": result.hedge_model,
+        "imperative_ratio": result.aggregated_reply_model or result.reply_model,
+        "is_imperative": result.sentence_model_clustered or result.sentence_model,
+        "hedge_rate": result.aggregated_hedge_model or result.hedge_model,
     }
     return {
         f"{outcome}:{level}": fit.contrast(level)
@@ -907,12 +918,17 @@ def contrast_estimates(result: Q1Result) -> list[ContrastEstimate]:
     The standard error is the point of this function. Section 39 could not
     detect an effect it had estimated at the right size, because its
     standard error was about four times real email's. So precision, not just
-    the coefficient, is what a bigger run has to be judged on.
+    the coefficient, is what a bigger run has to be judged on -- which is
+    exactly why this uses the fit pooled across every draw when the grid has
+    more than one, the same as :func:`grid_contrasts`. Before this, a
+    multi-draw grid's "Precision" table and manifest always reported the
+    draw-1-only fit's precision, not the fuller grid's, undercutting the
+    function's own point (PROGRESS_llms.md, Sep 23).
     """
     fits: dict[str, Any] = {
-        "is_imperative": result.sentence_model,
-        "imperative_ratio": result.reply_model,
-        "hedge_rate": result.hedge_model,
+        "is_imperative": result.sentence_model_clustered or result.sentence_model,
+        "imperative_ratio": result.aggregated_reply_model or result.reply_model,
+        "hedge_rate": result.aggregated_hedge_model or result.hedge_model,
     }
     estimates = []
     for outcome, fit in fits.items():

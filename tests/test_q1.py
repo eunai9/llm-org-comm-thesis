@@ -37,6 +37,7 @@ from thesis.analysis.q1 import (
     build_q1_scenarios,
     compare_to_historical,
     compare_with_real,
+    contrast_estimates,
     contrast_se,
     design_of_frame,
     extract_q1_reply_features,
@@ -512,6 +513,38 @@ def test_grid_contrasts_uses_the_real_manifest_keys(small_grid) -> None:  # type
 
     assert set(contrasts) == set(REAL_CONTRAST_KEYS)
     assert all(len(value) == 2 for value in contrasts.values())
+
+
+def test_grid_contrasts_uses_the_pooled_fit_for_a_multi_draw_grid(small_grid_two_draws) -> None:  # type: ignore[no-untyped-def]
+    """grid_contrasts used to hand is_imperative to compare_with_real from
+    result.sentence_model, which run_q1_analysis always fits on draw 1
+    alone -- so a grid with more draws silently compared real email against
+    only a third of its data. Found checking the main Q1 run's 3-draw grid
+    (PROGRESS_llms.md, Sep 23; independently verified by a second session).
+    """
+    result = run_q1_analysis(small_grid_two_draws)
+    assert result.sentence_model_clustered is not None
+
+    contrasts = grid_contrasts(result)
+
+    assert contrasts["is_imperative:down"] == result.sentence_model_clustered.contrast("down")
+    assert contrasts["is_imperative:down"] != result.sentence_model.contrast("down")
+
+
+def test_contrast_estimates_uses_the_pooled_fit_for_a_multi_draw_grid(small_grid_two_draws) -> None:  # type: ignore[no-untyped-def]
+    """Same bug as grid_contrasts, same fix: contrast_estimates fed the
+    manifest's "primary"/"precision" sections and the printed Precision
+    table from the draw-1-only fits regardless of how many draws the grid
+    had, so a multi-draw grid's own headline number was never what the
+    report claimed it was."""
+    result = run_q1_analysis(small_grid_two_draws)
+    assert result.sentence_model_clustered is not None
+
+    estimates = {(e.outcome, e.level): e for e in contrast_estimates(result)}
+    pooled_coefficient, pooled_p = result.sentence_model_clustered.contrast("down")
+
+    assert estimates[("is_imperative", "down")].coefficient == pooled_coefficient
+    assert estimates[("is_imperative", "down")].p_value == pooled_p
 
 
 def test_format_real_comparison_lists_the_contrasts_it_was_given() -> None:
