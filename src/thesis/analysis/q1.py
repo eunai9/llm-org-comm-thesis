@@ -791,7 +791,8 @@ def format_multi_draw_report(result: Q1Result) -> str:
         f"  is_imperative ~ direction: {_pair(clustered)}",
         f"    draw 1 only, for comparison: {_pair(result.sentence_model)}",
         "",
-        "Draw 1 vs draw 2, across every cell (section 50's check, generalized):",
+        f"Every draw against every other, across every cell "
+        f"(section 50's check, generalized, {rel.k_draws} draws):",
         f"  imperative_ratio: pearson={rel.imperative_ratio.pearson:.3f} "
         f"spearman={rel.imperative_ratio.spearman:.3f} icc={rel.imperative_ratio.icc:.3f} "
         f"(2 draws ~{rel.imperative_ratio.spearman_brown_k2:.3f}, "

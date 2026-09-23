@@ -55,12 +55,18 @@ AGREEMENT_ACROSS_PROMPTS = 0.41
 
 @dataclass(frozen=True, slots=True)
 class DecisionStability:
-    """How often the same email gets the same decision twice.
+    """How often the same email gets the same decision across every draw.
 
-    ``share_expected`` is what two unrelated draws with these same totals
-    would match by luck. ``kappa`` is Cohen's kappa: how far the observed
-    agreement gets from that luck level towards perfect. 0 is no better than
-    luck. 1 is perfect agreement.
+    ``share_expected`` is what unrelated draws with these same totals would
+    match by luck. ``kappa`` is how far the observed agreement gets from
+    that luck level towards perfect: 0 is no better than luck, 1 is perfect
+    agreement. At exactly two draws this is Cohen's kappa and
+    ``share_agree``/``share_expected`` are pairwise. At three or more it is
+    Fleiss' kappa (the standard generalization past two raters) and both
+    shares mean "every draw agrees", not just one pair -- see
+    :func:`_decision_stability_n`. ``counts`` is the draw-1-against-draw-2
+    cross-table; it is only defined for exactly two draws, and empty
+    otherwise, since a cross-table has no natural shape past two raters.
     """
 
     n: int
@@ -122,10 +128,11 @@ def merge_draws(first: pd.DataFrame, second: pd.DataFrame) -> pd.DataFrame:
 
 
 def _decision_stability(draw1: pd.Series, draw2: pd.Series) -> DecisionStability:
-    """The statistic :func:`decision_stability` and :func:`grid_draw_reliability`
-    both need: agreement, the cross-table, and Cohen's kappa, given the two
-    draws already paired one row per item. Shared here so the pairs-table
-    shape and the grid shape compute it the same way."""
+    """The statistic :func:`decision_stability` needs, and
+    :func:`_decision_stability_n` delegates to at exactly two draws:
+    agreement, the cross-table, and Cohen's kappa, given the two draws
+    already paired one row per item. Shared here so the pairs-table shape
+    and the grid shape compute it the same way."""
     labels = sorted(set(draw1) | set(draw2))
     table = pd.crosstab(draw1, draw2).reindex(index=labels, columns=labels, fill_value=0)
     n = len(draw1)
@@ -143,6 +150,57 @@ def _decision_stability(draw1: pd.Series, draw2: pd.Series) -> DecisionStability
             for row in table.index
         },
     )
+
+
+def _fleiss_kappa(draws: Sequence[pd.Series]) -> DecisionStability:
+    """Fleiss' kappa: the standard generalization of Cohen's kappa past two
+    raters, for ``draws`` items rated by the same fixed number of raters
+    each (here, every item has one decision per draw).
+
+    ``share_agree``/``n_agree`` mean every draw agreeing on an item, not
+    just one pair -- with :math:`k` draws there is no single pair left, the
+    same reason :func:`_measure_reliability` reports a mean over pairs for
+    its correlations instead of one pair's. ``share_expected`` is the chance
+    that :math:`k` raters, each independently drawing from the pooled
+    category rates, would all land on the same category by luck.
+
+    Notation follows Fleiss (1971): :math:`n_{ij}` is how many of the
+    :math:`k` raters put item :math:`i` in category :math:`j`; :math:`p_j`
+    is category :math:`j`'s share of all :math:`N \\times k` ratings;
+    :math:`P_i` is item :math:`i`'s own agreement rate; :math:`\\bar P` and
+    :math:`P_e` are the mean observed and mean chance agreement.
+    """
+    table = pd.concat(draws, axis=1)
+    n_items, k = table.shape
+    labels = sorted(set(table.to_numpy().ravel()))
+    counts = np.array(
+        [[int((table.iloc[i] == label).sum()) for label in labels] for i in range(n_items)]
+    )
+
+    p_j = counts.sum(axis=0) / (n_items * k)
+    p_i = (np.sum(counts**2, axis=1) - k) / (k * (k - 1))
+    p_bar = float(p_i.mean())
+    p_e = float(np.sum(p_j**2))
+    kappa = 0.0 if p_e == 1.0 else (p_bar - p_e) / (1.0 - p_e)
+
+    all_agree = np.all(table.eq(table.iloc[:, 0], axis=0), axis=1)
+    return DecisionStability(
+        n=n_items,
+        n_agree=int(all_agree.sum()),
+        share_agree=round(float(all_agree.mean()), 3),
+        share_expected=round(float(np.sum(p_j**k)), 3),
+        kappa=round(float(kappa), 3),
+        counts={},
+    )
+
+
+def _decision_stability_n(draws: Sequence[pd.Series]) -> DecisionStability:
+    """:func:`_decision_stability` for exactly two draws, unchanged (so
+    every already-published two-draw kappa stays exactly what it was), and
+    :func:`_fleiss_kappa` for three or more."""
+    if len(draws) == 2:
+        return _decision_stability(draws[0], draws[1])
+    return _fleiss_kappa(draws)
 
 
 def decision_stability(first: pd.DataFrame, second: pd.DataFrame) -> DecisionStability:
@@ -232,16 +290,19 @@ def spearman_brown(r: float, k: int) -> float:
     return k * r / (1 + (k - 1) * r)
 
 
-def _icc_2_1(x: pd.Series, y: pd.Series) -> float:
+def _icc_2_1(values: np.ndarray) -> float:
     """ICC(2,1): two-way random effects, single measurement, absolute
-    agreement, for exactly two raters (here, two draws of the same cell).
+    agreement, for any number of raters (here, draws of the same cell).
 
     0 means the cell tells you nothing about the score; a random guess would
-    do as well. 1 means the two draws agree exactly. Unlike a correlation,
+    do as well. 1 means every draw agrees exactly. Unlike a correlation,
     this is sensitive to a draw that is systematically higher or lower than
-    the other, not only to whether they rank cells the same way.
+    the others, not only to whether they rank cells the same way. The two
+    raters (draws) that gave this its name are the minimum, not a limit --
+    ``values`` is ``n_cells`` rows by ``k`` draws, ``k >= 2``, and every term
+    below is already written in terms of ``k``, so nothing changes here
+    when it is more than 2.
     """
-    values = np.column_stack([x.to_numpy(dtype=float), y.to_numpy(dtype=float)])
     n, k = values.shape
     if n < 2:
         return float("nan")
@@ -266,11 +327,15 @@ def _icc_2_1(x: pd.Series, y: pd.Series) -> float:
 
 @dataclass(frozen=True, slots=True)
 class MeasureReliability:
-    """Draw 1 against draw 2 for one continuous measure, across every cell.
+    """One continuous measure's agreement across every draw of every cell.
 
-    ``pearson`` and ``spearman`` say how well draw 1 predicts draw 2 for one
-    cell. ``icc`` asks the same question on the measure's own scale, not
-    just its ranking. ``spearman_brown_k2``/``k3`` use ``pearson`` to say
+    ``pearson`` and ``spearman`` say how well one draw predicts another, for
+    one cell. With exactly two draws that is the one pair's correlation;
+    with more, it is the mean correlation over every pair, since there is no
+    longer a single pair to report. ``icc`` asks the same question on the
+    measure's own scale, not just its ranking, computed directly from every
+    draw at once (:func:`_icc_2_1`), not by averaging pairs.
+    ``spearman_brown_k2``/``k3`` use the mean pairwise ``pearson`` to say
     what a 2-draw or 3-draw average of this measure would reach.
     """
 
@@ -283,14 +348,27 @@ class MeasureReliability:
     spearman_brown_k3: float
 
 
-def _measure_reliability(measure: str, draw1: pd.Series, draw2: pd.Series) -> MeasureReliability:
-    pearson = float(draw1.corr(draw2))
+def _mean_pairwise_correlation(draws: Sequence[pd.Series], *, method: str = "pearson") -> float:
+    """The mean correlation over every pair of draws. One pair (two draws)
+    has only itself to report; more draws have no single pair, so this
+    stands in for "the" pairwise correlation the same way it always has."""
+    pairs = [
+        draws[i].corr(draws[j], method=method)
+        for i in range(len(draws))
+        for j in range(i + 1, len(draws))
+    ]
+    return float(np.mean(pairs))
+
+
+def _measure_reliability(measure: str, draws: Sequence[pd.Series]) -> MeasureReliability:
+    pearson = _mean_pairwise_correlation(draws, method="pearson")
+    values = np.column_stack([d.to_numpy(dtype=float) for d in draws])
     return MeasureReliability(
         measure=measure,
-        n_cells=len(draw1),
+        n_cells=len(draws[0]),
         pearson=round(pearson, 3),
-        spearman=round(float(draw1.corr(draw2, method="spearman")), 3),
-        icc=round(_icc_2_1(draw1, draw2), 3),
+        spearman=round(_mean_pairwise_correlation(draws, method="spearman"), 3),
+        icc=round(_icc_2_1(values), 3),
         spearman_brown_k2=round(spearman_brown(pearson, 2), 3),
         spearman_brown_k3=round(spearman_brown(pearson, 3), 3),
     )
@@ -298,52 +376,65 @@ def _measure_reliability(measure: str, draw1: pd.Series, draw2: pd.Series) -> Me
 
 @dataclass(frozen=True, slots=True)
 class GridReliability:
-    """Draw 1 against draw 2 across every cell of a multi-draw Q1 grid.
+    """Every draw against every other, across every cell of a multi-draw
+    Q1 grid.
 
     The same question section 50 asked of 183 pairs, generalized to every
-    cell a grid holds. See :func:`grid_draw_reliability`.
+    cell a grid holds, and (since the main Q1 run's third draw, Sep 23) to
+    any number of draws, not only two. See :func:`grid_draw_reliability`.
     """
 
     n_cells: int
+    k_draws: int
     imperative_ratio: MeasureReliability
     hedge_rate: MeasureReliability
     decision: DecisionStability
 
 
 def grid_draw_reliability(reply_features: pd.DataFrame) -> GridReliability:
-    """Draw 1 against draw 2, across every cell of a multi-draw Q1 grid.
+    """Every draw against every other, across every cell of a multi-draw
+    Q1 grid.
 
     ``reply_features`` is one row per generated reply (as
     :func:`thesis.analysis.q1.extract_q1_reply_features` returns), carrying
-    ``cell_id``, ``replicate`` (exactly the values 1 and 2), ``decision``,
-    ``imperative_ratio`` and ``hedge_rate``. Rows are paired by cell
-    identity (:func:`thesis.analysis.hierarchy.cell_id_without_replicate`),
-    the same way :func:`merge_draws` pairs the pairs-table shape by
-    ``pair_key`` -- the statistic itself (:func:`_measure_reliability`,
-    :func:`_decision_stability`) is the same code either way.
+    ``cell_id``, ``replicate``, ``decision``, ``imperative_ratio`` and
+    ``hedge_rate``. Rows are grouped by cell identity
+    (:func:`thesis.analysis.hierarchy.cell_id_without_replicate`), the same
+    way :func:`merge_draws` pairs the pairs-table shape by ``pair_key``, and
+    only cells present in every draw are kept -- a cell missing one draw
+    (a validation failure, say) cannot be compared across all of them.
+
+    Two draws is still the common case and reads exactly as it always has
+    (:func:`_measure_reliability`, :func:`_decision_stability_n` both
+    special-case it). Three or more draws is new, found when the main Q1
+    run's third draw hit the old two-draws-only version of this function
+    (PROGRESS_llms.md, Sep 23).
     """
     replicates = sorted(reply_features["replicate"].unique())
-    if replicates != [1, 2]:
-        msg = f"grid_draw_reliability needs exactly draws 1 and 2; got {replicates}"
+    if len(replicates) < 2:
+        msg = f"grid_draw_reliability needs at least two draws; got {replicates}"
         raise ValueError(msg)
 
     base = reply_features.assign(cell_base_id=cell_id_without_replicate(reply_features["cell_id"]))
-    draw1 = base[base["replicate"] == 1]
-    draw2 = base[base["replicate"] == 2]
-    merged = draw1.merge(draw2, on="cell_base_id", suffixes=("_1", "_2"))
-    if merged.empty:
-        msg = "no cell appears in both draws"
+    wide = base.pivot(
+        index="cell_base_id",
+        columns="replicate",
+        values=["imperative_ratio", "hedge_rate", "decision"],
+    )
+    wide = wide.dropna()  # keep only cells present in every draw
+    if wide.empty:
+        msg = "no cell appears in every draw"
         raise ValueError(msg)
 
+    def _draws(measure: str) -> list[pd.Series]:
+        return [wide[measure][r].reset_index(drop=True) for r in replicates]
+
     return GridReliability(
-        n_cells=len(merged),
-        imperative_ratio=_measure_reliability(
-            "imperative_ratio", merged["imperative_ratio_1"], merged["imperative_ratio_2"]
-        ),
-        hedge_rate=_measure_reliability(
-            "hedge_rate", merged["hedge_rate_1"], merged["hedge_rate_2"]
-        ),
-        decision=_decision_stability(merged["decision_1"], merged["decision_2"]),
+        n_cells=len(wide),
+        k_draws=len(replicates),
+        imperative_ratio=_measure_reliability("imperative_ratio", _draws("imperative_ratio")),
+        hedge_rate=_measure_reliability("hedge_rate", _draws("hedge_rate")),
+        decision=_decision_stability_n(_draws("decision")),
     )
 
 

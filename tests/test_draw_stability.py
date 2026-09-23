@@ -15,6 +15,8 @@ import pandas as pd
 import pytest
 
 from thesis.analysis.draw_stability import (
+    _decision_stability_n,
+    _measure_reliability,
     decision_stability,
     grid_draw_reliability,
     imperative_ratios,
@@ -170,6 +172,29 @@ def _reply_features_two_draws(
     return pd.DataFrame(draw1 + draw2)
 
 
+def _reply_features_n_draws(
+    imperative_ratio: list[list[float]],
+    hedge_rate: list[list[float]],
+    decision: list[list[str]],
+) -> pd.DataFrame:
+    """Same shape as :func:`_reply_features_two_draws`, for any number of
+    draws -- one list per draw, each holding one value per cell."""
+    n_draws = len(imperative_ratio)
+    n_cells = len(imperative_ratio[0])
+    rows = [
+        {
+            "cell_id": f"c{i}__r{draw + 1}",
+            "replicate": draw + 1,
+            "decision": decision[draw][i],
+            "imperative_ratio": imperative_ratio[draw][i],
+            "hedge_rate": hedge_rate[draw][i],
+        }
+        for draw in range(n_draws)
+        for i in range(n_cells)
+    ]
+    return pd.DataFrame(rows)
+
+
 def test_grid_draw_reliability_is_perfect_when_draws_match() -> None:
     values = [0.1, 0.2, 0.3, 0.4, 0.5]
     decisions = ["accept", "accept", "defer", "defer", "escalate"]
@@ -216,18 +241,117 @@ def test_grid_draw_reliability_reports_spearman_brown_projections() -> None:
     )
 
 
-def test_grid_draw_reliability_requires_exactly_two_draws() -> None:
+def test_grid_draw_reliability_requires_at_least_two_draws() -> None:
     frame = pd.DataFrame(
         {
-            "cell_id": ["c0__r1", "c0__r2", "c0__r3"],
-            "replicate": [1, 2, 3],
-            "decision": ["accept"] * 3,
-            "imperative_ratio": [0.1, 0.2, 0.3],
-            "hedge_rate": [0.0, 0.0, 0.0],
+            "cell_id": ["c0__r1"],
+            "replicate": [1],
+            "decision": ["accept"],
+            "imperative_ratio": [0.1],
+            "hedge_rate": [0.0],
         }
     )
-    with pytest.raises(ValueError, match="exactly draws 1 and 2"):
+    with pytest.raises(ValueError, match="at least two draws"):
         grid_draw_reliability(frame)
+
+
+def test_grid_draw_reliability_accepts_three_draws() -> None:
+    """The crash found running the main Q1 grid's third draw overnight
+    (PROGRESS_llms.md, Sep 23): grid_draw_reliability used to require
+    exactly draws 1 and 2 and raised on anything else."""
+    imperative_ratio = [[0.1, 0.2, 0.3], [0.15, 0.25, 0.35], [0.05, 0.3, 0.25]]
+    hedge_rate = [[0.0, 0.1, 0.2]] * 3
+    decision = [["accept", "defer", "escalate"]] * 3
+    frame = _reply_features_n_draws(imperative_ratio, hedge_rate, decision)
+
+    result = grid_draw_reliability(frame)
+
+    assert result.n_cells == 3
+    assert result.k_draws == 3
+
+
+def test_grid_draw_reliability_two_draw_numbers_are_unchanged_by_generalizing_to_n() -> None:
+    """Golden values captured from the exactly-two-draws code before it was
+    generalized to N draws -- a regression check that generalizing the
+    formula did not change what it computes for the case every earlier
+    section of the progress log already reported numbers for."""
+    values1 = [0.1, 0.3, 0.5, 0.2, 0.4]
+    values2 = [0.2, 0.1, 0.6, 0.3, 0.5]
+    decisions = ["accept"] * 5
+    frame = _reply_features_two_draws(values1, values2, values1, values2, decisions, decisions)
+
+    result = grid_draw_reliability(frame)
+
+    assert result.k_draws == 2
+    assert result.imperative_ratio.icc == pytest.approx(0.758, abs=1e-3)
+    assert result.imperative_ratio.pearson == pytest.approx(0.762, abs=1e-3)
+    assert result.imperative_ratio.spearman == pytest.approx(0.7, abs=1e-3)
+
+
+# --------------------------------------------------------- N-draw internals
+
+
+def test_measure_reliability_pearson_is_the_mean_pairwise_correlation() -> None:
+    """With 3 draws there is no single pair left to report -- pearson and
+    spearman become the mean over every pair, computed here independently
+    of the function under test."""
+    d1 = pd.Series([0.1, 0.2, 0.3, 0.4, 0.5])
+    d2 = pd.Series([0.2, 0.1, 0.6, 0.3, 0.5])
+    d3 = pd.Series([0.15, 0.25, 0.2, 0.45, 0.4])
+    expected_pearson = (d1.corr(d2) + d1.corr(d3) + d2.corr(d3)) / 3
+    expected_spearman = (
+        d1.corr(d2, method="spearman")
+        + d1.corr(d3, method="spearman")
+        + d2.corr(d3, method="spearman")
+    ) / 3
+
+    result = _measure_reliability("x", [d1, d2, d3])
+
+    assert result.pearson == pytest.approx(round(expected_pearson, 3), abs=1e-3)
+    assert result.spearman == pytest.approx(round(expected_spearman, 3), abs=1e-3)
+
+
+def test_decision_stability_n_delegates_to_cohens_kappa_at_two_draws() -> None:
+    """At exactly two draws, the N-draw path must match Cohen's kappa
+    exactly, not approximate it through Fleiss' formula -- so every
+    already-published two-draw kappa in the progress log stays correct."""
+    d1 = pd.Series(["accept", "defer", "accept", "escalate", "defer"])
+    d2 = pd.Series(["accept", "accept", "accept", "escalate", "escalate"])
+
+    result = _decision_stability_n([d1, d2])
+
+    assert result.kappa == pytest.approx(0.412, abs=1e-3)
+    assert result.share_agree == pytest.approx(0.6, abs=1e-3)
+
+
+def test_decision_stability_n_is_one_for_full_agreement_across_three_draws() -> None:
+    """Every item's three draws agree with each other, but different items
+    use different categories, so this is not the degenerate all-one-category
+    case (which leaves kappa undefined)."""
+    d1 = pd.Series(["accept", "defer", "escalate"])
+    d2 = pd.Series(["accept", "defer", "escalate"])
+    d3 = pd.Series(["accept", "defer", "escalate"])
+
+    result = _decision_stability_n([d1, d2, d3])
+
+    assert result.kappa == pytest.approx(1.0, abs=1e-6)
+    assert result.share_agree == pytest.approx(1.0, abs=1e-6)
+    assert result.n_agree == 3
+
+
+def test_decision_stability_n_matches_fleiss_kappa_by_hand() -> None:
+    """4 items, 3 raters, 2 categories -- worked by hand from Fleiss'
+    formula: p_A=7/12, p_B=5/12, P_bar=2/3, P_e=37/72, kappa=11/35."""
+    d1 = pd.Series(["A", "A", "A", "B"])
+    d2 = pd.Series(["A", "A", "A", "B"])
+    d3 = pd.Series(["A", "B", "B", "B"])
+
+    result = _decision_stability_n([d1, d2, d3])
+
+    assert result.kappa == pytest.approx(11 / 35, abs=1e-3)
+    assert result.n_agree == 2  # items 1 and 4, all three raters agree
+    assert result.share_agree == pytest.approx(0.5, abs=1e-6)
+    assert result.share_expected == pytest.approx(13 / 48, abs=1e-3)
 
 
 def test_spearman_brown_is_identity_at_one_draw() -> None:
