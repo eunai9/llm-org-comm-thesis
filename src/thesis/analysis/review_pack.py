@@ -69,6 +69,11 @@ FAILURE_MODES: tuple[tuple[str, str], ...] = (
     # it back to the person who made it, as though the roles were reversed.
     ("mirrors_request", "restates the sender's own request back at them"),
     ("generic", "could be a reply to almost any email; no purchase on this one"),
+    # Used 7 times in the section 35 first pass before it had a definition.
+    (
+        "wrong_register",
+        "the tone does not fit the message, e.g. a social message answered in business language",
+    ),
     ("wrong_role", "wrong seniority, wrong department, or answers as the wrong person"),
     ("format", "email conventions off: no greeting, no sign-off, wrong subject handling"),
     ("incoherent", "contradicts itself, is truncated mid-thought, or is unreadable"),
