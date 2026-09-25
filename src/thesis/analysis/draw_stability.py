@@ -64,7 +64,7 @@ class DecisionStability:
     ``share_agree``/``share_expected`` are pairwise. At three or more it is
     Fleiss' kappa (the standard generalization past two raters) and both
     shares mean "every draw agrees", not just one pair -- see
-    :func:`_decision_stability_n`. ``counts`` is the draw-1-against-draw-2
+    :func:`decision_stability_n`. ``counts`` is the draw-1-against-draw-2
     cross-table; it is only defined for exactly two draws, and empty
     otherwise, since a cross-table has no natural shape past two raters.
     """
@@ -129,7 +129,7 @@ def merge_draws(first: pd.DataFrame, second: pd.DataFrame) -> pd.DataFrame:
 
 def _decision_stability(draw1: pd.Series, draw2: pd.Series) -> DecisionStability:
     """The statistic :func:`decision_stability` needs, and
-    :func:`_decision_stability_n` delegates to at exactly two draws:
+    :func:`decision_stability_n` delegates to at exactly two draws:
     agreement, the cross-table, and Cohen's kappa, given the two draws
     already paired one row per item. Shared here so the pairs-table shape
     and the grid shape compute it the same way."""
@@ -194,10 +194,15 @@ def _fleiss_kappa(draws: Sequence[pd.Series]) -> DecisionStability:
     )
 
 
-def _decision_stability_n(draws: Sequence[pd.Series]) -> DecisionStability:
+def decision_stability_n(draws: Sequence[pd.Series]) -> DecisionStability:
     """:func:`_decision_stability` for exactly two draws, unchanged (so
     every already-published two-draw kappa stays exactly what it was), and
-    :func:`_fleiss_kappa` for three or more."""
+    :func:`_fleiss_kappa` for three or more.
+
+    Public because :mod:`thesis.analysis.role_inference` reuses this for
+    judge self-consistency (agreement across repeated judge calls on the
+    same item), not only for draw-to-draw agreement. The statistic itself
+    doesn't care what produced the repeated observations."""
     if len(draws) == 2:
         return _decision_stability(draws[0], draws[1])
     return _fleiss_kappa(draws)
@@ -405,7 +410,7 @@ def grid_draw_reliability(reply_features: pd.DataFrame) -> GridReliability:
     (a validation failure, say) cannot be compared across all of them.
 
     Two draws is still the common case and reads exactly as it always has
-    (:func:`_measure_reliability`, :func:`_decision_stability_n` both
+    (:func:`_measure_reliability`, :func:`decision_stability_n` both
     special-case it). Three or more draws is new, found when the main Q1
     run's third draw hit the old two-draws-only version of this function
     (PROGRESS_llms.md, Sep 23).
@@ -434,7 +439,7 @@ def grid_draw_reliability(reply_features: pd.DataFrame) -> GridReliability:
         k_draws=len(replicates),
         imperative_ratio=_measure_reliability("imperative_ratio", _draws("imperative_ratio")),
         hedge_rate=_measure_reliability("hedge_rate", _draws("hedge_rate")),
-        decision=_decision_stability_n(_draws("decision")),
+        decision=decision_stability_n(_draws("decision")),
     )
 
 

@@ -15,9 +15,9 @@ import pandas as pd
 import pytest
 
 from thesis.analysis.draw_stability import (
-    _decision_stability_n,
     _measure_reliability,
     decision_stability,
+    decision_stability_n,
     grid_draw_reliability,
     imperative_ratios,
     merge_draws,
@@ -318,7 +318,7 @@ def test_decision_stability_n_delegates_to_cohens_kappa_at_two_draws() -> None:
     d1 = pd.Series(["accept", "defer", "accept", "escalate", "defer"])
     d2 = pd.Series(["accept", "accept", "accept", "escalate", "escalate"])
 
-    result = _decision_stability_n([d1, d2])
+    result = decision_stability_n([d1, d2])
 
     assert result.kappa == pytest.approx(0.412, abs=1e-3)
     assert result.share_agree == pytest.approx(0.6, abs=1e-3)
@@ -332,7 +332,7 @@ def test_decision_stability_n_is_one_for_full_agreement_across_three_draws() -> 
     d2 = pd.Series(["accept", "defer", "escalate"])
     d3 = pd.Series(["accept", "defer", "escalate"])
 
-    result = _decision_stability_n([d1, d2, d3])
+    result = decision_stability_n([d1, d2, d3])
 
     assert result.kappa == pytest.approx(1.0, abs=1e-6)
     assert result.share_agree == pytest.approx(1.0, abs=1e-6)
@@ -346,7 +346,7 @@ def test_decision_stability_n_matches_fleiss_kappa_by_hand() -> None:
     d2 = pd.Series(["A", "A", "A", "B"])
     d3 = pd.Series(["A", "B", "B", "B"])
 
-    result = _decision_stability_n([d1, d2, d3])
+    result = decision_stability_n([d1, d2, d3])
 
     assert result.kappa == pytest.approx(11 / 35, abs=1e-3)
     assert result.n_agree == 2  # items 1 and 4, all three raters agree
