@@ -51,6 +51,8 @@ Deliberately not touched: `data/features.py`, `hierarchy.py`, `q1.py`, `q1_real.
 
 ### Task 1: Commit the untracked human-coding infrastructure
 
+**Status: done, commit `50bd3aa` (2026-09-25 session).**
+
 `blind_review.py` and its test exist only on this laptop (handoff item 5). This plan's own human-coding module (Task 12) will need the same git hygiene, so fix the existing gap first.
 
 **Files:**
@@ -86,6 +88,14 @@ git push
 ---
 
 ### Task 2: Widen Q1 generation to three more models
+
+**Status: not started.** Deliberately skipped for now (2026-09-26 session,
+user decision): Tasks 3-5 don't touch grid data at all, and validation
+checks 1-2 (spec section 5) only need "small samples" — the existing
+238-240 row pilot grids for deepseek/gpt-oss-20b/gpt-oss-120b cover that.
+Still needed eventually for the real cross-model headline comparison
+(Task 11's `main()` hardcodes `_full.parquet` paths) and for Tasks 6+
+once they read real grid data instead of synthetic test fixtures.
 
 No new code. `python -m thesis.analysis.q1 --nvidia MODEL --design full` already exists; only the pilot grids (24 scenarios) have been run for these three models. This generates the full 144-scenario grid for each, matching Llama's design.
 
@@ -143,6 +153,8 @@ Expected: three `OK` lines, no assertion errors.
 ---
 
 ### Task 3: Make the Fleiss-kappa reliability function public
+
+**Status: done, commit `84f5de9` (2026-09-26 session).**
 
 `decision_stability_n` (currently `_decision_stability_n`) computes agreement across any number of raters given a list of `pd.Series`, delegating to Cohen's kappa at exactly two and Fleiss' kappa above that. Task 10's self-consistency check needs it from `role_inference.py`, outside `draw_stability`'s own module. This is a rename with no behavior change.
 
@@ -202,6 +214,8 @@ git push
 ---
 
 ### Task 4: `blinding.py` — strip identity markers from a reply
+
+**Status: done, commit `432a413` (2026-09-26 session).**
 
 Strips two structural leaks (a greeting naming the recipient, a sign-off block naming the writer) and one lexical leak (a job title mentioned mid-body), using the project's own 36-title roster as the stripping lexicon rather than a hand-built list.
 
@@ -375,6 +389,15 @@ git push
 ---
 
 ### Task 5: `role_inference.py` — absolute-form schema, request and scorer
+
+**Status: done, commit `e81ba37` (2026-09-26 session).** Caught one real
+bug: the plan's own test fixture used a bare model name
+(`"qwen2.5:3b"`) for the scripted response, so the `is_local_model`
+billing guard was never actually exercised and `cost_usd()` raised on
+an unpriced model. Fixed to `"local/qwen2.5:3b"`, matching the
+`"local/"` prefix the real `OllamaClient.complete()` always adds
+(`ollama_client.py:184`) and the convention `test_judge.py`'s
+`test_local_model_scores_are_not_billed` already established.
 
 The three-way judge: one reply, no label, guess `up` / `lateral` / `down`. Follows `judge/discrimination.py`'s shape exactly (own schema, own validator, own request builder, own scoring loop), because the schema here — one categorical field — doesn't fit the fixed six-item 1–5 rubric `judge/run.py` implements.
 
