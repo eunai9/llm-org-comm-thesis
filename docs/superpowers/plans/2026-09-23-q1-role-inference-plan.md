@@ -1676,6 +1676,16 @@ git push
 
 ### Task 11: `main()` — the full run, manifest and figure
 
+**Status: done, commit `fdff39c` (2026-09-29 session).** Caught a real
+data bug by inspection (this path has no unit test -- it needs a live
+Ollama server and real grid files): `q1_real_emails.parquet` concatenates
+two overlapping samples ("strict" is a subset of "loose"), so ~2,200 of
+its 2,998 unique messages appear twice with identical text and direction.
+The plan's own code merged the undeduplicated table directly, which would
+have double-counted those messages in the real-email accuracy/confusion
+numbers. Fixed with `.drop_duplicates(subset="message_uid")` before the
+merge. See the ledger for the exact counts that confirmed this.
+
 Wires every prior task together: load the four grids plus real email, run the absolute-form judge on all of them (draw 1 only), run the paired-form judge on the simulator, run the self-consistency and positive-control checks first as a gate, write the manifest and figure.
 
 **Files:**
