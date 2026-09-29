@@ -10,6 +10,7 @@ from thesis.analysis.role_inference import (
     PAIRED_SCHEMA,
     InvalidRoleInferenceResponseError,
     PairedItem,
+    RoleInferenceResult,
     build_absolute_items_from_grid,
     build_absolute_items_from_real_email,
     build_absolute_request,
@@ -17,6 +18,7 @@ from thesis.analysis.role_inference import (
     render_paired_block,
     run_role_inference_absolute,
     run_role_inference_paired,
+    summarize_absolute,
     validate_absolute_response,
     validate_paired_response,
 )
@@ -251,3 +253,61 @@ def test_build_paired_items_from_grid_pairs_up_with_down_same_scenario() -> None
     pairs = build_paired_items_from_grid(_tiny_grid())
     assert len(pairs) == 1  # one (task_type, stakes, tone) triple in the fixture
     assert pairs[0].senior_slot in ("A", "B")
+
+
+def _metrics_result(true_direction: str, inferred_direction: str) -> RoleInferenceResult:
+    return RoleInferenceResult(
+        item_id="i",
+        source_id="i",
+        is_generated=True,
+        true_direction=true_direction,
+        model="qwen2.5:3b",
+        inferred_direction=inferred_direction,
+        evidence="x",
+        from_cache=False,
+    )
+
+
+def test_summarize_absolute_perfect_agreement() -> None:
+    results = [_metrics_result(d, d) for d in ("up", "lateral", "down") for _ in range(10)]
+    metrics = summarize_absolute(results)
+    assert metrics.accuracy == 1.0
+    assert metrics.kappa == 1.0
+    assert metrics.n == 30
+
+
+def test_summarize_absolute_chance_agreement_has_kappa_near_zero() -> None:
+    import itertools
+
+    labels = ["up", "lateral", "down"]
+    # Every true label paired with every inferred label equally often --
+    # by construction, no better than chance.
+    results = [
+        _metrics_result(true, inferred)
+        for true, inferred in itertools.product(labels, labels)
+        for _ in range(10)
+    ]
+    metrics = summarize_absolute(results)
+    assert abs(metrics.kappa) < 0.05
+
+
+def test_summarize_absolute_confusion_matrix_shape() -> None:
+    results = [
+        _metrics_result("up", "up"),
+        _metrics_result("up", "lateral"),
+        _metrics_result("down", "down"),
+    ]
+    metrics = summarize_absolute(results)
+    assert metrics.confusion["up"]["up"] == 1
+    assert metrics.confusion["up"]["lateral"] == 1
+    assert metrics.confusion["down"]["down"] == 1
+
+
+def test_summarize_absolute_confidence_interval_widens_with_fewer_items() -> None:
+    small = summarize_absolute(
+        [_metrics_result("up", "up")] * 5 + [_metrics_result("up", "down")] * 5
+    )
+    large = summarize_absolute(
+        [_metrics_result("up", "up")] * 50 + [_metrics_result("up", "down")] * 50
+    )
+    assert (small.ci_high - small.ci_low) > (large.ci_high - large.ci_low)

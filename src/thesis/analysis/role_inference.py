@@ -32,12 +32,16 @@ Run with ``python -m thesis.analysis.role_inference``.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Final, Protocol
 
 import numpy as np
 import pandas as pd
+from sklearn.metrics import balanced_accuracy_score, cohen_kappa_score, confusion_matrix
+from statsmodels.stats.proportion import proportion_confint
 
 from thesis.analysis.blinding import strip_identity
+from thesis.analysis.plots import plot_effect_intervals
 from thesis.judge.prompt import JudgeItem, render_item_block
 from thesis.llm.base import CompletionRequest, CompletionResponse, Message, Provider
 from thesis.llm.cache import ResponseCache, cache_key
@@ -470,3 +474,60 @@ def build_paired_items_from_grid(
             )
         )
     return pairs
+
+
+@dataclass(frozen=True, slots=True)
+class AbsoluteMetrics:
+    """Accuracy, its 95% Wilson interval, Cohen's kappa against chance, and
+    the full 3x3 confusion matrix -- the matrix matters on its own: a model
+    that separates 'down' cleanly while confusing 'up' with 'lateral' is a
+    different finding than uniform chance-level guessing, and a bare
+    accuracy number would report both the same way."""
+
+    n: int
+    accuracy: float
+    ci_low: float
+    ci_high: float
+    kappa: float
+    confusion: dict[str, dict[str, int]]
+
+
+def summarize_absolute(results: list[RoleInferenceResult]) -> AbsoluteMetrics:
+    true = [r.true_direction for r in results]
+    predicted = [r.inferred_direction for r in results]
+    n_correct = sum(1 for t, p in zip(true, predicted, strict=True) if t == p)
+    ci_low, ci_high = proportion_confint(n_correct, len(results), method="wilson")
+    matrix = confusion_matrix(true, predicted, labels=list(DIRECTIONS))
+    confusion: dict[str, dict[str, int]] = {
+        str(actual): {
+            str(predicted_label): int(matrix[i, j]) for j, predicted_label in enumerate(DIRECTIONS)
+        }
+        for i, actual in enumerate(DIRECTIONS)
+    }
+    return AbsoluteMetrics(
+        n=len(results),
+        accuracy=round(float(balanced_accuracy_score(true, predicted)), 4),
+        ci_low=round(float(ci_low), 4),
+        ci_high=round(float(ci_high), 4),
+        kappa=round(float(cohen_kappa_score(true, predicted, labels=list(DIRECTIONS))), 4),
+        confusion=confusion,
+    )
+
+
+def plot_accuracy_vs_real(metrics_by_label: dict[str, AbsoluteMetrics], path: Path) -> Path:
+    """One row per label (model or "real email"), an accuracy point with
+    its 95% interval, against the chance line at 1/3. The first key in
+    ``metrics_by_label`` is drawn in the reference color -- pass real
+    email first, the same convention :func:`plot_effect_intervals` already
+    documents for the Q1 grid-vs-real comparison."""
+    labels = list(metrics_by_label)
+    return plot_effect_intervals(
+        labels,
+        [metrics_by_label[label].accuracy for label in labels],
+        [metrics_by_label[label].ci_low for label in labels],
+        [metrics_by_label[label].ci_high for label in labels],
+        path,
+        title="Can a blind judge tell who a reply was written to?",
+        subtitle="Balanced accuracy, 3-way choice, chance = 0.33 (dashed line to add manually if useful)",
+        x_label="balanced accuracy",
+    )
