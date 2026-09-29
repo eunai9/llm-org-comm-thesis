@@ -1896,6 +1896,13 @@ git push
 
 ### Task 12: `role_coding.py` — human-coding harness for validation check 3
 
+**Status: done, commit `ec86e6b` (2026-09-29 session).** Caught a real test
+bug: the plan's own assertion banned the literal string "down" from the
+rendered page, but "down" is one of the three multiple-choice options
+every item shows (needed to render the UI), verified to fail by rendering
+the page directly. Replaced with a check that the actual per-item secret
+(the model label) is absent -- see the ledger for the reasoning.
+
 Builds the tool for check 3 (human agreement); the coding session itself is manual, off-plan work, run after this lands. A stratified sample of 150–200 replies across model x direction, and a self-contained HTML page asking the same blind question the judge answers: who was this written to?
 
 **Files:**
