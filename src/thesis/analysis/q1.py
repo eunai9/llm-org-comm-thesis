@@ -239,27 +239,49 @@ def full_grid_path(pilot_path: Path) -> Path:
     return pilot_path.with_name(f"{pilot_path.stem}_full{pilot_path.suffix}")
 
 
-def full_grid_manifest_path(n_draws: int) -> Path:
-    """Where a full-grid run's manifest goes, derived from how many draws
-    per cell the grid holds.
+# The model every already-written-up full-grid section (51, 40, 54, ...)
+# cites. Only this model keeps the legacy path with no model name in it --
+# every other model gets its own file, so its full-grid run can never
+# silently overwrite a number some section already reports. See
+# full_grid_manifest_path.
+_Q1_FULL_GRID_PRIMARY_MODEL = "llama3.2:3b"
 
-    A single-draw run writes :data:`Q1_FULL_MANIFEST_PATH` -- the file
-    section 51 points at. A run with more draws writes its own file, so
-    generating a second draw and re-running the report never overwrites the
-    numbers a written-up section already cites -- the same mistake section
-    40 hit with a figure, and close to the staleness problem section 51
-    itself is about. Applies the same way whether the grid was just
-    generated or loaded with ``--grid``, since both go through
+
+def _model_slug(model: str) -> str:
+    """A filename-safe stand-in for a model id (``openai/gpt-oss-20b@low``
+    -> ``openai_gpt-oss-20b_low``)."""
+    return model.replace("/", "_").replace(":", "_").replace("@", "_")
+
+
+def full_grid_manifest_path(n_draws: int, model: str) -> Path:
+    """Where a full-grid run's manifest goes, derived from the model and how
+    many draws per cell the grid holds.
+
+    A single-draw run from :data:`_Q1_FULL_GRID_PRIMARY_MODEL` writes
+    :data:`Q1_FULL_MANIFEST_PATH` -- the file section 51 points at. Every
+    other model, and every draw count above 1, writes its own file, so
+    generating a second draw or running a different model and re-running the
+    report never overwrites the numbers a written-up section already cites
+    -- the same mistake section 40 hit with a figure, and the mistake
+    gpt-oss-20b's full run hit with this very function on 2026-09-29 when it
+    was keyed on draw count alone. Applies the same way whether the grid was
+    just generated or loaded with ``--grid``, since both go through
     :func:`_report_full_grid`.
     """
-    if n_draws <= 1:
-        return Q1_FULL_MANIFEST_PATH
+    draws_suffix = "" if n_draws <= 1 else f"_{n_draws}draws"
+    if model == _Q1_FULL_GRID_PRIMARY_MODEL:
+        if not draws_suffix:
+            return Q1_FULL_MANIFEST_PATH
+        return Q1_FULL_MANIFEST_PATH.with_name(
+            f"{Q1_FULL_MANIFEST_PATH.stem}{draws_suffix}{Q1_FULL_MANIFEST_PATH.suffix}"
+        )
     return Q1_FULL_MANIFEST_PATH.with_name(
-        f"{Q1_FULL_MANIFEST_PATH.stem}_{n_draws}draws{Q1_FULL_MANIFEST_PATH.suffix}"
+        f"{Q1_FULL_MANIFEST_PATH.stem}_{_model_slug(model)}{draws_suffix}"
+        f"{Q1_FULL_MANIFEST_PATH.suffix}"
     )
 
 
-def full_grid_figure_path(n_draws: int) -> Path:
+def full_grid_figure_path(n_draws: int, model: str) -> Path:
     """Where a full-grid run's own-family figure goes, by the same rule as
     :func:`full_grid_manifest_path` and for the same reason.
 
@@ -271,9 +293,12 @@ def full_grid_figure_path(n_draws: int) -> Path:
     to actually reference this figure, which is what surfaced it.
     """
     base = DOCS_FIGURES_DIR / "q1_full_grid_vs_real.png"
-    if n_draws <= 1:
-        return base
-    return base.with_name(f"{base.stem}_{n_draws}draws{base.suffix}")
+    draws_suffix = "" if n_draws <= 1 else f"_{n_draws}draws"
+    if model == _Q1_FULL_GRID_PRIMARY_MODEL:
+        if not draws_suffix:
+            return base
+        return base.with_name(f"{base.stem}{draws_suffix}{base.suffix}")
+    return base.with_name(f"{base.stem}_{_model_slug(model)}{draws_suffix}{base.suffix}")
 
 
 def build_q1_cells(
@@ -1213,12 +1238,12 @@ def _report_full_grid(grid: Q1Grid, result: Q1Result) -> None:
     pilot_result = run_q1_analysis(pilot_grid)
 
     manifest = build_full_manifest(result, pilot_result, real_manifest)
-    manifest_path = full_grid_manifest_path(result.n_draws)
+    manifest_path = full_grid_manifest_path(result.n_draws, grid.model)
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
-    figure = plot_full_vs_real(manifest, full_grid_figure_path(result.n_draws))
+    figure = plot_full_vs_real(manifest, full_grid_figure_path(result.n_draws, grid.model))
 
     print()
     print(format_precision_table(manifest))

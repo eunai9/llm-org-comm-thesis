@@ -682,18 +682,43 @@ def test_contrast_se_is_undefined_when_the_p_value_leaves_no_room() -> None:
 
 
 def test_full_grid_manifest_path_is_the_section_51_file_for_one_draw() -> None:
-    """A single-draw grid must keep writing the file section 51 points at --
-    nothing here is allowed to move that path."""
-    assert full_grid_manifest_path(1) == Q1_FULL_MANIFEST_PATH
+    """A single-draw grid from the primary model (llama3.2:3b) must keep
+    writing the file section 51 points at -- nothing here is allowed to move
+    that path."""
+    assert full_grid_manifest_path(1, "llama3.2:3b") == Q1_FULL_MANIFEST_PATH
 
 
 def test_full_grid_manifest_path_is_distinct_for_more_draws() -> None:
     """A multi-draw run must not overwrite section 51's manifest -- the same
     mistake section 40 hit with a figure."""
-    path = full_grid_manifest_path(2)
+    path = full_grid_manifest_path(2, "llama3.2:3b")
     assert path != Q1_FULL_MANIFEST_PATH
     assert path.name == "q1_full_grid_2draws.json"
-    assert full_grid_manifest_path(3).name == "q1_full_grid_3draws.json"
+    assert full_grid_manifest_path(3, "llama3.2:3b").name == "q1_full_grid_3draws.json"
+
+
+def test_full_grid_manifest_path_is_distinct_for_a_different_model() -> None:
+    """Two single-draw models must not share a manifest path -- the bug that
+    let gpt-oss-20b's full run silently overwrite llama3.2:3b's committed
+    section 51 numbers (caught before it was committed, 2026-09-29)."""
+    llama_path = full_grid_manifest_path(1, "llama3.2:3b")
+    gptoss_path = full_grid_manifest_path(1, "openai/gpt-oss-20b@low")
+    assert gptoss_path != llama_path
+    assert "gpt" in gptoss_path.name
+    # And two different non-primary models must not collide with each other.
+    deepseek_path = full_grid_manifest_path(1, "deepseek-ai/deepseek-v4.1-flash")
+    assert deepseek_path != gptoss_path
+    assert deepseek_path != llama_path
+
+
+def test_full_grid_manifest_path_keys_model_and_draws_together() -> None:
+    """A non-primary model with more than one draw must not collide with
+    that same model's single-draw path, or with the primary model's
+    multi-draw path."""
+    one_draw = full_grid_manifest_path(1, "openai/gpt-oss-20b@low")
+    two_draws = full_grid_manifest_path(2, "openai/gpt-oss-20b@low")
+    assert two_draws != one_draw
+    assert two_draws != full_grid_manifest_path(2, "llama3.2:3b")
 
 
 def test_full_grid_figure_path_is_distinct_for_more_draws() -> None:
@@ -702,11 +727,19 @@ def test_full_grid_figure_path_is_distinct_for_more_draws() -> None:
     so a second-draw run silently overwrote a single-draw run's picture.
     Section 54 is the first run to actually reference this figure, which is
     what surfaced it."""
-    one_draw = full_grid_figure_path(1)
-    two_draws = full_grid_figure_path(2)
+    one_draw = full_grid_figure_path(1, "llama3.2:3b")
+    two_draws = full_grid_figure_path(2, "llama3.2:3b")
     assert one_draw.name == "q1_full_grid_vs_real.png"
     assert two_draws != one_draw
     assert two_draws.name == "q1_full_grid_vs_real_2draws.png"
+
+
+def test_full_grid_figure_path_is_distinct_for_a_different_model() -> None:
+    """Same collision as the manifest, for the figure section 54 references."""
+    llama_path = full_grid_figure_path(1, "llama3.2:3b")
+    gptoss_path = full_grid_figure_path(1, "openai/gpt-oss-20b@low")
+    assert gptoss_path != llama_path
+    assert "gpt" in gptoss_path.name
 
 
 def test_multi_draw_manifest_section_is_none_for_a_single_draw(small_grid) -> None:  # type: ignore[no-untyped-def]
