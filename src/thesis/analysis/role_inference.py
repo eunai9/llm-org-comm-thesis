@@ -31,6 +31,8 @@ Run with ``python -m thesis.analysis.role_inference``.
 
 from __future__ import annotations
 
+import argparse
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, Protocol
@@ -43,13 +45,22 @@ from statsmodels.stats.proportion import proportion_confint
 from thesis.analysis.blinding import strip_identity
 from thesis.analysis.draw_stability import DecisionStability, decision_stability_n
 from thesis.analysis.plots import plot_effect_intervals
+from thesis.analysis.q1_real import load_bodies
 from thesis.judge.prompt import JudgeItem, render_item_block
 from thesis.llm.base import CompletionRequest, CompletionResponse, Message, Provider
 from thesis.llm.cache import ResponseCache, cache_key
 from thesis.llm.cost import CostLedger, LedgerEntry, cost_usd
-from thesis.llm.ollama_client import is_local_model
+from thesis.llm.ollama_client import OllamaClient, OllamaUnavailableError, is_local_model
 from thesis.llm.stub_client import is_stub_model
-from thesis.logging_setup import get_logger
+from thesis.logging_setup import configure_logging, get_logger
+from thesis.paths import (
+    CACHE_DIR,
+    COST_LEDGER,
+    DOCS_FIGURES_DIR,
+    INTERIM_DIR,
+    MANIFESTS_DIR,
+    ensure_dirs,
+)
 from thesis.sim.scenario import _DIRECTION_FRAMING, DIRECTIONS
 
 log = get_logger(__name__)
@@ -412,6 +423,176 @@ def build_absolute_items_from_grid(
         str(row.cell_id): str(row.direction) for row in subset.itertuples(index=False)
     }
     return items, true_directions
+
+
+MANIFEST_PATH: Path = MANIFESTS_DIR / "role_inference.json"
+FIGURE_PATH: Path = DOCS_FIGURES_DIR / "role_inference_accuracy.png"
+
+GENERATING_GRIDS: Final[dict[str, Path]] = {
+    "llama3.2:3b": INTERIM_DIR / "q1_direction_grid_full_3draws.parquet",
+    "deepseek-v4-flash": INTERIM_DIR / "q1_direction_grid_deepseek_full.parquet",
+    "gpt-oss-20b": INTERIM_DIR / "q1_direction_grid_gpt_oss_20b_full.parquet",
+    "gpt-oss-120b": INTERIM_DIR / "q1_direction_grid_gpt_oss_120b_full.parquet",
+}
+
+
+def build_manifest(
+    metrics_by_label: dict[str, AbsoluteMetrics],
+    *,
+    self_consistency_kappa: float,
+    positive_control_accuracy: float,
+) -> dict[str, Any]:
+    """Real email first, so a caller drawing the figure from this manifest
+    gets :func:`plot_accuracy_vs_real`'s reference-row convention for free.
+    """
+    ordered = {"real email": metrics_by_label["real email"]} | {
+        label: metrics for label, metrics in metrics_by_label.items() if label != "real email"
+    }
+    return {
+        "accuracy_by_label": {
+            label: {
+                "n": m.n,
+                "accuracy": m.accuracy,
+                "ci_low": m.ci_low,
+                "ci_high": m.ci_high,
+                "kappa": m.kappa,
+                "confusion": m.confusion,
+            }
+            for label, m in ordered.items()
+        },
+        "self_consistency_kappa": self_consistency_kappa,
+        "positive_control_accuracy": positive_control_accuracy,
+    }
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--judge-model", default=DEFAULT_JUDGE_MODEL)
+    parser.add_argument(
+        "--skip-gate",
+        action="store_true",
+        help="Skip the self-consistency and positive-control checks. For re-runs "
+        "once the gate has already passed once; never for a first run.",
+    )
+    args = parser.parse_args()
+
+    configure_logging()
+    ensure_dirs()
+
+    client = OllamaClient(args.judge_model)
+    if not client.is_available():
+        msg = (
+            f"no Ollama server reachable; start it with 'ollama serve' and pull {args.judge_model}"
+        )
+        raise OllamaUnavailableError(msg)
+
+    cache = ResponseCache(CACHE_DIR)
+    ledger = CostLedger(COST_LEDGER)
+    run_id = "role_inference"
+
+    llama_frame = pd.read_parquet(GENERATING_GRIDS["llama3.2:3b"])
+
+    if not args.skip_gate:
+        gate_items, _ = build_absolute_items_from_grid(llama_frame.sample(n=300, random_state=1))
+        consistency = judge_self_consistency(
+            gate_items, client, model=args.judge_model, cache=cache, ledger=ledger, run_id=run_id
+        )
+        log.info("self-consistency kappa: %.3f (stop below ~0.4)", consistency.kappa)
+        if consistency.kappa < 0.4:
+            log.error("self-consistency below 0.4; stopping before the full run")
+            return
+
+        control_items, control_truth = build_positive_control_items(
+            llama_frame.sample(n=50, random_state=1)
+        )
+        control_results, _ = run_role_inference_absolute(
+            control_items,
+            client,
+            model=args.judge_model,
+            cache=cache,
+            ledger=ledger,
+            run_id=run_id,
+            true_directions=control_truth,
+        )
+        control_metrics = summarize_absolute(control_results)
+        log.info("positive-control accuracy: %.3f (expect close to 1.0)", control_metrics.accuracy)
+        if control_metrics.accuracy < 0.8:
+            log.error("positive-control accuracy below 0.8; the harness itself looks broken")
+            return
+    else:
+        consistency = DecisionStability(
+            n=0, n_agree=0, share_agree=0.0, share_expected=0.0, kappa=0.0, counts={}
+        )
+        control_metrics = AbsoluteMetrics(0, 0.0, 0.0, 0.0, 0.0, {})
+
+    metrics_by_label: dict[str, AbsoluteMetrics] = {}
+    for label, path in GENERATING_GRIDS.items():
+        frame = pd.read_parquet(path) if path != GENERATING_GRIDS["llama3.2:3b"] else llama_frame
+        items, true_directions = build_absolute_items_from_grid(frame)
+        results, summary = run_role_inference_absolute(
+            items,
+            client,
+            model=args.judge_model,
+            cache=cache,
+            ledger=ledger,
+            run_id=run_id,
+            true_directions=true_directions,
+        )
+        log.info(
+            "%s: %d scored, %d invalid, %d from cache",
+            label,
+            summary.n_scored,
+            summary.n_invalid,
+            summary.n_from_cache,
+        )
+        metrics_by_label[label] = summarize_absolute(results)
+
+    real_emails = pd.read_parquet(INTERIM_DIR / "q1_real_emails.parquet")
+    # q1_real_emails.parquet concatenates two overlapping samples ("strict"
+    # is a subset of "loose"), so a message in both appears as two rows with
+    # the same message_uid and direction. Deduplicating here is required,
+    # not optional: load_bodies already returns one row per unique uid
+    # (it dedupes internally), so merging against the undeduplicated
+    # directions table would double every strict-sample message's item,
+    # double-counting roughly 2,200 of the 3,000 real emails.
+    real_directions = real_emails[["message_uid", "direction"]].drop_duplicates(
+        subset="message_uid"
+    )
+    real_bodies = load_bodies(real_directions["message_uid"])
+    real_items, real_truth = build_absolute_items_from_real_email(real_bodies, real_directions)
+    real_results, real_summary = run_role_inference_absolute(
+        real_items,
+        client,
+        model=args.judge_model,
+        cache=cache,
+        ledger=ledger,
+        run_id=run_id,
+        true_directions=real_truth,
+    )
+    log.info(
+        "real email: %d scored, %d invalid, %d from cache",
+        real_summary.n_scored,
+        real_summary.n_invalid,
+        real_summary.n_from_cache,
+    )
+    metrics_by_label["real email"] = summarize_absolute(real_results)
+
+    manifest = build_manifest(
+        metrics_by_label,
+        self_consistency_kappa=consistency.kappa,
+        positive_control_accuracy=control_metrics.accuracy,
+    )
+    MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
+    MANIFEST_PATH.write_text(json.dumps(manifest, indent=2, sort_keys=False), encoding="utf-8")
+    figure_metrics = {"real email": metrics_by_label["real email"]} | {
+        label: metrics for label, metrics in metrics_by_label.items() if label != "real email"
+    }
+    figure = plot_accuracy_vs_real(figure_metrics, FIGURE_PATH)
+    log.info("wrote %s and %s", MANIFEST_PATH, figure)
+
+
+if __name__ == "__main__":
+    main()
 
 
 def judge_self_consistency(

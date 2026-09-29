@@ -9,12 +9,14 @@ import pandas as pd
 from thesis.analysis.role_inference import (
     ABSOLUTE_SCHEMA,
     PAIRED_SCHEMA,
+    AbsoluteMetrics,
     InvalidRoleInferenceResponseError,
     PairedItem,
     RoleInferenceResult,
     build_absolute_items_from_grid,
     build_absolute_items_from_real_email,
     build_absolute_request,
+    build_manifest,
     build_paired_items_from_grid,
     build_positive_control_items,
     judge_self_consistency,
@@ -361,3 +363,19 @@ def test_judge_self_consistency_is_perfect_when_every_pass_agrees(tmp_path: Path
     )
     assert result.kappa == 1.0
     assert result.share_agree == 1.0
+
+
+def test_build_manifest_orders_real_email_first() -> None:
+    """plot_accuracy_vs_real's docstring convention: the first key drawn
+    is the reference row. The manifest's own ordering must put real email
+    first so a caller building the figure from it gets that for free."""
+    metrics_by_label = {
+        "llama3.2:3b": AbsoluteMetrics(10, 0.4, 0.2, 0.6, 0.1, {}),
+        "real email": AbsoluteMetrics(20, 0.6, 0.4, 0.8, 0.3, {}),
+    }
+    manifest = build_manifest(
+        metrics_by_label, self_consistency_kappa=0.5, positive_control_accuracy=0.95
+    )
+    assert list(manifest["accuracy_by_label"]) == ["real email", "llama3.2:3b"]
+    assert manifest["self_consistency_kappa"] == 0.5
+    assert manifest["positive_control_accuracy"] == 0.95
