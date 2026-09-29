@@ -1286,6 +1286,12 @@ git push
 
 ### Task 8: Metrics — accuracy, Wilson interval, Cohen's kappa, confusion matrix
 
+**Status: done, commit `ac26c9f` (2026-09-29 session).** Fixed a real mypy
+error the plan's own code produces: `DIRECTIONS` is a `Literal`-typed
+tuple, so `summarize_absolute`'s confusion-matrix dict comprehension had
+`Literal`-typed keys that don't structurally satisfy the declared
+`dict[str, dict[str, int]]` return type. Fixed with explicit `str()` casts.
+
 **Files:**
 - Modify: `src/thesis/analysis/role_inference.py`
 - Test: `tests/test_role_inference.py`
