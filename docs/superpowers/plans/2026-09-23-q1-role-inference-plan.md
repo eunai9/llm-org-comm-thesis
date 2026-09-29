@@ -1557,6 +1557,14 @@ git push
 
 ### Task 10: Judge self-consistency (validation check 1)
 
+**Status: done, commit `bb5123e` (2026-09-29 session).** Caught two real
+bugs in the plan's own test: a single-item fixture can't produce kappa
+1.0 (Fleiss' kappa is undefined when every rater agrees on the one and
+only category ever seen; the degenerate-case guard returns 0.0, not 1.0),
+and three items sharing default text collapsed onto one cache entry per
+replicate, desyncing from the scripted client's queue. Fixed both; see
+the ledger for the numeric verification.
+
 Score a 300-item subsample three times and report Fleiss' kappa via the now-public `decision_stability_n`. Stop condition: kappa below about 0.4 means the judge is not usable, and this is found on 900 calls rather than the full run's several thousand.
 
 **Files:**
