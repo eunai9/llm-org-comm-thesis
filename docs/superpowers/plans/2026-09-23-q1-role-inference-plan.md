@@ -1457,6 +1457,10 @@ git push
 
 ### Task 9: Positive control — can the harness detect a signal when one exists?
 
+**Status: done, commit `883413c` (2026-09-29 session).** Fixed a mypy error
+like Task 8's: `_DIRECTION_FRAMING` is `Literal`-keyed, and the test's
+`true_directions` dict hands back a plain `str`; fixed with `cast()`.
+
 Standing in for the spec's originally proposed "shuffle the labels" check: shuffling labels *after* scoring measures nothing, because the judge's blind answer never depended on the label in the first place — the label only enters when computing accuracy, so a shuffle only re-tests that `summarize_absolute` correctly computes chance-level accuracy on random pairings, which is already covered by Task 8's chance-agreement test. The check that actually matters is the opposite direction: deliberately hand the judge the direction-framing sentence the generating model saw (never done in the real run), and confirm accuracy jumps close to 1.0. If it doesn't, the schema, the parsing, or the scoring loop is broken, and every blind number upstream is untrustworthy for a reason that has nothing to do with the model's real ability.
 
 **Files:**
