@@ -41,6 +41,7 @@ from sklearn.metrics import balanced_accuracy_score, cohen_kappa_score, confusio
 from statsmodels.stats.proportion import proportion_confint
 
 from thesis.analysis.blinding import strip_identity
+from thesis.analysis.draw_stability import DecisionStability, decision_stability_n
 from thesis.analysis.plots import plot_effect_intervals
 from thesis.judge.prompt import JudgeItem, render_item_block
 from thesis.llm.base import CompletionRequest, CompletionResponse, Message, Provider
@@ -411,6 +412,46 @@ def build_absolute_items_from_grid(
         str(row.cell_id): str(row.direction) for row in subset.itertuples(index=False)
     }
     return items, true_directions
+
+
+def judge_self_consistency(
+    items: list[JudgeItem],
+    client: _CompletionClient,
+    *,
+    model: str,
+    cache: ResponseCache,
+    ledger: CostLedger,
+    run_id: str,
+    n_passes: int = 3,
+) -> DecisionStability:
+    """Score the same items ``n_passes`` times (each an independent draw,
+    via ``replicate``) and report agreement with :func:`decision_stability_n`
+    -- the same Fleiss-kappa generalization :mod:`draw_stability` already
+    uses for draw-to-draw agreement, reused here because 'how much do
+    repeated observations of the same item agree' is the identical
+    question whether the repeated observations are generation draws or
+    judge passes.
+
+    Stop condition (checked by the caller, not enforced here): a kappa
+    below about 0.4 means the judge is not reliable enough to trust for
+    the full run.
+    """
+    passes: list[pd.Series] = []
+    for replicate in range(1, n_passes + 1):
+        results, _ = run_role_inference_absolute(
+            items,
+            client,
+            model=model,
+            cache=cache,
+            ledger=ledger,
+            run_id=f"{run_id}-pass{replicate}",
+            replicate=replicate,
+        )
+        by_item = {r.item_id: r.inferred_direction for r in results}
+        passes.append(
+            pd.Series([by_item[item.item_id] for item in items], name=f"pass_{replicate}")
+        )
+    return decision_stability_n(passes)
 
 
 def build_absolute_items_from_real_email(

@@ -17,6 +17,7 @@ from thesis.analysis.role_inference import (
     build_absolute_request,
     build_paired_items_from_grid,
     build_positive_control_items,
+    judge_self_consistency,
     render_paired_block,
     run_role_inference_absolute,
     run_role_inference_paired,
@@ -323,3 +324,40 @@ def test_positive_control_items_contain_the_framing_sentence() -> None:
     for item in items:
         true_direction = cast(Direction, true_directions[item.item_id])
         assert _DIRECTION_FRAMING[true_direction].lower() in item.text.lower()
+
+
+def test_judge_self_consistency_is_perfect_when_every_pass_agrees(tmp_path: Path) -> None:
+    """Fleiss' kappa needs more than one category in play to be defined at
+    all -- a single item where every pass agrees on the same lone category
+    has p_e == 1.0 by construction, and decision_stability_n's own
+    degenerate-case guard (no divide-by-zero) returns kappa 0.0 for that,
+    not 1.0. Three items with three different but internally consistent
+    labels give kappa real variance to measure agreement against.
+
+    Each item also needs distinct text: the cache key is derived from the
+    rendered request, not the item_id, so same-text items at the same
+    replicate collapse onto a single cached response and desync from the
+    scripted client's queue -- caught by running this exact fixture and
+    seeing every item disagree across passes instead of agree.
+    """
+    items = [
+        _item("i1", "Sure, I'll take care of it."),
+        _item("i2", "Please advise."),
+        _item("i3", "Approved."),
+    ]
+    payloads: list[dict[str, object]] = [
+        {"evidence": "x", "inferred_direction": "up"},
+        {"evidence": "x", "inferred_direction": "lateral"},
+        {"evidence": "x", "inferred_direction": "down"},
+    ]
+    client = _ScriptedClient([_response(p) for _ in range(3) for p in payloads])
+    result = judge_self_consistency(
+        items,
+        client,
+        model="qwen2.5:3b",
+        cache=_cache(tmp_path),
+        ledger=_ledger(tmp_path),
+        run_id="test-run",
+    )
+    assert result.kappa == 1.0
+    assert result.share_agree == 1.0
