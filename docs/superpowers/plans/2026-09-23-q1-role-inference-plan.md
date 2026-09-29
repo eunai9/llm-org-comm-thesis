@@ -1064,6 +1064,13 @@ git push
 
 ### Task 7: Item builders, with the no-leak blinding test as the acceptance bar
 
+**Status: done, commit `1608b76` (2026-09-29 session).** Caught a real bug
+in the plan's own `_tiny_grid()` fixture: the body string put the sign-off
+before the message content, so `strip_identity`'s documented "everything
+from the sign-off onward" behavior stripped the whole message. Fixed by
+reordering the fixture to message-then-signoff, matching Task 4's own
+fixtures.
+
 Turn a generated grid and the cached real-email frame into `JudgeItem`s (absolute form) and a generated grid into `PairedItem`s (paired form), running every reply body through `strip_identity` first. The no-leak test here is the actual verification of the blinding constraint stated in Global Constraints — not a separate task, because it has to run against exactly the text these builders produce.
 
 **Files:**
