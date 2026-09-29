@@ -49,7 +49,7 @@ from thesis.llm.cost import CostLedger, LedgerEntry, cost_usd
 from thesis.llm.ollama_client import is_local_model
 from thesis.llm.stub_client import is_stub_model
 from thesis.logging_setup import get_logger
-from thesis.sim.scenario import DIRECTIONS
+from thesis.sim.scenario import _DIRECTION_FRAMING, DIRECTIONS
 
 log = get_logger(__name__)
 
@@ -531,3 +531,29 @@ def plot_accuracy_vs_real(metrics_by_label: dict[str, AbsoluteMetrics], path: Pa
         subtitle="Balanced accuracy, 3-way choice, chance = 0.33 (dashed line to add manually if useful)",
         x_label="balanced accuracy",
     )
+
+
+def build_positive_control_items(
+    frame: pd.DataFrame, *, replicate: int = 1
+) -> tuple[list[JudgeItem], dict[str, str]]:
+    """Same as :func:`build_absolute_items_from_grid`, except the true
+    direction-framing sentence is prepended to the reply text. Used only to
+    verify the scoring harness can detect a signal when the label is
+    actually present -- never part of the blind run itself. If accuracy
+    here is not close to 1.0, the schema, parsing or scoring loop is
+    broken, independent of whether the model shows the real effect.
+    """
+    subset = frame[frame["replicate"] == replicate]
+    items = [
+        JudgeItem(
+            item_id=str(row.cell_id),
+            text=f"{_DIRECTION_FRAMING[row.direction]} {strip_identity(str(row.body))}",
+            is_generated=True,
+            source_id=str(row.cell_id),
+        )
+        for row in subset.itertuples(index=False)
+    ]
+    true_directions = {
+        str(row.cell_id): str(row.direction) for row in subset.itertuples(index=False)
+    }
+    return items, true_directions

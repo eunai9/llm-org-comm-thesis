@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 import pandas as pd
 
@@ -15,6 +16,7 @@ from thesis.analysis.role_inference import (
     build_absolute_items_from_real_email,
     build_absolute_request,
     build_paired_items_from_grid,
+    build_positive_control_items,
     render_paired_block,
     run_role_inference_absolute,
     run_role_inference_paired,
@@ -26,7 +28,7 @@ from thesis.judge.prompt import JudgeItem, render_item_block
 from thesis.llm.base import CompletionRequest, CompletionResponse, Provider, Usage
 from thesis.llm.cache import ResponseCache
 from thesis.llm.cost import CostLedger
-from thesis.sim.scenario import _DIRECTION_FRAMING
+from thesis.sim.scenario import _DIRECTION_FRAMING, Direction
 
 
 @dataclass
@@ -311,3 +313,13 @@ def test_summarize_absolute_confidence_interval_widens_with_fewer_items() -> Non
         [_metrics_result("up", "up")] * 50 + [_metrics_result("up", "down")] * 50
     )
     assert (small.ci_high - small.ci_low) > (large.ci_high - large.ci_low)
+
+
+def test_positive_control_items_contain_the_framing_sentence() -> None:
+    """The inverse of test_no_direction_framing_language_reaches_the_rendered_prompt:
+    here the framing sentence must be present, since this is the sanity
+    check that the harness can detect the label when it is actually there."""
+    items, true_directions = build_positive_control_items(_tiny_grid())
+    for item in items:
+        true_direction = cast(Direction, true_directions[item.item_id])
+        assert _DIRECTION_FRAMING[true_direction].lower() in item.text.lower()
