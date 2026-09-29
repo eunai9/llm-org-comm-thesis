@@ -801,6 +801,8 @@ git push
 
 ### Task 6: `role_inference.py` — paired-form schema, request and scorer
 
+**Status: done, commit `77f973f` (2026-09-29 session).**
+
 Two replies to the identical scenario, one written up and one written down. Binary: which was written to the more senior recipient? Chance is 50%. Simulator only.
 
 **Files:**
