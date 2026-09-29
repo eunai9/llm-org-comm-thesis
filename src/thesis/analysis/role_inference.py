@@ -223,3 +223,158 @@ def run_role_inference_absolute(
         )
 
     return results, summary
+
+
+_PAIRED_TASK_FRAMING = (
+    "You will be shown two replies, A and B, both written by the same kind "
+    "of person answering the identical email. One reply was written to "
+    "someone more senior than the writer; the other was written to someone "
+    "more junior.\n\n"
+    "Judge only from how each reply is written -- word choice, directness, "
+    "how much it explains or hedges -- which one, A or B, was written to "
+    "the MORE SENIOR recipient.\n\n"
+    "Give a short piece of evidence, then your answer."
+)
+
+PAIRED_SCHEMA: Final[dict[str, Any]] = {
+    "type": "object",
+    "properties": {
+        "evidence": {
+            "type": "string",
+            "description": "A short, specific comparison between A and B that supports your answer.",
+        },
+        "answer": {
+            "type": "string",
+            "enum": ["A", "B"],
+            "description": "Which reply, A or B, was written to the more senior recipient.",
+        },
+    },
+    "required": ["evidence", "answer"],
+    "additionalProperties": False,
+}
+
+
+@dataclass(frozen=True, slots=True)
+class PairedItem:
+    """Two replies to the identical scenario, one written up and one down.
+
+    ``senior_slot`` ("A" or "B") records which text is the true
+    senior-recipient reply -- read only by the calling code that scores the
+    judge's answer, never rendered into :func:`render_paired_block`.
+    """
+
+    pair_id: str
+    text_a: str
+    text_b: str
+    senior_slot: str
+
+
+def render_paired_block(item: PairedItem) -> str:
+    return f"## Reply A\n\n{item.text_a}\n\n## Reply B\n\n{item.text_b}"
+
+
+def build_paired_request(item: PairedItem, model: str, *, replicate: int = 1) -> CompletionRequest:
+    return CompletionRequest(
+        model=model,
+        messages=[Message(role="user", content=render_paired_block(item))],
+        max_tokens=512,
+        system=_PAIRED_TASK_FRAMING,
+        output_schema=PAIRED_SCHEMA,
+        cache_system=True,
+        variant=replicate,
+        metadata={"pair_id": item.pair_id, "task": "role_inference_paired"},
+    )
+
+
+def validate_paired_response(payload: dict[str, Any]) -> dict[str, Any]:
+    if "answer" not in payload or "evidence" not in payload:
+        msg = "paired role-inference response missing 'answer' or 'evidence'"
+        raise InvalidRoleInferenceResponseError(msg)
+    if payload["answer"] not in ("A", "B"):
+        msg = f"answer {payload['answer']!r} not in ('A', 'B')"
+        raise InvalidRoleInferenceResponseError(msg)
+    return payload
+
+
+@dataclass(frozen=True, slots=True)
+class PairedResult:
+    pair_id: str
+    model: str
+    answer: str
+    judged_correctly: bool
+    evidence: str
+    from_cache: bool
+
+
+def run_role_inference_paired(
+    items: list[PairedItem],
+    client: _CompletionClient,
+    *,
+    model: str,
+    cache: ResponseCache,
+    ledger: CostLedger,
+    run_id: str,
+    replicate: int = 1,
+) -> tuple[list[PairedResult], RoleInferenceSummary]:
+    """Score every paired item, cache-first. Structurally identical to
+    :func:`run_role_inference_absolute`'s loop; kept as a separate function
+    rather than parameterized over both shapes, since the two result types
+    and schemas differ enough that a shared loop would need its own branch
+    per shape anyway -- see the module docstring's rationale for two forms."""
+    summary = RoleInferenceSummary(n_requested=len(items))
+    results: list[PairedResult] = []
+
+    for item in items:
+        request = build_paired_request(item, model, replicate=replicate)
+        key = cache_key(request, client.provider)
+
+        response = cache.get(key)
+        if response is None:
+            response = client.complete(request)
+            cache.put(key, request, response, client.provider)
+        else:
+            summary.n_from_cache += 1
+
+        if response.parsed is None:
+            log.warning("pair %s: no parseable structured output", item.pair_id)
+            summary.n_invalid += 1
+            continue
+
+        try:
+            payload = validate_paired_response(response.parsed)
+        except InvalidRoleInferenceResponseError as exc:
+            log.warning("pair %s: failed validation: %s", item.pair_id, exc)
+            summary.n_invalid += 1
+            continue
+
+        results.append(
+            PairedResult(
+                pair_id=item.pair_id,
+                model=response.model,
+                answer=payload["answer"],
+                judged_correctly=payload["answer"] == item.senior_slot,
+                evidence=payload["evidence"],
+                from_cache=response.from_cache,
+            )
+        )
+        summary.n_scored += 1
+
+        billable = (
+            not response.from_cache
+            and not is_stub_model(response.model)
+            and not is_local_model(response.model)
+        )
+        cost = cost_usd(response.model, response.usage) if billable else 0.0
+        summary.total_cost_usd += cost
+        ledger.record(
+            LedgerEntry(
+                run_id=run_id,
+                provider=client.provider,
+                model=response.model,
+                call_kind="role_inference_paired",
+                usage=response.usage,
+                from_cache=response.from_cache or not billable,
+            )
+        )
+
+    return results, summary

@@ -5,10 +5,15 @@ from pathlib import Path
 
 from thesis.analysis.role_inference import (
     ABSOLUTE_SCHEMA,
+    PAIRED_SCHEMA,
     InvalidRoleInferenceResponseError,
+    PairedItem,
     build_absolute_request,
+    render_paired_block,
     run_role_inference_absolute,
+    run_role_inference_paired,
     validate_absolute_response,
+    validate_paired_response,
 )
 from thesis.judge.prompt import JudgeItem
 from thesis.llm.base import CompletionRequest, CompletionResponse, Provider, Usage
@@ -132,3 +137,48 @@ def test_result_carries_the_true_label_the_judge_never_saw(tmp_path: Path) -> No
         run_id="test-run",
     )
     assert results[0].is_generated is True
+
+
+def _paired_item(pair_id: str = "p1") -> PairedItem:
+    return PairedItem(
+        pair_id=pair_id,
+        text_a="I need this by Friday.",
+        text_b="Whenever you get a chance, could you take a look?",
+        senior_slot="A",
+    )
+
+
+def test_paired_schema_restricts_the_answer_to_a_or_b() -> None:
+    assert set(PAIRED_SCHEMA["properties"]["answer"]["enum"]) == {"A", "B"}
+
+
+def test_paired_block_shows_both_replies_labeled_and_hides_the_answer() -> None:
+    block = render_paired_block(_paired_item())
+    assert "I need this by Friday." in block
+    assert "Whenever you get a chance" in block
+    assert "A" in block and "B" in block
+    assert "senior_slot" not in block.lower()
+
+
+def test_paired_validate_rejects_an_answer_outside_a_or_b() -> None:
+    try:
+        validate_paired_response({"evidence": "x", "answer": "C"})
+        raise AssertionError("expected InvalidRoleInferenceResponseError")
+    except InvalidRoleInferenceResponseError:
+        pass
+
+
+def test_paired_run_scores_one_pair_and_checks_it_against_the_true_slot(
+    tmp_path: Path,
+) -> None:
+    client = _ScriptedClient([_response({"evidence": "more direct", "answer": "A"})])
+    results, summary = run_role_inference_paired(
+        [_paired_item()],
+        client,
+        model="qwen2.5:3b",
+        cache=_cache(tmp_path),
+        ledger=_ledger(tmp_path),
+        run_id="test-run",
+    )
+    assert summary.n_scored == 1
+    assert results[0].judged_correctly is True  # answered A, true senior slot is A
