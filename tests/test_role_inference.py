@@ -3,22 +3,28 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+import pandas as pd
+
 from thesis.analysis.role_inference import (
     ABSOLUTE_SCHEMA,
     PAIRED_SCHEMA,
     InvalidRoleInferenceResponseError,
     PairedItem,
+    build_absolute_items_from_grid,
+    build_absolute_items_from_real_email,
     build_absolute_request,
+    build_paired_items_from_grid,
     render_paired_block,
     run_role_inference_absolute,
     run_role_inference_paired,
     validate_absolute_response,
     validate_paired_response,
 )
-from thesis.judge.prompt import JudgeItem
+from thesis.judge.prompt import JudgeItem, render_item_block
 from thesis.llm.base import CompletionRequest, CompletionResponse, Provider, Usage
 from thesis.llm.cache import ResponseCache
 from thesis.llm.cost import CostLedger
+from thesis.sim.scenario import _DIRECTION_FRAMING
 
 
 @dataclass
@@ -182,3 +188,66 @@ def test_paired_run_scores_one_pair_and_checks_it_against_the_true_slot(
     )
     assert summary.n_scored == 1
     assert results[0].judged_correctly is True  # answered A, true senior slot is A
+
+
+def _tiny_grid() -> pd.DataFrame:
+    rows = []
+    for direction in ("up", "lateral", "down"):
+        rows.append(
+            {
+                "cell_id": f"cell_{direction}",
+                "persona_id": "persona_1",
+                "scenario_id": f"approve_or_decline__{direction}__high__neutral",
+                "task_type": "approve_or_decline",
+                "direction": direction,
+                "stakes": "high",
+                "replicate": 1,
+                "model": "llama3.2:3b",
+                "body": "Approved, go ahead.\n\nBest,\nJohn Smith, Vice President",
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def test_build_absolute_items_from_grid_returns_one_item_per_row() -> None:
+    items, true_directions = build_absolute_items_from_grid(_tiny_grid())
+    assert len(items) == 3
+    assert {true_directions[i.item_id] for i in items} == {"up", "lateral", "down"}
+
+
+def test_build_absolute_items_from_grid_strips_identity() -> None:
+    items, _ = build_absolute_items_from_grid(_tiny_grid())
+    for item in items:
+        assert "John Smith" not in item.text
+        assert "Vice President" not in item.text
+    assert "Approved, go ahead." in items[0].text
+
+
+def test_no_direction_framing_language_reaches_the_rendered_prompt() -> None:
+    """The blinding constraint itself: none of the exact framing sentences
+    thesis.sim.scenario uses to tell the *generating* model which
+    direction it is writing in may appear anywhere in the text the judge
+    is shown. This is the actual verification of the Global Constraints
+    blinding rule, not a restatement of it."""
+    items, _ = build_absolute_items_from_grid(_tiny_grid())
+    for item in items:
+        rendered = render_item_block(item).lower()
+        for framing_sentence in _DIRECTION_FRAMING.values():
+            assert framing_sentence.lower() not in rendered
+
+
+def test_build_absolute_items_from_real_email() -> None:
+    bodies = pd.DataFrame(
+        {"message_uid": ["m1", "m2"], "body_clean": ["Approved.", "Please review by Friday."]}
+    )
+    directions = pd.DataFrame({"message_uid": ["m1", "m2"], "direction": ["lateral", "down"]})
+    items, true_directions = build_absolute_items_from_real_email(bodies, directions)
+    assert len(items) == 2
+    assert all(not item.is_generated for item in items)
+    assert true_directions[items[0].item_id] in ("lateral", "down")
+
+
+def test_build_paired_items_from_grid_pairs_up_with_down_same_scenario() -> None:
+    pairs = build_paired_items_from_grid(_tiny_grid())
+    assert len(pairs) == 1  # one (task_type, stakes, tone) triple in the fixture
+    assert pairs[0].senior_slot in ("A", "B")

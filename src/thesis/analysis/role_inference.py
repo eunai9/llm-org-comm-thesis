@@ -34,6 +34,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Final, Protocol
 
+import numpy as np
+import pandas as pd
+
+from thesis.analysis.blinding import strip_identity
 from thesis.judge.prompt import JudgeItem, render_item_block
 from thesis.llm.base import CompletionRequest, CompletionResponse, Message, Provider
 from thesis.llm.cache import ResponseCache, cache_key
@@ -378,3 +382,91 @@ def run_role_inference_paired(
         )
 
     return results, summary
+
+
+def build_absolute_items_from_grid(
+    frame: pd.DataFrame, *, replicate: int = 1
+) -> tuple[list[JudgeItem], dict[str, str]]:
+    """One absolute-form item per reply at the given draw, identity-stripped.
+
+    ``replicate`` defaults to 1 to honor the draw-balance rule (Global
+    Constraints): every model contributes one draw to the absolute-form
+    comparison, including Llama, which has three.
+    """
+    subset = frame[frame["replicate"] == replicate]
+    items = [
+        JudgeItem(
+            item_id=str(row.cell_id),
+            text=strip_identity(str(row.body)),
+            is_generated=True,
+            source_id=str(row.cell_id),
+        )
+        for row in subset.itertuples(index=False)
+    ]
+    true_directions = {
+        str(row.cell_id): str(row.direction) for row in subset.itertuples(index=False)
+    }
+    return items, true_directions
+
+
+def build_absolute_items_from_real_email(
+    bodies: pd.DataFrame, directions: pd.DataFrame
+) -> tuple[list[JudgeItem], dict[str, str]]:
+    """One absolute-form item per real email. ``bodies`` has
+    ``message_uid``/``body_clean`` (:func:`thesis.analysis.q1_real.load_bodies`'s
+    shape); ``directions`` has ``message_uid``/``direction``
+    (:data:`thesis.analysis.q1_real`'s cached emails table)."""
+    merged = bodies.merge(directions[["message_uid", "direction"]], on="message_uid", how="inner")
+    items = [
+        JudgeItem(
+            item_id=str(row.message_uid),
+            text=strip_identity(str(row.body_clean)),
+            is_generated=False,
+            source_id=str(row.message_uid),
+        )
+        for row in merged.itertuples(index=False)
+    ]
+    true_directions = {
+        str(row.message_uid): str(row.direction) for row in merged.itertuples(index=False)
+    }
+    return items, true_directions
+
+
+def build_paired_items_from_grid(
+    frame: pd.DataFrame, *, replicate: int = 1, seed: int = 20260923
+) -> list[PairedItem]:
+    """One paired item per (task_type, stakes, tone) triple that has both
+    an 'up' and a 'down' reply at the given draw -- 'lateral' is not part
+    of this comparison, since the paired question is specifically about
+    the two directions the writing-down effect concerns.
+
+    A/B slot assignment is randomized per pair (seeded, for reproducible
+    manifests) so the judge cannot learn "A is always senior" from
+    position alone.
+    """
+    subset = frame[frame["replicate"] == replicate].assign(
+        triple=lambda d: d["scenario_id"].str.split("__").str[0]
+        + "__"
+        + d["stakes"]
+        + "__"
+        + d["scenario_id"].str.split("__").str[-1]
+    )
+    rng = np.random.default_rng(seed)
+    pairs: list[PairedItem] = []
+    for triple, group in subset.groupby("triple"):
+        by_direction = dict(zip(group["direction"], group["body"], strict=False))
+        if "up" not in by_direction or "down" not in by_direction:
+            continue
+        up_text = strip_identity(str(by_direction["up"]))
+        down_text = strip_identity(str(by_direction["down"]))
+        up_is_a = bool(rng.integers(0, 2))
+        text_a, text_b = (up_text, down_text) if up_is_a else (down_text, up_text)
+        pairs.append(
+            PairedItem(
+                pair_id=str(triple),
+                text_a=text_a,
+                text_b=text_b,
+                senior_slot="A" if up_is_a else "B",
+            )
+        )
+    return pairs
