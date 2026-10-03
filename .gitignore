@@ -13,6 +13,7 @@ data/external/*
 runs/
 outputs/figures/
 outputs/tables/
+logs/
 
 # --- secrets ---
 .env
