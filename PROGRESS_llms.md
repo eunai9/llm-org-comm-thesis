@@ -783,19 +783,20 @@ Before trusting a judge, it has to agree with itself: score the same
 replies three times, check agreement with kappa (0 = chance, 1 =
 perfect). The bar is 0.4. Three free local models were tested:
 
-| Judge model | Kappa | Pass? |
+| Judge model | Kappa (n=300) | Pass? |
 |---|---:|:---:|
-| qwen2.5:3b (project default) | 0.322 | No |
-| qwen2.5:7b | 0.017 | No |
-| llama3.1:8b | -0.013 | No |
+| qwen2.5:3b (project default) | 0.293 | No |
+| qwen2.5:7b (n=90) | 0.017 | No |
+| llama3.1:8b (n=90) | -0.013 | No |
 
 All three fail. The bigger two mostly answer "down" no matter what the
 email says, which is why they fail so badly. qwen2.5:3b varies its
 answers more, but still disagrees with itself pass to pass.
 
 (The check should score 300 replies. A bug made it score 90 instead,
-now fixed. qwen2.5:3b is being rerun at the correct 300; the other two
-fail by too wide a margin for 300 to change the answer.)
+now fixed. qwen2.5:3b was rerun at the correct 300 and the result did
+not change. The other two were not rerun -- they fail by too wide a
+margin for 300 to change the answer.)
 
 Next step: find a bigger free judge model, or decide the free ones we
 have are not good enough.
