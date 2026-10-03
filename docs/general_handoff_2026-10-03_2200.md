@@ -14,10 +14,18 @@ plan file, or git history — it points to them.
   context. Read it before anything else in the repo. It was **not** updated
   this session — Task 13 of the Q1 plan is still open, so section 6 and
   section 4 (open work) still describe the pre-session state.
-- A peer Claude session, name `thesis-4d`, works in this same repo
-  concurrently. Message it via `SendMessage` (`to: "thesis-4d"`) before
-  touching anything it might own. As of this handoff it is idle and owns
-  nothing active.
+- A peer Claude session works in this same repo concurrently. Its name
+  changes across turns of the same underlying session (seen as
+  `thesis-4d`, then `thesis-78`, then `thesis-5c` in one continuous
+  conversation) — check `ListAgents` for its current name rather than
+  trusting a name from an earlier handoff. As of this handoff it has been
+  continuously active all session, not idle: it independently ran the
+  three local judge-gate tests this file's point 3 reports (before this
+  session reran and verified them), confirmed the gpt-oss-120b grid's
+  completion, and set up a WSL-native Ollama server now shared by both
+  sessions (see "What the concurrent session added," after point 9
+  below). Message it before touching the Ollama server, the judge-gate
+  numbers, or `scripts/role_inference_llama_only.py`.
 - Handoff docs for this project go in `docs/general_handoff_<date>_<time>.md`
   in this repo, not the OS temp directory — a standing correction from the
   user, saved in this session's memory.
@@ -82,11 +90,85 @@ plan file, or git history — it points to them.
    rewritten, since that's a shared branch. Later commits in this session
    staged `cost_ledger.csv` explicitly and checked the diff size first to
    avoid repeating this.
-9. Coordinated with `thesis-4d` throughout via `SendMessage`: confirmed no
-   process collision on the shared Ollama server, cross-checked the
+9. Coordinated with the peer session throughout via `SendMessage`: confirmed
+   no process collision on the shared Ollama server, cross-checked the
    entry-point bug finding, got confirmation the peer's own earlier gate
    testing (before this session) used a workaround script, not the broken
    CLI path.
+
+## What the concurrent session added
+
+Not duplicated above — this is the other session's own work in the same
+window, relevant because it shares files and the Ollama server with
+everything above.
+
+1. **Verified gpt-oss-120b's grid actually finished**, carefully. A tmux
+   `has-session` check gave a false negative at one point (session was
+   genuinely alive; the check itself was flaky through this tool's WSL
+   invocation path), so don't trust a single such check — confirm via a
+   second signal too (fresh cache files under `runs/_cache`, or a new log
+   line appearing on a repeat check) before concluding a job died. The
+   grid's own dead time was real, separately: a ~21-hour silent gap in
+   `runs/gpt_oss_120b_runner.log` was Groq's daily token cap, not a crash —
+   the runner's retry-with-cooldown loop does recover on its own, just
+   slowly. Finished Oct 2, 17:50 CEST;
+   `data/interim/q1_direction_grid_gpt_oss_120b_full.parquet` exists.
+2. **Set up `wsl_ollama`**, a native-WSL Ollama install, because the
+   judge (local `qwen2.5:3b`/etc.) needs an Ollama server reachable from
+   WSL, and the only one running was on Windows, bound to `127.0.0.1`
+   only — unreachable from WSL's side of the NAT boundary (no mirrored
+   networking configured; `~/.wslconfig` has no `networkingMode=mirrored`).
+   **Do not try to fix this by rebinding Windows Ollama to `0.0.0.0`** —
+   that was tried and denied by the Claude Code permission classifier as
+   "expose local services," and even a plain `which ollama` check inside
+   WSL got caught by the same classifier once that intent was stated.
+   The clean fix that avoids the classifier entirely: Ollama stays on
+   loopback the whole time. The official install script fails
+   non-interactively though — `curl -fsSL https://ollama.com/install.sh | sh`
+   hangs forever on a `sudo install ...` call waiting on a password that
+   a background task can never supply. Worked instead: download the
+   release tarball directly (current format is `.tar.zst`, not the older
+   `.tgz` the install script fetches —
+   `https://github.com/ollama/ollama/releases/download/v<version>/ollama-linux-amd64.tar.zst`),
+   decompress with Python's `zstandard` package (already in `.venv`; no
+   `zstd`/`unzstd` binary was present), and `tar -xf` the result straight
+   into `~/.local` (binary lands at `~/.local/bin/ollama`, no sudo
+   anywhere). `~/.ollama`'s model store already had `qwen2.5:3b`,
+   `llama3.2:3b`, and a `nomic-embed-text` embedding model pulled from
+   some earlier, now-vanished install (plausibly one that lived in `/tmp`
+   and got wiped on a WSL restart) — so no model pull was even needed for
+   the first judge test. `qwen2.5:7b` and `llama3.1:8b` were pulled
+   fresh for the later two.
+3. **Built `scripts/role_inference_llama_only.py`** (untracked, not part
+   of the plan) before the entry-point bug (point 2 of this file's main
+   list) was found — at the time, `role_inference.py`'s `main()` always
+   looped over all four `GENERATING_GRIDS` paths with no way to run a
+   subset, and the qwen3.8-27b grid didn't exist yet, so running the real
+   `main()` wasn't an option regardless. The script reuses `role_inference.py`'s
+   functions directly (never through the broken CLI path, so it was never
+   affected by that bug) against just the Llama grid and real email,
+   writing to its own `role_inference_llama_only_<judge_model>.json`/`.png`
+   paths precisely so a preliminary look could never be mistaken for the
+   real Task 13 output. It ran the original three judge-gate tests this
+   file's point 3 refers to (under the buggy n=90 sampling, same as the
+   CLI path would have — see this file's point 4). **Now that both bugs
+   are fixed and the peer session has run the real gate through the real
+   CLI path, this script is redundant.** Safe to delete in a cleanup
+   pass; nothing currently depends on it.
+4. **Traced where the three "new model candidate" names actually went,**
+   since they'd been loosely called "judge candidates" earlier in this
+   same conversation before anyone checked: `qwen3.8-27b` (Groq),
+   `nemotron-3-super-120b-a12b` (NVIDIA), and Gemini/Gemma (Google AI
+   Studio) were all tested purely as **replacement generating models**
+   for dead DeepSeek, confirmed by commits `398e505`/`fdca9e3` — nemotron
+   was rejected (~80% success, costly failures), Gemini/Gemma was
+   rejected (failed all 5 retries on the very first cell despite clean
+   isolated spot-checks), and qwen3.8-27b is the one survivor, now
+   generating its full grid (this file's point 6/current-state). **None
+   of this touches the judge-gate problem.** As of this handoff, nobody
+   has tested any larger model specifically as the Layer 1 judge — that
+   part of this file's "Immediate next steps" point 1 is still completely
+   open, not just undecided.
 
 ## Current live state (as of this handoff)
 
@@ -106,12 +188,18 @@ plan file, or git history — it points to them.
   tracebacks in it from before the fix; new output is appended after
   them, don't mistake old content for a fresh crash).
 - **`wsl_ollama` tmux session is alive**, serving the local judge models
-  (`qwen2.5:3b`, `qwen2.5:7b`, `llama3.1:8b`, plus others from earlier
-  sessions). No code needed to restart this unless the laptop sleeps.
-- **Both tmux sessions die if the laptop sleeps** — WSL pauses with it.
-  If resuming after a sleep, check `tmux ls` first; sessions that died
-  need restarting with the same commands (see commit `7f88bc7`'s message
-  and point 6 above for the qwen command, or just re-run
+  (`qwen2.5:3b`, `qwen2.5:7b`, `llama3.1:8b`, plus `nomic-embed-text`).
+  See "What the concurrent session added" point 2 above for how it got
+  there and why it has to be this specific setup (native WSL install,
+  loopback only, no sudo). If it dies, there's no system-wide `ollama` on
+  PATH — restart with
+  `tmux new-session -d -s wsl_ollama -c ~ '~/.local/bin/ollama serve 2>&1 | tee -a ~/ollama_serve.log'`.
+  `gate_rerun` (the peer's second tmux session, used to rerun the
+  judge-gate numbers after both bugs were fixed) finished and is gone —
+  its result is already committed (`823391a`), nothing to restart there.
+- **Both tmux sessions above die if the laptop sleeps** — WSL pauses with
+  it. If resuming after a sleep, check `tmux ls` first; `q1_qwen_runner`
+  restarts with the command in point 6 above (or just re-run
   `python -m thesis.analysis.q1 --groq qwen/qwen3.8-27b --design full
   --out data/interim/q1_direction_grid_qwen_full.parquet`, which resumes
   from cache).
@@ -121,20 +209,29 @@ plan file, or git history — it points to them.
   for why), and keep the gap between `git add` and `git commit` short —
   this file is shared across sessions.
 - **Untracked, not this session's work** — leave alone unless the peer
-  confirms otherwise: the 8 `mirroring_*.png` figures, the peer's
-  `q1_full_grid_openai_gpt-oss-120b_low.json`/`.png` pair, and
-  `scripts/role_inference_llama_only.py`.
+  confirms otherwise: the 8 `mirroring_*.png` figures and the peer's
+  `q1_full_grid_openai_gpt-oss-120b_low.json`/`.png` pair.
+  `scripts/role_inference_llama_only.py` is also untracked, but per "What
+  the concurrent session added" point 3 above, it's now a known cleanup
+  candidate rather than something to just leave — safe to delete once
+  someone confirms nothing still reads its output paths.
 - `logs/` remains untracked with no `.gitignore` rule — flagged in at
   least four prior handoffs now. Still cheap to fix, still not done.
 
 ## Immediate next steps
 
 1. Decide what to do about the judge gate, since all 3 locally-available
-   models fail it. Options, not yet decided with the user: find a bigger
-   free judge model (candidates not yet researched), or treat "no local
-   model is a reliable judge" as a standalone finding and move to Layer 2
-   (the indicator panel, `analysis/indicators.py`, not yet built) instead
-   of waiting on Layer 1's headline number.
+   models fail it, and — confirmed, not just unresearched — no bigger
+   model has been tried as judge yet. `qwen3.8-27b`/nemotron/Gemini were
+   all tested as generator candidates only (see "What the concurrent
+   session added" point 4 above); that work doesn't touch this. Real
+   options: actually test a bigger model as judge (e.g. `qwen3.8-27b`
+   itself once its grid finishes and it's free, or `gpt-oss-120b`,
+   accepting it would need treating as a sensitivity case per the plan's
+   judge-independence note since it's also a generator), or treat "no
+   model tried so far is a reliable judge" as the standalone finding and
+   move to Layer 2 (the indicator panel, `analysis/indicators.py`, not
+   yet built) instead of waiting on Layer 1's headline number.
 2. Check on the qwen3.8-27b grid (`tmux attach -t q1_qwen_runner` or
    `tail -f logs/q1_qwen_full_run.log`). Once it finishes (1,440/1,440
    rows, 144 scenarios — verify the same way gpt-oss-120b's grid was
