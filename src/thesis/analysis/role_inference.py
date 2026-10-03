@@ -430,7 +430,6 @@ FIGURE_PATH: Path = DOCS_FIGURES_DIR / "role_inference_accuracy.png"
 
 GENERATING_GRIDS: Final[dict[str, Path]] = {
     "llama3.2:3b": INTERIM_DIR / "q1_direction_grid_full_3draws.parquet",
-    "deepseek-v4-flash": INTERIM_DIR / "q1_direction_grid_deepseek_full.parquet",
     "gpt-oss-20b": INTERIM_DIR / "q1_direction_grid_gpt_oss_20b_full.parquet",
     "gpt-oss-120b": INTERIM_DIR / "q1_direction_grid_gpt_oss_120b_full.parquet",
 }
@@ -465,6 +464,16 @@ def build_manifest(
     }
 
 
+def sample_gate_frame(frame: pd.DataFrame, *, n: int, random_state: int) -> pd.DataFrame:
+    """Sample ``n`` distinct cells at draw 1, for the self-consistency and
+    positive-control gates. Filters to one draw before sampling, not
+    after -- each cell appears once per draw in the full grid, so
+    sampling first and filtering after would keep only the fraction of
+    the sample that happens to land on draw 1, well under ``n``.
+    """
+    return frame[frame["replicate"] == 1].sample(n=n, random_state=random_state)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--judge-model", default=DEFAULT_JUDGE_MODEL)
@@ -493,7 +502,9 @@ def main() -> None:
     llama_frame = pd.read_parquet(GENERATING_GRIDS["llama3.2:3b"])
 
     if not args.skip_gate:
-        gate_items, _ = build_absolute_items_from_grid(llama_frame.sample(n=300, random_state=1))
+        gate_items, _ = build_absolute_items_from_grid(
+            sample_gate_frame(llama_frame, n=300, random_state=1)
+        )
         consistency = judge_self_consistency(
             gate_items, client, model=args.judge_model, cache=cache, ledger=ledger, run_id=run_id
         )
@@ -503,7 +514,7 @@ def main() -> None:
             return
 
         control_items, control_truth = build_positive_control_items(
-            llama_frame.sample(n=50, random_state=1)
+            sample_gate_frame(llama_frame, n=50, random_state=1)
         )
         control_results, _ = run_role_inference_absolute(
             control_items,
@@ -589,10 +600,6 @@ def main() -> None:
     }
     figure = plot_accuracy_vs_real(figure_metrics, FIGURE_PATH)
     log.info("wrote %s and %s", MANIFEST_PATH, figure)
-
-
-if __name__ == "__main__":
-    main()
 
 
 def judge_self_consistency(
@@ -779,3 +786,7 @@ def build_positive_control_items(
         str(row.cell_id): str(row.direction) for row in subset.itertuples(index=False)
     }
     return items, true_directions
+
+
+if __name__ == "__main__":
+    main()

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import ast
+import inspect
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
 import pandas as pd
 
+from thesis.analysis import role_inference
 from thesis.analysis.role_inference import (
     ABSOLUTE_SCHEMA,
     PAIRED_SCHEMA,
@@ -23,6 +26,7 @@ from thesis.analysis.role_inference import (
     render_paired_block,
     run_role_inference_absolute,
     run_role_inference_paired,
+    sample_gate_frame,
     summarize_absolute,
     validate_absolute_response,
     validate_paired_response,
@@ -379,3 +383,44 @@ def test_build_manifest_orders_real_email_first() -> None:
     assert list(manifest["accuracy_by_label"]) == ["real email", "llama3.2:3b"]
     assert manifest["self_consistency_kappa"] == 0.5
     assert manifest["positive_control_accuracy"] == 0.95
+
+
+def test_sample_gate_frame_keeps_n_distinct_cells_across_three_draws() -> None:
+    """Each cell appears three times in the full grid, once per draw.
+    Sampling before filtering to one draw would shrink the effective
+    sample -- only the fraction that happens to land on draw 1 survives.
+    Filtering first, then sampling, is the only way to get ``n`` distinct
+    cells, which is what the self-consistency and positive-control gates
+    both need."""
+    frame = pd.DataFrame(
+        {
+            "cell_id": [f"c{i}" for i in range(20) for _ in range(3)],
+            "replicate": [1, 2, 3] * 20,
+            "body": ["reply text"] * 60,
+            "direction": ["up"] * 60,
+        }
+    )
+    sampled = sample_gate_frame(frame, n=5, random_state=1)
+    assert len(sampled) == 5
+    assert (sampled["replicate"] == 1).all()
+    assert sampled["cell_id"].nunique() == 5
+
+
+def test_main_guard_is_the_last_statement_in_the_file() -> None:
+    """``if __name__ == "__main__": main()`` runs immediately when the
+    module is executed as a script, before any code below it in the file
+    has run. If a function main() calls is defined further down, calling
+    main() here raises NameError -- a bug plain `import` in a test can
+    never catch, since the guard only fires for __main__. Catch it by
+    position instead: the guard must be the last top-level statement, so
+    every function it calls is already defined by the time it runs.
+    """
+    source = Path(inspect.getfile(role_inference)).read_text(encoding="utf-8")
+    body = ast.parse(source).body
+    guard_indices = [
+        i
+        for i, node in enumerate(body)
+        if isinstance(node, ast.If) and ast.unparse(node.test) == "__name__ == '__main__'"
+    ]
+    assert guard_indices, "no __main__ guard found in role_inference.py"
+    assert guard_indices[0] == len(body) - 1
