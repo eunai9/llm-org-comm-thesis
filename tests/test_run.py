@@ -23,6 +23,7 @@ from thesis.llm.base import (
 )
 from thesis.llm.cache import CacheMissError, ResponseCache
 from thesis.llm.cost import CostLedger
+from thesis.llm.openai_compatible import ModelGenerationError
 from thesis.sim.grid import expand, order_for_cache
 from thesis.sim.persona import Persona, PersonaStyle
 from thesis.sim.run import (
@@ -210,6 +211,26 @@ def test_invalid_payload_is_counted_not_silently_dropped(tmp_path: Path) -> None
     rows, manifest = _run(tmp_path, client)
     assert rows == []
     assert manifest.n_invalid == len(_cells())
+
+
+def test_a_model_generation_failure_is_skipped_not_fatal(tmp_path: Path) -> None:
+    """Seen in practice with qwen3.8-27b on Groq: the model fails to
+    produce valid JSON for one cell out of a long run. That must not
+    abort the whole grid -- the one cell is counted invalid and the rest
+    still generate."""
+
+    class FlakyClient(FakeClient):
+        def complete(self, request: CompletionRequest) -> CompletionResponse:
+            self.calls.append(request)
+            if len(self.calls) == 1:
+                raise ModelGenerationError("model failed to generate JSON")
+            return super().complete(request)
+
+    client = FlakyClient()
+    rows, manifest = _run(tmp_path, client)
+    assert manifest.n_invalid == 1
+    assert manifest.n_generated == len(_cells()) - 1
+    assert len(rows) == len(_cells()) - 1
 
 
 def test_rows_match_the_declared_schema(tmp_path: Path) -> None:

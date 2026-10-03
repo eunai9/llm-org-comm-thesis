@@ -21,6 +21,7 @@ from thesis.llm.groq_client import (
     GroqUnavailableError,
     is_groq_model,
 )
+from thesis.llm.openai_compatible import ModelGenerationError
 from thesis.sim.schemas import RESPONSE_SCHEMA
 
 MODEL = "openai/gpt-oss-120b"
@@ -134,6 +135,41 @@ def test_the_daily_cap_is_reported_after_the_retries() -> None:
         return httpx.Response(429, json={"error": {"message": "rate limit reached"}})
 
     with pytest.raises(GroqUnavailableError, match="after"):
+        _client_with(handler).complete(_request())
+
+
+def test_a_json_generation_failure_is_a_distinct_skippable_error() -> None:
+    """Groq's own structured-output mode gives up and returns 400 with
+    code 'json_validate_failed' when the model can't produce valid JSON,
+    seen in practice with qwen3.8-27b on long grid runs. A caller
+    generating thousands of cells unattended needs to tell this apart
+    from a dead backend (bad key, persistent 5xx) so it can skip the one
+    cell and keep going instead of aborting the whole run."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            400,
+            json={
+                "error": {
+                    "message": "Failed to generate JSON.",
+                    "code": "json_validate_failed",
+                }
+            },
+        )
+
+    with pytest.raises(ModelGenerationError):
+        _client_with(handler).complete(_request())
+
+
+def test_an_ordinary_400_still_raises_the_unavailable_error() -> None:
+    """Only the specific json_validate_failed code is downgraded to a
+    skippable error; any other 400 (bad request shape, bad model name)
+    must still stop the run loudly, same as before."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json={"error": {"message": "bad request"}})
+
+    with pytest.raises(GroqUnavailableError):
         _client_with(handler).complete(_request())
 
 

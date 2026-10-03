@@ -50,6 +50,15 @@ class FreeTierUnavailableError(RuntimeError):
     """Raised when a free-tier API is unreachable or refuses a request."""
 
 
+class ModelGenerationError(RuntimeError):
+    """Raised when the API itself is fine but the model could not produce
+    valid JSON for one request (Groq's structured-output mode gives up and
+    returns this as a 400 with code 'json_validate_failed'). Distinct from
+    :class:`FreeTierUnavailableError` so a caller generating many cells can
+    skip the one failure instead of aborting the whole run.
+    """
+
+
 def split_reasoning_effort(model: str) -> tuple[str, str | None]:
     """Split ``name@effort`` into the model name the API expects and the effort."""
     name, separator, effort = model.rpartition("@")
@@ -170,6 +179,13 @@ class OpenAICompatibleClient:
                             f"{self.service_name} API returned "
                             f"{response.status_code}: {response.text[:500]}"
                         )
+                        if response.status_code == 400:
+                            try:
+                                error_code = response.json().get("error", {}).get("code")
+                            except (json.JSONDecodeError, AttributeError):
+                                error_code = None
+                            if error_code == "json_validate_failed":
+                                raise ModelGenerationError(msg)
                         raise self.error(msg)
                     body: dict[str, Any] = response.json()
                     return body

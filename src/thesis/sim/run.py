@@ -45,6 +45,7 @@ from thesis.llm.cost import CostLedger, LedgerEntry, cost_usd, guard_budget
 from thesis.llm.groq_client import is_groq_model
 from thesis.llm.nvidia_client import is_nim_model
 from thesis.llm.ollama_client import is_local_model
+from thesis.llm.openai_compatible import ModelGenerationError
 from thesis.llm.stub_client import is_stub_model
 from thesis.logging_setup import configure_logging, get_logger
 from thesis.paths import CACHE_DIR, COST_LEDGER, MANIFESTS_DIR, RUNS_DIR, ensure_dirs
@@ -333,7 +334,14 @@ def run_grid(
 
         response = cache.get(key)
         if response is None:
-            response = client.complete(request)
+            try:
+                response = client.complete(request)
+            except ModelGenerationError as exc:
+                log.warning(
+                    "cell %s: model failed to generate JSON; skipping (%s)", cell.cell_id, exc
+                )
+                manifest.n_invalid += 1
+                continue
             cache.put(key, request, response, client.provider)
             manifest.n_generated += 1
         else:
