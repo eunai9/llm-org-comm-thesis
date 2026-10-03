@@ -763,6 +763,67 @@ Fleiss' kappa=0.367.
 
 ---
 
+## Layer 1 (blind role inference): no judge model passes the check yet (Oct 3)
+
+This is Task 13 of the Q1 redesign plan
+(`docs/superpowers/plans/2026-09-23-q1-role-inference-plan.md`).
+
+The idea: show a judge model an email with no sender name. Ask it to guess
+if the writer was a manager, a peer, or a subordinate. If the judge can
+guess this well from real email but not from generated email, that shows
+generated email is missing a real signal.
+
+Before trusting a judge, the plan checks if the judge agrees with itself.
+The same replies get scored three times by the same judge. Kappa measures
+how much the three scores agree. 0 means chance agreement. 1 means perfect
+agreement. The plan needs kappa of 0.4 or higher before it trusts the
+judge.
+
+Three free judge models were tested on the same 90 items, all on the
+local Ollama server. (The plan's own text says 300. A bug in how the
+sample was drawn shrank it to 90; fixed, see below.) All three failed:
+
+| Judge model | Self-agreement kappa | 95% CI | Passes 0.4? |
+|---|---:|---|:---:|
+| qwen2.5:3b (project default) | 0.322 | [0.21, 0.44] | No |
+| qwen2.5:7b | 0.017 | [-0.08, 0.12] | No |
+| llama3.1:8b | -0.013 | [-0.10, 0.08] | No |
+
+None of these models can reliably tell manager from peer from subordinate,
+even when scoring the exact same text twice. Since the judge is not
+reliable, any accuracy number it produced would not be trustworthy either.
+The plan says to stop here and report this, instead of pushing ahead.
+
+**Why the bigger two fail so completely.** qwen2.5:7b answers "down" 72%
+of the time, and llama3.1:8b answers "down" 84% of the time, almost no
+matter what the email says. Kappa correctly calls this unreliable: a judge
+that gives the same answer regardless of the text is not reading it, even
+though it may "agree with itself" on raw percent terms. qwen2.5:3b spreads
+its answers across all three labels, but still disagrees with itself pass
+to pass.
+
+**The sample-size bug, and what is still open.** The gate is supposed to
+score 300 cells, once each, three times. The code sampled 300 rows from
+the full grid first, then kept only the rows tagged as draw 1 -- but each
+cell appears three times in the full grid (once per draw), so only about
+a third of the 300 survived the filter. Fixed by filtering to draw 1
+before sampling, not after (`sample_gate_frame` in `role_inference.py`).
+qwen2.5:3b is being rerun now at the correct n=300, since its kappa is the
+one closest to the 0.4 bar and most worth pinning down precisely; the
+other two fail by a wide enough margin that re-running them at n=300
+would not change the answer. This section will be updated with the n=300
+number once that run finishes.
+
+This blocks the main question Layer 1 was built to answer: can a model
+tell who wrote an email just from how it is written. It does not mean the
+answer is no. It means we do not yet have a judge model good enough to
+test it.
+
+Next step: find a bigger free judge model, or decide the free models we
+have are not good enough for this check.
+
+---
+
 ## Where the code lives
 
 **The clients.** `src/thesis/llm/openai_compatible.py` holds the shared
