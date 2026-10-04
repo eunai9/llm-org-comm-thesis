@@ -844,7 +844,10 @@ Chance that a sentence gives an order, by direction:
   email is significant using real email's main fit (p=.009) but drops to
   p=.084 using real email's other fit (`q1_real.py`'s sender-fixed-effects
   cross-check, which has a wider standard error). Read this as not settled,
-  not as a confirmed difference.
+  not as a confirmed difference -- see "Length-matching the Q1-vs-real
+  comparison" below for two more reasons this gap does not hold up: cutting
+  real email to the same reply length, and a robust standard-error check
+  that puts this very p=.009 in doubt too.
 - **gpt-oss-120b's replies are still short: 1.79 sentences each at full
   scale** (1.98 at pilot scale, 4.75 for real email). A short reply
   inflates the "orders per sentence" share for the same underlying
@@ -935,6 +938,107 @@ the pilot section flagged for its own "vs real email" tables.
   `PROGRESS.md` section 50) means the chi-square results above are a
   pattern worth watching, not a settled result, the same read the pilot
   section gave its own decision-field numbers.
+
+---
+
+## Length-matching the Q1-vs-real comparison (Oct 4)
+
+**The problem.** `is_imperative` is a share of a reply's sentences that
+give an order. A short reply inflates this share for the same underlying
+behavior: one order out of two sentences is 50%, the same order out of
+five is 20%. The simulator's replies are much shorter than real email's
+(1.4 to 2.7 sentences against real email's 4.75), so every comparison
+above confounds "does this model get more directive when writing down"
+with "this model just writes short replies." No comparison in this log
+has controlled for that until now.
+
+**The fix.** Cut real email's own sentences down to a model's own mean
+reply length, rounded to the nearest whole sentence, then measure the
+same effect on only that much of each real email. Compare the model
+against this shortened real email instead of the full-length one. Same
+idea the mirroring section already uses for `borrowed_words` (cut a reply
+to a matching length before comparing), moved over to this measure.
+`truncate_sentences` and `compare_with_length_matched_real`, commits
+`91b9166` and `5a7c5fe`. No new generation, no API call: both sides
+already existed, this just refits real email on a shorter slice of itself.
+Command: the same `q1_models.py` command used for the section above; it
+now writes this comparison automatically alongside the full-length one.
+
+| Model | Sentences kept per real email | Model's own effect | Real, full length | Real, cut to match | p, full length | p, cut to match |
+|---|---:|---:|---:|---:|---:|---:|
+| Llama 3.2 3B (3 draws) | 1 | +0.157 | +0.253 | +0.223 | .185 | .631 |
+| gpt-oss-20b | 3 | +0.255 | +0.253 | +0.381 | .984 | .153 |
+| gpt-oss-120b | 2 | +0.481 | +0.253 | +0.437 | .009 | .681 |
+
+- **gpt-oss-120b's overshoot is no longer detectable once both sides are
+  measured over the same reply length.** Full-length said gpt-oss-120b was
+  significantly bigger than real email (p=.009). Cut to 2 sentences, real
+  email's own effect is nearly as big as gpt-oss-120b's (+0.437 against
+  +0.481), and the difference is not significant (p=.681, 95% interval
+  -0.17 to +0.25). This is the single biggest change in this section.
+- **This is not proof the two are equal.** "Not detectable" means the data
+  cannot tell them apart, not that they are the same effect -- that needs
+  a different kind of test (equivalence testing with a pre-set bound, not
+  done here), and the 95% interval above still contains the original
+  full-length gap of +0.228.
+- **Real email's own effect gets bigger, not smaller, when cut short.**
+  This looks backwards at first, so it is worth explaining. Checked
+  position by position: real email's first sentence carries almost no
+  hierarchy signal (13.3% orders writing down against 14.4% to a peer --
+  backwards, if anything). The signal shows up from the second sentence
+  on (21.2% against 14.3% at position 2; stays elevated through position
+  5), then gets diluted in the minority of emails with 6 or more
+  sentences. A short cut keeps the signal-carrying middle sentences and
+  drops the diluting tail; cutting to exactly 1 sentence (Llama's case)
+  keeps only the position that carries the least signal, which is why
+  Llama's own cut version (+0.223) is close to its full-length number
+  (+0.253) while gpt-oss-120b's and gpt-oss-20b's cuts (2 and 3 sentences)
+  are both bigger.
+- **gpt-oss-20b no longer looks like a near-exact match.** The full-length
+  comparison (p=.984) made it look like gpt-oss-20b's effect was almost
+  identical to real email's. Cut to match gpt-oss-20b's own 2.7-sentence
+  average, real email's effect is bigger (+0.381 against gpt-oss-20b's
+  +0.255), though the gap is still not significant (p=.153). Read this as
+  "underpowered to tell" rather than "confirmed match" either way.
+- **Llama's result barely moves and still shows nothing** (p=.631 against
+  the full-length p=.185), matching every other reading of Llama in this
+  log.
+
+**Caveats.**
+
+- **The real standard errors behind this whole comparison -- the new one
+  and the full-length one above -- look about twice too small.** A
+  sender-clustered robust check on real email's full-length fit gives a
+  standard error of 0.115, against 0.052 from the variational-Bayes fit
+  the comparison above actually uses. With the robust standard error, even
+  the original full-length "gpt-oss-120b is significantly bigger" claim
+  (p=.009) drops to roughly p=.14 -- not clearly significant either. This
+  means that claim was probably overstated independently of the
+  length-matching question. The simulator side is also a variational-Bayes
+  fit, so its own standard error is likely understated too, in the same
+  direction. No model in this log has a robust-SE cross-check yet for the
+  real-email side the way `sentence_model_persona_fe` is one for the
+  simulator side -- see "Next steps."
+- **Rounding each model's mean sentence count to one whole number is a
+  coarse rule.** A finer check -- cutting real email to lengths drawn from
+  each model's own reply-length distribution, not one fixed number --
+  gives the same conclusion for gpt-oss-120b (gap about 0.09, still not
+  significant) but moves Llama's gap to real email to about three times
+  its size under the simple rule. gpt-oss-120b's result holds up across
+  both methods; Llama's and gpt-oss-20b's are more sensitive to exactly
+  how the cut is done.
+- **The simulator and real-email fits are not the same shape.** The
+  simulator's is a persona random intercept, no rank covariate. Real
+  email's is a sender random intercept nested by email, plus a rank
+  covariate. Both measure the same outcome, but comparing their
+  coefficients is not comparing two identical model forms.
+- Real email and the simulator are still not the same kind of sample, the
+  same caveat the section above states.
+- Small, expected numerical noise: rerunning the same command can move a
+  p-value by about 0.001-0.002 (compare this section's .185 for Llama's
+  full-length gap against .183 quoted above) -- the underlying
+  variational-Bayes fit's optimizer is not bit-for-bit repeatable. This
+  does not change any conclusion in this log.
 
 ---
 
@@ -1081,13 +1185,22 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   this file. Commit `82cd1ae`. See "The main Q1 run reaches significance
   (Sep 23)" above for what changed and what didn't (the effect's own
   significance did not move; the "smaller than real email" comparison did).
+- **The Q1-versus-real comparison now has a length-matched version.** See
+  "Length-matching the Q1-vs-real comparison (Oct 4)" above. Covers what
+  used to be item 1 here. It found that gpt-oss-120b's "overshoot" is no
+  longer detectable once both sides are cut to the same reply length, and
+  also exposed a separate problem (see the next item).
 
-1. **Build the length-matched version of the Q1-versus-real comparison.**
-   `borrowed_words` already has this rule; orders-per-sentence needs it too.
-   gpt-oss-120b writes 1.98 sentences per reply against real email's 4.75,
-   and that gap alone could produce part of the +0.643 difference reported
-   above. Without a length-matched version, no Q1-versus-real comparison in
-   this log should be called established, gpt-oss-120b's least of all.
+1. **Build a robust-standard-error cross-check for the real-email fit.**
+   The length-matching work above found that real email's variational-Bayes
+   standard error (0.052, full length) is about half the size of a
+   sender-clustered robust one (0.115) -- the same kind of understatement
+   `sentence_model_persona_fe` was built to catch on the simulator side,
+   but real email has no such cross-check yet. With the robust error, the
+   full-length "gpt-oss-120b is significantly bigger than real email" claim
+   (p=.009) drops to roughly p=.14. Until this exists, treat every p-value
+   in this log that compares a model against real email as possibly
+   overstated, not just the ones already flagged.
 2. **A larger sample would help the three NVIDIA/Groq models too.** Every
    simulator interval in the four-model figure is 0.5 to 0.7 wide, against
    0.2 for real email's 2,202 emails -- true for DeepSeek, gpt-oss-20b and

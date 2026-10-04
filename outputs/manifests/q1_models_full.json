@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-04T13:55:06+00:00",
+  "generated_at": "2026-10-04T15:28:12+00:00",
   "models": {
     "Llama 3.2 3B (3 draws)": {
       "levels_by_direction": {
@@ -14,10 +14,10 @@
         "ci_high": 0.1996,
         "ci_low": 0.0542,
         "coefficient": 0.1269,
-        "coefficient_vb": 0.1567,
+        "coefficient_vb": 0.1566,
         "contrast": "is_imperative:down",
         "p": 0.0006,
-        "p_vb": 0.0021,
+        "p_vb": 0.0022,
         "se": 0.0371
       },
       "sentences_per_reply": 1.42,
@@ -55,21 +55,40 @@
           "real_p": 0.1327
         },
         "is_imperative:down": {
-          "difference": -0.0966,
-          "difference_p": 0.1835,
-          "grid": 0.1567,
-          "grid_p": 0.002076,
+          "difference": -0.0967,
+          "difference_p": 0.1846,
+          "grid": 0.1566,
+          "grid_p": 0.002211,
           "real": 0.2533,
           "real_p": 1.032e-06
         },
         "is_imperative:up": {
-          "difference": -0.0995,
-          "difference_p": 0.1434,
-          "grid": -0.029,
-          "grid_p": 0.5856,
+          "difference": -0.0997,
+          "difference_p": 0.144,
+          "grid": -0.0292,
+          "grid_p": 0.5853,
           "real": 0.0705,
           "real_p": 0.09575
         }
+      },
+      "vs_real_length_matched": {
+        "is_imperative:down": {
+          "difference": -0.0661,
+          "difference_p": 0.6308,
+          "grid": 0.1566,
+          "grid_p": 0.002211,
+          "real": 0.2228,
+          "real_p": 0.08107
+        },
+        "is_imperative:up": {
+          "difference": 0.0661,
+          "difference_p": 0.5863,
+          "grid": -0.0292,
+          "grid_p": 0.5853,
+          "real": -0.0953,
+          "real_p": 0.382
+        },
+        "max_sentences": 1
       }
     },
     "gpt-oss-120b": {
@@ -141,6 +160,25 @@
           "real": 0.0705,
           "real_p": 0.09575
         }
+      },
+      "vs_real_length_matched": {
+        "is_imperative:down": {
+          "difference": 0.0442,
+          "difference_p": 0.6805,
+          "grid": 0.481,
+          "grid_p": 4.205e-12,
+          "real": 0.4368,
+          "real_p": 9.641e-08
+        },
+        "is_imperative:up": {
+          "difference": -0.0515,
+          "difference_p": 0.6112,
+          "grid": 0.1026,
+          "grid_p": 0.1602,
+          "real": 0.154,
+          "real_p": 0.02813
+        },
+        "max_sentences": 2
       }
     },
     "gpt-oss-20b": {
@@ -212,6 +250,25 @@
           "real": 0.0705,
           "real_p": 0.09575
         }
+      },
+      "vs_real_length_matched": {
+        "is_imperative:down": {
+          "difference": -0.1264,
+          "difference_p": 0.1533,
+          "grid": 0.2548,
+          "grid_p": 5.795e-06,
+          "real": 0.3813,
+          "real_p": 2.482e-08
+        },
+        "is_imperative:up": {
+          "difference": -0.086,
+          "difference_p": 0.3013,
+          "grid": 0.0034,
+          "grid_p": 0.9534,
+          "real": 0.0895,
+          "real_p": 0.1277
+        },
+        "max_sentences": 3
       }
     }
   },
