@@ -679,10 +679,22 @@ means most of the run is instant.
 
 **The effect is real now, on two different ways of computing its standard
 error.** The code's own variational-Bayes fit gives p=.002. A
-persona-clustered fixed-effects fit, the same cross-check added this session
-for the four-model comparison above (`Q1Result.sentence_model_persona_fe`,
-commit `85e833a`), gives p=.0006. Both say the same thing: this was
-underpowered before, not absent.
+persona-clustered fixed-effects fit, pooled across all 3 draws, gives
+p=.0006. Both say the same thing: this was underpowered before, not absent.
+
+**Correction (Oct 4):** this section first attributed the p=.0006 number to
+`Q1Result.sentence_model_persona_fe`. That field is always fit on draw 1
+alone, which gives p=.248 on this same grid, not .0006 -- the .0006 was a
+by-hand fit of the same method on all 3 draws pooled, a fit the code itself
+had no field for at the time. `sentence_model_persona_fe_pooled` now covers
+that case (commit `561a2cb`), and `q1_models.py`'s model-comparison report
+now uses it instead of silently falling back to the draw-1 fit. Also:
+treat .0006 as anti-conservative, not as the headline p-value. It comes
+from clustering by only 10 personas, and the per-draw version of this same
+fit jumps around a lot (p=.248 on draw 1 alone, p=.018 on draw 3 alone) --
+a sign the pooled SE is smaller than it should be. The VB pooled p=.002 is
+the safer number to quote; the conclusion ("significant, not absent") does
+not change either way.
 
 **It looks smaller than real email's effect, but whether that gap is itself
 significant depends on which fit does the comparing -- corrected below,
@@ -760,6 +772,65 @@ predicted 0.62 -- the prediction says draws should agree more than they
 actually do, a question for later, not answered here); hedges per reply,
 ICC=0.260; decision, 55.5% of cells have all three draws agree exactly,
 Fleiss' kappa=0.367.
+
+---
+
+## Q1 across models, at full design scale (Oct 4)
+
+The "Does hierarchy change how directive a reply is" section above compared
+four models on the small pilot grid, 240 replies each. Since then, two more
+models have finished the full design (144 scenarios, about 1,440 replies):
+gpt-oss-20b (Sep 29) and gpt-oss-120b (Oct 2). Llama already had its own
+full-design result above. This section puts all three side by side, the
+same way the pilot ones were.
+
+| Model | Replies | Sentences | Writing-down effect | p | 95% interval | vs real email, p |
+|---|---:|---:|---:|---:|---|---:|
+| Real email | 2,202 | | +0.253 | <.001 | [+0.15, +0.35] | |
+| Llama 3.2 3B (3 draws) | 4,320 | 6,117 | +0.127 | .001 | [+0.05, +0.20] | .183 |
+| gpt-oss-20b | 1,428 | 3,886 | +0.258 | <.001 | [+0.18, +0.34] | .984 |
+| gpt-oss-120b | 1,440 | 2,571 | +0.483 | <.001 | [+0.35, +0.61] | .009 |
+
+Command: `python -m thesis.analysis.q1_models --grid "..." --figure-prefix
+q1_models_full_ --manifest outputs/manifests/q1_models_full.json`, reading
+each model's already-generated grid file, no API call. Manifest:
+`outputs/manifests/q1_models_full.json`. Figure:
+`docs/figures/q1_models_full_writing_down.png`.
+
+- **gpt-oss-20b did not show the effect at pilot scale (240 replies, p=.296)
+  but shows it clearly at full scale (1,428 replies, p<.001).** This was
+  underpowered before, the same story as Llama's own pilot-to-full jump
+  above.
+- **gpt-oss-20b's effect size is close to real email's: +0.258 against
+  +0.253.** The two are not significantly different (p=.984). This should
+  be read as "no evidence of a difference", not as proof the two are the
+  same -- that needs a different kind of test (equivalence testing, not
+  done here), and the comparison is a rough z-test with both sides' standard
+  errors backed out of a coefficient and a p-value, not a direct one.
+- **gpt-oss-120b still shows the effect at full scale, now bigger than real
+  email's.** The gap is significant against real email's main fit (p=.009)
+  but drops to p=.084 against real email's other fit (`q1_real.py`'s
+  sender-fixed-effects cross-check, which has a wider standard error).
+  Read this as not settled, not as a confirmed difference.
+- **gpt-oss-120b's replies are still short (1.98 sentences, against real
+  email's 4.75)**, the same caveat the pilot-scale section raised: a short
+  reply inflates the "orders per sentence" share for the same underlying
+  behavior. No length-matched version of this comparison exists yet (see
+  "Next steps").
+- **Llama still does not show a significant difference from real email**
+  (p=.183), matching the Sep-23 conclusion above.
+- **DeepSeek has no full-design grid.** Its NVIDIA access stopped working
+  (see Oct 3 session notes) before one could be generated, so it is not in
+  this table. A fourth model, qwen3.8-27b, is generating its full grid now
+  (`q1_direction_grid_qwen_full.parquet`, not finished as of Oct 4) and can
+  be added once it is.
+- **This table fixed a real bug on the way: see the correction above the
+  Sep-23 section.** `q1_models.py` used to build one model's row from a
+  draw-1-only fit for `coefficient`/`p` and a pooled fit for
+  `coefficient_vb`/the real-email comparison, in the same row. Llama is the
+  only model here with more than one draw, so it is the only row this bug
+  could have affected -- fixed before this table was generated (commit
+  `561a2cb`).
 
 ---
 
