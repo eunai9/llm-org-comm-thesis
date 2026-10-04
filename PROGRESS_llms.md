@@ -798,8 +798,9 @@ now fixed. qwen2.5:3b was rerun at the correct 300 and the result did
 not change. The other two were not rerun -- they fail by too wide a
 margin for 300 to change the answer.)
 
-Next step: find a bigger free judge model, or decide the free ones we
-have are not good enough.
+There is no bigger free-tier judge model left to try. Layer 1 stops here:
+no judge model tested is reliable enough to trust. This is the Layer 1
+result. Next step is Layer 2.
 
 ---
 
