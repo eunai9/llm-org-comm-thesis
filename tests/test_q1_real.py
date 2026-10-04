@@ -24,6 +24,7 @@ from thesis.analysis.q1_real import (
     select_loose,
     select_strict,
     standardized_levels,
+    truncate_sentences,
 )
 
 
@@ -247,6 +248,35 @@ def test_analysis_frames_join_direction_and_rank_onto_sentences() -> None:
     assert email_frame[RANK_COL].tolist() == ["2", "4"]
     assert sentence_frame["direction"].tolist() == ["up", "up", "down"]
     assert sentence_frame["is_reply"].tolist() == [False, False, True]
+
+
+def test_truncate_sentences_keeps_only_each_messages_first_n() -> None:
+    """A short model reply gets an inflated is_imperative share for the same
+    underlying behavior (one order out of two sentences is 50%; the same
+    order out of five is 20%), so comparing it against real email's full-
+    length replies confounds direction with length. Cutting each real email
+    down to a model's own reply length removes that confound -- the same
+    idea mirroring.py already uses for borrowed_words, applied here to
+    is_imperative. ``sentence_index`` is 0-based, so keeping 2 sentences
+    means keeping index 0 and 1."""
+    sentences = pd.DataFrame(
+        {
+            "message_uid": ["m1", "m1", "m1", "m2"],
+            "sentence_index": [0, 1, 2, 0],
+            "is_imperative": [1, 0, 1, 0],
+        }
+    )
+    truncated = truncate_sentences(sentences, max_sentences=2)
+
+    assert truncated["sentence_index"].tolist() == [0, 1, 0]
+    assert truncated[truncated["message_uid"] == "m1"]["is_imperative"].tolist() == [1, 0]
+
+
+def test_truncate_sentences_leaves_a_shorter_message_unchanged() -> None:
+    sentences = pd.DataFrame({"message_uid": ["m1"], "sentence_index": [0], "is_imperative": [1]})
+    truncated = truncate_sentences(sentences, max_sentences=5)
+
+    assert len(truncated) == 1
 
 
 def test_simulator_comparison_gives_no_difference_for_an_identical_contrast() -> None:

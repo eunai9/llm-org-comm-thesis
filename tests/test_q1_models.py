@@ -14,6 +14,7 @@ from thesis.analysis.q1 import generate_q1_grid, run_q1_analysis
 from thesis.analysis.q1_models import (
     PRIMARY,
     Z_95,
+    compare_with_length_matched_real,
     format_table,
     load_grid,
     parse_grid_arg,
@@ -21,6 +22,7 @@ from thesis.analysis.q1_models import (
     real_row,
     summarize_model,
 )
+from thesis.analysis.q1_real import fit_sentence_model
 from thesis.llm.base import Capabilities, CompletionRequest, CompletionResponse, Provider, Usage
 from thesis.llm.cache import ResponseCache
 from thesis.llm.cost import CostLedger
@@ -288,3 +290,69 @@ def test_summarize_model_uses_the_pooled_persona_fe_fit_for_a_multi_draw_grid(
     assert primary["coefficient"] == pytest.approx(pooled_coefficient, abs=1e-4)
     assert primary["p"] == pytest.approx(pooled_p, abs=1e-4)
     assert (pooled_coefficient, pooled_p) != (draw1_coefficient, draw1_p)
+
+
+# ------------------------------------------------- length-matched real email
+
+
+def _real_sentences_fixture() -> pd.DataFrame:
+    """8 senders (half rank 2, half rank 4), each writing one "down" and one
+    "lateral" message of 4 sentences. Sentence 0 carries the real direction
+    signal (imperative when writing down, not when lateral); sentences 1-3
+    are imperative regardless of direction -- padding that a full-length fit
+    sees but a length-matched fit (cut to 1 sentence) does not. This makes
+    the two fits give a different "down" coefficient by construction, not by
+    chance, so a test against this fixture is deterministic."""
+    rows = []
+    for i in range(8):
+        sender_id = i
+        rank = 2 if i % 2 == 0 else 4
+        for direction, first_sentence_imperative in (("down", 1), ("lateral", 0), ("up", 0)):
+            message_uid = f"m{i}_{direction}"
+            for sentence_index in range(4):
+                rows.append(
+                    {
+                        "message_uid": message_uid,
+                        "sentence_index": sentence_index,
+                        "is_imperative": first_sentence_imperative if sentence_index == 0 else 1,
+                        "direction": direction,
+                        "sender_id": sender_id,
+                        "sender_rank_level": rank,
+                        "is_reply": True,
+                    }
+                )
+    return pd.DataFrame(rows)
+
+
+def test_compare_with_length_matched_real_uses_the_models_own_mean_length(
+    tmp_path: Path,
+) -> None:
+    """``max_sentences`` must come from this grid's own sentences-per-reply,
+    rounded to the nearest whole sentence, not a fixed number -- a 3-draw
+    grid's ``sentence_features`` holds 3 draws' worth of sentences against
+    1 draw's worth of replies, so the ratio must use both as given, not
+    assume a single-draw grid's sentence/reply ratio of 1:1."""
+    result = _small_result(tmp_path)
+    expected = max(1, round(len(result.sentence_features) / len(result.reply_features)))
+
+    comparison = compare_with_length_matched_real(result, _real_sentences_fixture())
+
+    assert comparison["max_sentences"] == expected
+
+
+def test_compare_with_length_matched_real_differs_from_the_full_length_comparison(
+    tmp_path: Path,
+) -> None:
+    """The whole point of length-matching: real email's "down" coefficient
+    cut to a short model's own reply length must not be the same number as
+    real email's full-length "down" coefficient, because the fixture's
+    padding sentences (1-3) are imperative regardless of direction and only
+    a full-length fit sees them."""
+    result = _small_result(tmp_path)
+    real_sentences = _real_sentences_fixture()
+
+    matched = compare_with_length_matched_real(result, real_sentences)
+    full_length = fit_sentence_model(real_sentences, control_rank=True, per_email=True)
+
+    assert matched["max_sentences"] < 4
+    assert matched["is_imperative:down"]["real"] != round(full_length.contrast("down")[0], 4)

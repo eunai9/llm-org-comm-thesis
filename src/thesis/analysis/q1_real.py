@@ -299,6 +299,22 @@ def measure_emails(bodies: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     return emails, sentences
 
 
+def truncate_sentences(sentences: pd.DataFrame, max_sentences: int) -> pd.DataFrame:
+    """Keep only each message's first ``max_sentences`` sentences.
+
+    ``sentence_index`` is 0-based, so this keeps rows with index less than
+    ``max_sentences``. A model with short replies gets an inflated
+    ``is_imperative`` share for the same underlying behavior -- one order
+    out of two sentences is 50%, the same order out of five is 20% -- so
+    comparing it against real email's full-length replies confounds
+    direction with length. Cutting real email down to a model's own mean
+    reply length first removes that confound. Same idea ``mirroring.py``
+    already uses for ``borrowed_words`` (cutting a reply to a matching
+    length before comparing), applied here to ``is_imperative`` instead.
+    """
+    return sentences[sentences["sentence_index"] < max_sentences].reset_index(drop=True)
+
+
 def imperative_agreement(recomputed: pd.DataFrame, stored: pd.DataFrame) -> dict[str, Any]:
     """How closely the recomputed ``imperative_ratio`` matches the stored
     corpus value for the same messages."""

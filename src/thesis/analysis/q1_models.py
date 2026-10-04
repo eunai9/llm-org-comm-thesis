@@ -37,7 +37,7 @@ from thesis.analysis.q1 import (
     run_q1_analysis,
     sentence_levels_by_direction,
 )
-from thesis.analysis.q1_real import implied_se
+from thesis.analysis.q1_real import fit_sentence_model, implied_se, truncate_sentences
 from thesis.logging_setup import configure_logging, get_logger
 from thesis.paths import DOCS_FIGURES_DIR
 
@@ -136,6 +136,41 @@ def summarize_model(result: Q1Result, real_manifest: Mapping[str, Any]) -> dict[
         },
         "vs_real": compare_with_real(contrasts, real_manifest),
     }
+
+
+def compare_with_length_matched_real(
+    result: Q1Result, real_sentences: pd.DataFrame
+) -> dict[str, Any]:
+    """The ``is_imperative`` contrast against real email cut to this model's
+    own mean reply length, instead of real email's full length.
+
+    A model with short replies gets an inflated ``is_imperative`` share for
+    the same underlying behavior -- one order out of two sentences is 50%,
+    the same order out of five is 20% -- so comparing it against real
+    email's full-length replies confounds direction with reply length. This
+    cuts real email down to this model's own mean sentences per reply,
+    rounded to the nearest whole sentence (minimum 1), before fitting the
+    same real-email model ``q1_real.py`` already fits. Same z-test
+    ``compare_with_real`` already uses, with a length-matched real side
+    instead of the manifest's full-length one.
+    """
+    max_sentences = max(1, round(len(result.sentence_features) / len(result.reply_features)))
+    matched = fit_sentence_model(
+        truncate_sentences(real_sentences, max_sentences), control_rank=True, per_email=True
+    )
+    synthetic_real_manifest = {
+        "simulator_vs_real": {
+            f"is_imperative:{level}": {
+                "real": matched.contrast(level)[0],
+                "real_p": matched.contrast(level)[1],
+            }
+            for level in ("down", "up")
+        }
+    }
+    contrasts = grid_contrasts(result)
+    is_imperative_contrasts = {k: v for k, v in contrasts.items() if k.startswith("is_imperative:")}
+    comparison = compare_with_real(is_imperative_contrasts, synthetic_real_manifest)
+    return {"max_sentences": max_sentences, **comparison}
 
 
 def real_row(real_manifest: Mapping[str, Any]) -> dict[str, float]:
