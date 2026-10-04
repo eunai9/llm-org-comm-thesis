@@ -340,6 +340,43 @@ def test_compare_with_length_matched_real_uses_the_models_own_mean_length(
     assert comparison["max_sentences"] == expected
 
 
+def test_summarize_model_includes_the_length_matched_comparison_when_given_sentences(
+    tmp_path: Path,
+) -> None:
+    """``summarize_model`` must wire the new comparison in when a caller
+    supplies real-email sentences, using the exact same numbers
+    ``compare_with_length_matched_real`` produces on its own -- not a
+    second, independently-computed copy."""
+    result = _small_result(tmp_path)
+    real_sentences = _real_sentences_fixture()
+
+    row = summarize_model(result, REAL_MANIFEST_FULL, real_sentences=real_sentences)
+
+    expected = compare_with_length_matched_real(result, real_sentences)
+    # The fixture's perfect separation (100% vs 0%) leaves statsmodels'
+    # optimizer in a near-flat likelihood region, where two independent
+    # fits of the same data can land a few units in the last place apart --
+    # not a bug, so this compares with a tolerance, not exact equality.
+    assert row["vs_real_length_matched"]["max_sentences"] == expected["max_sentences"]
+    for key in ("is_imperative:down", "is_imperative:up"):
+        for field in ("grid", "real", "difference"):
+            assert row["vs_real_length_matched"][key][field] == pytest.approx(
+                expected[key][field], abs=1e-2
+            )
+
+
+def test_summarize_model_omits_the_length_matched_comparison_without_sentences(
+    tmp_path: Path,
+) -> None:
+    """Existing callers that do not have real-email sentences on hand must
+    keep working exactly as before -- no key, not an error."""
+    result = _small_result(tmp_path)
+
+    row = summarize_model(result, REAL_MANIFEST_FULL)
+
+    assert "vs_real_length_matched" not in row
+
+
 def test_compare_with_length_matched_real_differs_from_the_full_length_comparison(
     tmp_path: Path,
 ) -> None:

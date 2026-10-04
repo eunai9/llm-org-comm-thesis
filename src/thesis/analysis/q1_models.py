@@ -37,7 +37,12 @@ from thesis.analysis.q1 import (
     run_q1_analysis,
     sentence_levels_by_direction,
 )
-from thesis.analysis.q1_real import fit_sentence_model, implied_se, truncate_sentences
+from thesis.analysis.q1_real import (
+    SENTENCES_PATH,
+    fit_sentence_model,
+    implied_se,
+    truncate_sentences,
+)
 from thesis.logging_setup import configure_logging, get_logger
 from thesis.paths import DOCS_FIGURES_DIR
 
@@ -87,8 +92,20 @@ def load_grid(path: Path) -> Q1Grid:
     )
 
 
-def summarize_model(result: Q1Result, real_manifest: Mapping[str, Any]) -> dict[str, Any]:
+def summarize_model(
+    result: Q1Result,
+    real_manifest: Mapping[str, Any],
+    *,
+    real_sentences: pd.DataFrame | None = None,
+) -> dict[str, Any]:
     """One model's row: size, levels, contrasts and the comparison with real email.
+
+    ``real_sentences`` is optional: when given (real email's per-sentence
+    table, ``q1_real.SENTENCES_PATH``), the row also gets
+    ``vs_real_length_matched``, the same comparison cut to this model's own
+    reply length (see :func:`compare_with_length_matched_real`) -- a second,
+    independent check next to ``vs_real``'s full-length one, not a
+    replacement for it.
 
     ``PRIMARY`` is a sentence-level ``is_imperative`` contrast, so
     ``result.sentence_model``'s variational-Bayes (VB) fit is not the only
@@ -118,7 +135,7 @@ def summarize_model(result: Q1Result, real_manifest: Mapping[str, Any]) -> dict[
     se = persona_fe.std_errors[f"direction[T.{level}]"]
     n_replies = len(result.reply_features)
     n_sentences = len(result.sentence_features)
-    return {
+    row: dict[str, Any] = {
         "model": result.grid.model,
         "n_replies": n_replies,
         "n_sentences": n_sentences,
@@ -136,6 +153,9 @@ def summarize_model(result: Q1Result, real_manifest: Mapping[str, Any]) -> dict[
         },
         "vs_real": compare_with_real(contrasts, real_manifest),
     }
+    if real_sentences is not None:
+        row["vs_real_length_matched"] = compare_with_length_matched_real(result, real_sentences)
+    return row
 
 
 def compare_with_length_matched_real(
@@ -206,13 +226,18 @@ def plot_models_vs_real(
 
 
 def build_manifest(
-    grids: Sequence[tuple[str, Path]], real_manifest: Mapping[str, Any]
+    grids: Sequence[tuple[str, Path]],
+    real_manifest: Mapping[str, Any],
+    *,
+    real_sentences: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
     """Fit every grid and collect the numbers one section needs."""
     models: dict[str, dict[str, Any]] = {}
     for label, path in grids:
         log.info("fitting %s from %s", label, path)
-        models[label] = summarize_model(run_q1_analysis(load_grid(path)), real_manifest)
+        models[label] = summarize_model(
+            run_q1_analysis(load_grid(path)), real_manifest, real_sentences=real_sentences
+        )
     return {
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "real": real_row(real_manifest),
@@ -262,8 +287,11 @@ def main() -> None:
         msg = f"no real-email benchmark at {REAL_MANIFEST_PATH}; run thesis.analysis.q1_real first"
         raise FileNotFoundError(msg)
     real_manifest = json.loads(REAL_MANIFEST_PATH.read_text(encoding="utf-8"))
+    real_sentences = pd.read_parquet(SENTENCES_PATH) if SENTENCES_PATH.exists() else None
 
-    manifest = build_manifest([parse_grid_arg(g) for g in args.grid], real_manifest)
+    manifest = build_manifest(
+        [parse_grid_arg(g) for g in args.grid], real_manifest, real_sentences=real_sentences
+    )
     manifest_path = Path(args.manifest)
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
