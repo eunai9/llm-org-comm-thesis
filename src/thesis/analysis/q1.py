@@ -628,7 +628,10 @@ class Q1Result:
     large effect (found checking the gpt-oss-120b result, PROGRESS_llms.md's
     Q1 section); this fit is the honest cross-check, kept alongside the VB
     one rather than replacing it, the same way q1_real.py already
-    cross-checks the real-email benchmark.
+    cross-checks the real-email benchmark. It is fit on draw 1 alone, like
+    ``sentence_model`` -- ``sentence_model_persona_fe_pooled`` is its
+    multi-draw counterpart, the same way ``sentence_model_clustered`` is
+    ``sentence_model``'s.
     """
 
     grid: Q1Grid
@@ -645,6 +648,7 @@ class Q1Result:
     aggregated_reply_model: MixedModelResult | None = None
     aggregated_hedge_model: MixedModelResult | None = None
     sentence_model_clustered: SentenceModelResult | None = None
+    sentence_model_persona_fe_pooled: FixedEffectsResult | None = None
     reliability: GridReliability | None = None
 
 
@@ -683,6 +687,7 @@ def run_q1_analysis(grid: Q1Grid) -> Q1Result:
     aggregated_reply_model = None
     aggregated_hedge_model = None
     sentence_model_clustered = None
+    sentence_model_persona_fe_pooled = None
     reliability = None
     if n_draws > 1:
         aggregated = aggregate_replicates(
@@ -703,6 +708,13 @@ def run_q1_analysis(grid: Q1Grid) -> Q1Result:
         sentence_model_clustered = fit_sentence_level_model(
             clustered_sentences, "is_imperative", reference="lateral", nested_col="cell_base_id"
         )
+        sentence_model_persona_fe_pooled = fit_direction_fixed_effects(
+            sentence_features,
+            "is_imperative",
+            cluster_col="persona_id",
+            reference="lateral",
+            family="logistic",
+        )
         reliability = grid_draw_reliability(reply_features)
 
     return Q1Result(
@@ -720,6 +732,7 @@ def run_q1_analysis(grid: Q1Grid) -> Q1Result:
         aggregated_reply_model=aggregated_reply_model,
         aggregated_hedge_model=aggregated_hedge_model,
         sentence_model_clustered=sentence_model_clustered,
+        sentence_model_persona_fe_pooled=sentence_model_persona_fe_pooled,
         reliability=reliability,
     )
 

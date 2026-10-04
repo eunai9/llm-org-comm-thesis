@@ -92,20 +92,30 @@ def summarize_model(result: Q1Result, real_manifest: Mapping[str, Any]) -> dict[
 
     ``PRIMARY`` is a sentence-level ``is_imperative`` contrast, so
     ``result.sentence_model``'s variational-Bayes (VB) fit is not the only
-    one available for it -- ``result.sentence_model_persona_fe`` fits the
-    same outcome by persona-clustered fixed effects. The VB fit's p-value
-    comes from a posterior SD that understates uncertainty on a large
-    effect (found checking the gpt-oss-120b result, PROGRESS_llms.md's Q1
-    section), so the reported ``coefficient``/``p``/``se``/interval come
-    from the clustered fit, all from the same model rather than mixing a
-    VB coefficient with a clustered SE. The VB numbers stay in
-    ``coefficient_vb``/``p_vb`` for comparison, not dropped.
+    one available for it -- the persona-clustered fixed-effects fit
+    (``result.sentence_model_persona_fe``) is the honest cross-check. The VB
+    fit's p-value comes from a posterior SD that understates uncertainty on
+    a large effect (found checking the gpt-oss-120b result,
+    PROGRESS_llms.md's Q1 section), so the reported
+    ``coefficient``/``p``/``se``/interval come from the clustered fit, not
+    the VB one. The VB numbers stay in ``coefficient_vb``/``p_vb`` for
+    comparison, not dropped.
+
+    For a multi-draw grid, the pooled fixed-effects fit
+    (``sentence_model_persona_fe_pooled``) is used instead of the draw-1-only
+    one, matching ``grid_contrasts``'s own preference for the pooled fit --
+    ``coefficient_vb``/``p_vb`` (from ``contrasts``, via ``grid_contrasts``)
+    already come from the pooled fit for such a grid, so using the
+    draw-1-only persona-FE fit here mixed a draw-1 number with pooled ones in
+    the same row (found checking the Oct 4 full-design comparison against
+    the Sep 23 PROGRESS_llms.md entry, where the two disagreed).
     """
     contrasts = grid_contrasts(result)
     vb_coefficient, p_vb = contrasts[PRIMARY]
     level = PRIMARY.split(":")[1]
-    coefficient, p_value = result.sentence_model_persona_fe.contrast(level)
-    se = result.sentence_model_persona_fe.std_errors[f"direction[T.{level}]"]
+    persona_fe = result.sentence_model_persona_fe_pooled or result.sentence_model_persona_fe
+    coefficient, p_value = persona_fe.contrast(level)
+    se = persona_fe.std_errors[f"direction[T.{level}]"]
     n_replies = len(result.reply_features)
     n_sentences = len(result.sentence_features)
     return {

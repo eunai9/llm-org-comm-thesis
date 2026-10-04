@@ -1,0 +1,242 @@
+{
+  "generated_at": "2026-10-04T13:55:06+00:00",
+  "models": {
+    "Llama 3.2 3B (3 draws)": {
+      "levels_by_direction": {
+        "down": 0.3492139113863745,
+        "lateral": 0.3209509658246657,
+        "up": 0.31915957978989495
+      },
+      "model": "llama3.2:3b",
+      "n_replies": 4320,
+      "n_sentences": 6117,
+      "primary": {
+        "ci_high": 0.1996,
+        "ci_low": 0.0542,
+        "coefficient": 0.1269,
+        "coefficient_vb": 0.1567,
+        "contrast": "is_imperative:down",
+        "p": 0.0006,
+        "p_vb": 0.0021,
+        "se": 0.0371
+      },
+      "sentences_per_reply": 1.42,
+      "vs_real": {
+        "hedge_rate:down": {
+          "difference": -0.0535,
+          "difference_p": 0.0004,
+          "grid": -0.0581,
+          "grid_p": 1.419e-05,
+          "real": -0.0046,
+          "real_p": 0.5261
+        },
+        "hedge_rate:up": {
+          "difference": -0.0225,
+          "difference_p": 0.1278,
+          "grid": -0.0275,
+          "grid_p": 0.03959,
+          "real": -0.005,
+          "real_p": 0.4293
+        },
+        "imperative_ratio:down": {
+          "difference": -0.0213,
+          "difference_p": 0.3864,
+          "grid": 0.0214,
+          "grid_p": 0.2944,
+          "real": 0.0427,
+          "real_p": 0.001794
+        },
+        "imperative_ratio:up": {
+          "difference": -0.0285,
+          "difference_p": 0.2263,
+          "grid": -0.0108,
+          "grid_p": 0.5962,
+          "real": 0.0177,
+          "real_p": 0.1327
+        },
+        "is_imperative:down": {
+          "difference": -0.0966,
+          "difference_p": 0.1835,
+          "grid": 0.1567,
+          "grid_p": 0.002076,
+          "real": 0.2533,
+          "real_p": 1.032e-06
+        },
+        "is_imperative:up": {
+          "difference": -0.0995,
+          "difference_p": 0.1434,
+          "grid": -0.029,
+          "grid_p": 0.5856,
+          "real": 0.0705,
+          "real_p": 0.09575
+        }
+      }
+    },
+    "gpt-oss-120b": {
+      "levels_by_direction": {
+        "down": 0.4107981220657277,
+        "lateral": 0.30069124423963134,
+        "up": 0.32314923619271446
+      },
+      "model": "openai/gpt-oss-120b@low",
+      "n_replies": 1440,
+      "n_sentences": 2571,
+      "primary": {
+        "ci_high": 0.6145,
+        "ci_low": 0.3513,
+        "coefficient": 0.4829,
+        "coefficient_vb": 0.481,
+        "contrast": "is_imperative:down",
+        "p": 0.0,
+        "p_vb": 0.0,
+        "se": 0.0671
+      },
+      "sentences_per_reply": 1.79,
+      "vs_real": {
+        "hedge_rate:down": {
+          "difference": 0.0039,
+          "difference_p": 0.5915,
+          "grid": -0.0007,
+          "grid_p": 0.2207,
+          "real": -0.0046,
+          "real_p": 0.5261
+        },
+        "hedge_rate:up": {
+          "difference": 0.0043,
+          "difference_p": 0.4978,
+          "grid": -0.0007,
+          "grid_p": 0.2207,
+          "real": -0.005,
+          "real_p": 0.4293
+        },
+        "imperative_ratio:down": {
+          "difference": 0.059,
+          "difference_p": 0.0198,
+          "grid": 0.1017,
+          "grid_p": 1.847e-06,
+          "real": 0.0427,
+          "real_p": 0.001794
+        },
+        "imperative_ratio:up": {
+          "difference": -0.0033,
+          "difference_p": 0.8926,
+          "grid": 0.0144,
+          "grid_p": 0.4993,
+          "real": 0.0177,
+          "real_p": 0.1327
+        },
+        "is_imperative:down": {
+          "difference": 0.2277,
+          "difference_p": 0.0086,
+          "grid": 0.481,
+          "grid_p": 4.205e-12,
+          "real": 0.2533,
+          "real_p": 1.032e-06
+        },
+        "is_imperative:up": {
+          "difference": 0.0321,
+          "difference_p": 0.7041,
+          "grid": 0.1026,
+          "grid_p": 0.1602,
+          "real": 0.0705,
+          "real_p": 0.09575
+        }
+      }
+    },
+    "gpt-oss-20b": {
+      "levels_by_direction": {
+        "down": 0.4204809930178433,
+        "lateral": 0.3602941176470588,
+        "up": 0.36135812449474536
+      },
+      "model": "openai/gpt-oss-20b@low",
+      "n_replies": 1428,
+      "n_sentences": 3886,
+      "primary": {
+        "ci_high": 0.3377,
+        "ci_low": 0.1783,
+        "coefficient": 0.258,
+        "coefficient_vb": 0.2548,
+        "contrast": "is_imperative:down",
+        "p": 0.0,
+        "p_vb": 0.0,
+        "se": 0.0407
+      },
+      "sentences_per_reply": 2.72,
+      "vs_real": {
+        "hedge_rate:down": {
+          "difference": 0.0044,
+          "difference_p": 0.5469,
+          "grid": -0.0002,
+          "grid_p": 0.8736,
+          "real": -0.0046,
+          "real_p": 0.5261
+        },
+        "hedge_rate:up": {
+          "difference": 0.0038,
+          "difference_p": 0.5571,
+          "grid": -0.0012,
+          "grid_p": 0.2711,
+          "real": -0.005,
+          "real_p": 0.4293
+        },
+        "imperative_ratio:down": {
+          "difference": 0.0163,
+          "difference_p": 0.4828,
+          "grid": 0.059,
+          "grid_p": 0.001607,
+          "real": 0.0427,
+          "real_p": 0.001794
+        },
+        "imperative_ratio:up": {
+          "difference": -0.0152,
+          "difference_p": 0.4914,
+          "grid": 0.0025,
+          "grid_p": 0.8931,
+          "real": 0.0177,
+          "real_p": 0.1327
+        },
+        "is_imperative:down": {
+          "difference": 0.0015,
+          "difference_p": 0.9841,
+          "grid": 0.2548,
+          "grid_p": 5.795e-06,
+          "real": 0.2533,
+          "real_p": 1.032e-06
+        },
+        "is_imperative:up": {
+          "difference": -0.0671,
+          "difference_p": 0.3555,
+          "grid": 0.0034,
+          "grid_p": 0.9534,
+          "real": 0.0705,
+          "real_p": 0.09575
+        }
+      }
+    }
+  },
+  "real": {
+    "ci_high": 0.3549,
+    "ci_low": 0.1517,
+    "coefficient": 0.2533,
+    "p": 1.032e-06,
+    "se": 0.0518
+  },
+  "real_levels_by_direction": {
+    "hedge_rate": {
+      "down": 0.0406,
+      "lateral": 0.0452,
+      "up": 0.0403
+    },
+    "imperative_ratio": {
+      "down": 0.186,
+      "lateral": 0.1433,
+      "up": 0.1609
+    },
+    "is_imperative": {
+      "down": 0.1752,
+      "lateral": 0.1417,
+      "up": 0.1504
+    }
+  }
+}

@@ -209,6 +209,41 @@ def _small_result(tmp_path: Path):  # type: ignore[no-untyped-def]
     return run_q1_analysis(grid)
 
 
+def _small_result_two_draws(tmp_path: Path):  # type: ignore[no-untyped-def]
+    """Same personas as :func:`_small_result`, but two draws per cell --
+    what exercises the multi-draw pooling path in ``run_q1_analysis``."""
+    personas = [
+        Persona(
+            persona_id=f"p{i}",
+            seniority_rank=i + 1,
+            rank_label=f"Rank {i + 1}",
+            department="Trading",
+            style=PersonaStyle(
+                mean_tokens=40.0 + 10.0 * (i + 1),
+                mean_recipients=2.0,
+                imperative_ratio=0.10 + 0.02 * (i + 1),
+                hedge_rate=0.03,
+                deference_rate=0.005,
+                question_ratio=0.09,
+            ),
+            n_people=10,
+            n_messages=100,
+            derivation="cell",
+        )
+        for i in range(3)
+    ]
+    grid = generate_q1_grid(
+        _FakeClient(),
+        model="llama3.2:3b",
+        personas=personas,
+        stores={},
+        cache=ResponseCache(tmp_path / "cache"),
+        ledger=CostLedger(tmp_path / "ledger.csv"),
+        n_replicates=2,
+    )
+    return run_q1_analysis(grid)
+
+
 def test_summarize_model_reports_a_persona_clustered_p_alongside_the_vb_one(
     tmp_path: Path,
 ) -> None:
@@ -228,3 +263,28 @@ def test_summarize_model_reports_a_persona_clustered_p_alongside_the_vb_one(
     assert primary["coefficient"] == pytest.approx(clustered_coefficient, abs=1e-4)
     assert primary["coefficient_vb"] == pytest.approx(vb_coefficient, abs=1e-4)
     assert primary["ci_low"] < primary["coefficient"] < primary["ci_high"]
+
+
+def test_summarize_model_uses_the_pooled_persona_fe_fit_for_a_multi_draw_grid(
+    tmp_path: Path,
+) -> None:
+    """``summarize_model`` built ``primary.coefficient``/``p`` from
+    ``sentence_model_persona_fe``, which ``run_q1_analysis`` always fits on
+    draw 1 alone -- while ``coefficient_vb``/``vs_real`` in the same row
+    came from ``grid_contrasts``, which already prefers the pooled fit for a
+    multi-draw grid. So one reported row mixed a draw-1-only fit with pooled
+    fits, the same bug ``grid_contrasts`` itself had before it was fixed
+    (see test_q1.py's ``test_grid_contrasts_uses_the_pooled_fit_for_a_multi_draw_grid``).
+    Found checking the Oct 4 full-design comparison against the Sep 23
+    PROGRESS_llms.md entry, where the two disagreed (PROGRESS_llms.md, Oct 4)."""
+    result = _small_result_two_draws(tmp_path)
+    assert result.sentence_model_persona_fe_pooled is not None
+
+    row = summarize_model(result, REAL_MANIFEST_FULL)
+
+    pooled_coefficient, pooled_p = result.sentence_model_persona_fe_pooled.contrast("down")
+    draw1_coefficient, draw1_p = result.sentence_model_persona_fe.contrast("down")
+    primary = row["primary"]
+    assert primary["coefficient"] == pytest.approx(pooled_coefficient, abs=1e-4)
+    assert primary["p"] == pytest.approx(pooled_p, abs=1e-4)
+    assert (pooled_coefficient, pooled_p) != (draw1_coefficient, draw1_p)

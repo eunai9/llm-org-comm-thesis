@@ -411,6 +411,7 @@ def test_run_q1_analysis_single_draw_has_no_multi_draw_fields(small_grid) -> Non
     assert result.aggregated_reply_model is None
     assert result.aggregated_hedge_model is None
     assert result.sentence_model_clustered is None
+    assert result.sentence_model_persona_fe_pooled is None
     assert result.reliability is None
     assert result.reply_model.n_observations == len(small_grid.frame)
     assert result.decision_association.n_observations == len(small_grid.frame)
@@ -449,11 +450,30 @@ def test_run_q1_analysis_populates_multi_draw_fields(small_grid_two_draws) -> No
     assert result.aggregated_reply_model is not None
     assert result.aggregated_hedge_model is not None
     assert result.sentence_model_clustered is not None
+    assert result.sentence_model_persona_fe_pooled is not None
     assert result.reliability is not None
     # One row per cell after pairing draw 1 with draw 2: 3 personas x 24 scenarios.
     assert result.reliability.n_cells == 3 * 24
     # The headline (draw-1-only) fields see only half the rows.
     assert result.reply_model.n_observations == 3 * 24
+
+
+def test_sentence_model_persona_fe_pooled_uses_every_draw(small_grid_two_draws) -> None:  # type: ignore[no-untyped-def]
+    """``sentence_model_persona_fe`` is always fit on draw 1 alone (see its
+    own field), the same limitation ``sentence_model_clustered`` fixes for
+    the VB fit. Without a pooled persona-FE fit too, a caller that wants the
+    persona-clustered cross-check for a multi-draw grid has no pooled option
+    and silently gets the draw-1-only one instead -- this is the bug
+    ``q1_models.summarize_model`` had: its `coefficient`/`p` came from
+    draw 1 alone while its `coefficient_vb`/`vs_real` came from the pooled
+    fit, in the same reported row (PROGRESS_llms.md, Oct 4)."""
+    result = run_q1_analysis(small_grid_two_draws)
+    assert result.sentence_model_persona_fe_pooled is not None
+
+    pooled_coefficient, pooled_p = result.sentence_model_persona_fe_pooled.contrast("down")
+    draw1_coefficient, draw1_p = result.sentence_model_persona_fe.contrast("down")
+
+    assert (pooled_coefficient, pooled_p) != (draw1_coefficient, draw1_p)
 
 
 def test_format_multi_draw_report_is_empty_for_a_single_draw(small_grid) -> None:  # type: ignore[no-untyped-def]
