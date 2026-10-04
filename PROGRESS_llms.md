@@ -798,9 +798,13 @@ now fixed. qwen2.5:3b was rerun at the correct 300 and the result did
 not change. The other two were not rerun -- they fail by too wide a
 margin for 300 to change the answer.)
 
-There is no bigger free-tier judge model left to try. Layer 1 stops here:
-no judge model tested is reliable enough to trust. This is the Layer 1
-result. Next step is Layer 2.
+There is no bigger free-tier judge model left to try.
+
+**Decision (Oct 4): the judge model idea is dropped.** Reason: every judge
+model tested fails the self-consistency check, and the project has no
+access to a bigger model to try next, since it uses free-tier models only.
+A judge that disagrees with itself cannot be trusted to compare real email
+against generated email, so Layer 1 as designed cannot run.
 
 ---
 
