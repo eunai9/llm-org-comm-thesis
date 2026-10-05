@@ -675,9 +675,7 @@ def main() -> None:
     pairs = pd.read_parquet(args.pairs)
     scored, summary = run(pairs, pd.read_csv(args.coded), semantic=args.semantic)
     if args.compare_to:
-        summary["compared_with_previous_prompt"] = asdict(
-            compare_runs(pd.read_parquet(args.compare_to), pairs)
-        )
+        summary["compared_with_run"] = asdict(compare_runs(pd.read_parquet(args.compare_to), pairs))
     scored.to_csv(args.out, index=False)
     for path in plot(scored, summary, figure_prefix=args.figure_prefix):
         log.info("wrote %s", path)

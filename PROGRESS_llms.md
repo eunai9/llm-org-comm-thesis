@@ -1190,6 +1190,15 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   used to be item 1 here. It found that gpt-oss-120b's "overshoot" is no
   longer detectable once both sides are cut to the same reply length, and
   also exposed a separate problem (see the next item).
+- **`mirroring.py`'s `--compare-to` summary key is renamed.** It saved its
+  comparison under `compared_with_previous_prompt`, the wrong name since
+  `compare_runs` compares any two runs -- two prompt versions or two
+  models. Now `compared_with_run`. Nothing reads the old key
+  programmatically, so this is code-only; the four manifests already saved
+  under the old name (`mirroring_gpt_oss.json`,
+  `mirroring_gpt_oss_120b.json`, `mirroring_deepseek.json`,
+  `mirroring_act.json`) are left as they are, historical artifacts of the
+  code at the time, not regenerated.
 
 1. **Build a robust-standard-error cross-check for the real-email fit.**
    The length-matching work above found that real email's variational-Bayes
@@ -1226,9 +1235,6 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
    swapped. This needs new model calls.
 7. **Move the line-removal rule into the corpus cleaner**, so every analysis
    uses the same clean real-reply text instead of a one-off script.
-8. **Rename one summary key.** `mirroring.py` saves its comparison under
-   `compared_with_previous_prompt`, which is the wrong name for a comparison
-   between models.
-9. **Back up `runs/_cache`.** It holds every reply this project has
+8. **Back up `runs/_cache`.** It holds every reply this project has
    received and exists only on this laptop. It must never go into git,
    because the prompts contain Enron text.
