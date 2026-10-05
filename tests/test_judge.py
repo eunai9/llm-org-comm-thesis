@@ -359,6 +359,45 @@ def test_local_model_scores_are_not_billed(tmp_path: Path) -> None:
     assert CostLedger(ledger_path).total_usd() == 0.0
 
 
+def test_nim_model_scores_are_not_billed(tmp_path: Path) -> None:
+    """The same bug ``test_local_model_scores_are_not_billed`` caught, one
+    provider over: ``score_items``'s billable check named ``is_local_model``
+    but not ``is_nim_model`` or ``is_groq_model``, unlike ``sim/run.py``'s
+    equivalent check, which names all four. Never caught before this,
+    because no earlier caller had judged with an NVIDIA or Groq model --
+    judge_swap.py's pilot only ever judged with Ollama."""
+    client = _ScriptedClient([_response(_full_payload(), model="nim/openai/gpt-oss-20b@low")])
+    ledger_path = tmp_path / "ledger.csv"
+    _, summary = score_items(
+        [_item("i1")],
+        client,
+        variant="neutral",
+        model="nim/openai/gpt-oss-20b@low",
+        cache=ResponseCache(tmp_path / "cache"),
+        ledger=CostLedger(ledger_path),
+        run_id="r1",
+    )
+    assert summary.total_cost_usd == 0.0
+    assert CostLedger(ledger_path).total_usd() == 0.0
+
+
+def test_groq_model_scores_are_not_billed(tmp_path: Path) -> None:
+    """Same gap, the Groq side."""
+    client = _ScriptedClient([_response(_full_payload(), model="groq/openai/gpt-oss-120b@low")])
+    ledger_path = tmp_path / "ledger.csv"
+    _, summary = score_items(
+        [_item("i1")],
+        client,
+        variant="neutral",
+        model="groq/openai/gpt-oss-120b@low",
+        cache=ResponseCache(tmp_path / "cache"),
+        ledger=CostLedger(ledger_path),
+        run_id="r1",
+    )
+    assert summary.total_cost_usd == 0.0
+    assert CostLedger(ledger_path).total_usd() == 0.0
+
+
 def test_results_preserve_provenance_for_analysis(tmp_path: Path) -> None:
     """The one place is_generated is allowed to surface -- after scoring, for
     the calling analysis code, never inside the prompt itself."""

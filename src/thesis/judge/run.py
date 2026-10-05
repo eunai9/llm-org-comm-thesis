@@ -25,6 +25,8 @@ from thesis.judge.rubric import build_judge_schema, validate_judge_response
 from thesis.llm.base import CompletionRequest, CompletionResponse, Message, Provider
 from thesis.llm.cache import ResponseCache, cache_key
 from thesis.llm.cost import CostLedger, LedgerEntry, cost_usd
+from thesis.llm.groq_client import is_groq_model
+from thesis.llm.nvidia_client import is_nim_model
 from thesis.llm.ollama_client import is_local_model
 from thesis.llm.stub_client import is_stub_model
 from thesis.logging_setup import get_logger
@@ -165,15 +167,20 @@ def score_items(
         )
         summary.n_scored += 1
 
-        # A local (Ollama) or stub response never reached a paid provider,
-        # the same distinction sim/run.py's _is_billable() makes -- missing
-        # is_local_model here would crash on an unpriced "local/..." model id
-        # rather than silently mis-billing, but it's still wrong: it would
-        # block exactly the free-mode judging this project relies on.
+        # A local (Ollama), NVIDIA, Groq, or stub response never reached a
+        # paid provider, the same distinction sim/run.py's _is_billable()
+        # makes -- missing any one of these here would crash on an unpriced
+        # model id rather than silently mis-billing, but it's still wrong:
+        # it would block exactly the free-mode judging this project relies
+        # on. This gap (is_local_model only, not is_nim_model/is_groq_model)
+        # went uncaught until the four-free-tier-model judge-swap run (Q3
+        # next-steps item 4) first judged with an NVIDIA/Groq model.
         billable = (
             not response.from_cache
             and not is_stub_model(response.model)
             and not is_local_model(response.model)
+            and not is_nim_model(response.model)
+            and not is_groq_model(response.model)
         )
         cost = cost_usd(response.model, response.usage) if billable else 0.0
         summary.total_cost_usd += cost

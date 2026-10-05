@@ -142,6 +142,13 @@ JUDGE_SWAP_TWO_TONE_GRID_PATH: Path = INTERIM_DIR / "judge_swap_grid_two_tone.pa
 JUDGE_SWAP_TWO_TONE_SCORES_PATH: Path = INTERIM_DIR / "judge_swap_scores_two_tone.parquet"
 JUDGE_SWAP_TWO_TONE_MANIFEST_PATH: Path = MANIFESTS_DIR / "judge_swap_two_tone.json"
 
+# Where the four-model free-tier run writes -- next-steps item 4, the
+# project's real four models and three families instead of the two local
+# 3B stand-ins the pilot and two-tone files above hold.
+JUDGE_SWAP_FREE_TIER_GRID_PATH: Path = INTERIM_DIR / "judge_swap_grid_free_tier.parquet"
+JUDGE_SWAP_FREE_TIER_SCORES_PATH: Path = INTERIM_DIR / "judge_swap_scores_free_tier.parquet"
+JUDGE_SWAP_FREE_TIER_MANIFEST_PATH: Path = MANIFESTS_DIR / "judge_swap_free_tier.json"
+
 # Which scenarios a run uses. "pilot" is the 6 neutral-tone scenarios
 # sections 23 and 41 report. "two_tone" adds the assertive tone, so 12
 # scenarios and, with 10 personas, 120 cells per generator model. The 6 are
@@ -171,6 +178,54 @@ SECTION_41_EFFECTS: dict[str, dict[str, float]] = {
 # Section 23's own pair, in the order its cell means below are keyed by --
 # the second model is the reference level both factors are measured against.
 DEFAULT_GENERATORS: tuple[str, str] = ("llama3.2:3b", "qwen2.5:3b")
+
+# The project's real four free-tier models across three families (see
+# PROGRESS_llms.md section 2), for next-steps item 4: a judge-swap study
+# that no longer uses two local models standing in for the plan's
+# cross-provider design. Llama is last -- the reference level every effect
+# below is measured against, the same role it plays throughout the rest of
+# this project's model comparisons.
+FREE_TIER_GENERATORS: tuple[str, str, str, str] = (
+    "deepseek-ai/deepseek-v4-flash-0731",
+    "openai/gpt-oss-20b@low",
+    "openai/gpt-oss-120b@low",
+    "llama3.2:3b",
+)
+
+# Which provider serves a model that is not a local Ollama model. Anything
+# not listed here is assumed local -- the default every two-local-model
+# caller of this module already relies on.
+_MODEL_PROVIDER: dict[str, str] = {
+    "deepseek-ai/deepseek-v4-flash-0731": "nvidia",
+    "openai/gpt-oss-20b@low": "nvidia",
+    "openai/gpt-oss-120b@low": "groq",
+}
+
+
+def client_for_model(model: str, *, ollama_host: str | None = None) -> LLMClient:
+    """The client that reaches ``model``: NVIDIA's or Groq's free tier for
+    a model this project reaches that way, local Ollama for everything
+    else.
+
+    ``q1.py`` and ``pairs.py`` each duplicate a ``--local``/``--nvidia``/
+    ``--groq`` CLI flag for this, since each of them only ever calls one
+    model per run. This module calls several models, possibly from
+    different providers, in the same run (every generator, then every
+    judge), so it needs a lookup instead of a flag.
+    """
+    provider = _MODEL_PROVIDER.get(model)
+    if provider == "nvidia":
+        from thesis.llm.nvidia_client import NvidiaClient
+
+        return NvidiaClient()
+    if provider == "groq":
+        from thesis.llm.groq_client import GroqClient
+
+        return GroqClient()
+    from thesis.llm.ollama_client import OllamaClient
+
+    return OllamaClient(model, host=ollama_host) if ollama_host else OllamaClient(model)
+
 
 # Section 23's four cell means, read off ``docs/figures/judge_swap_interaction.png``
 # (also hardcoded in ``analysis/plots.py``'s ``main()``): mean rubric score,
@@ -786,6 +841,76 @@ def effect_estimates(
     ]
 
 
+def effect_estimates_multi(
+    overall_model: InteractionModelResult,
+    plausibility_model: InteractionModelResult,
+    *,
+    generator_alts: Sequence[str],
+    judge_alts: Sequence[str],
+) -> list[JudgeSwapEffect]:
+    """:func:`effect_estimates` generalized to any number of non-reference
+    levels per factor, for the four free-tier models (one generator-quality
+    row per alt generator, one judge-generosity row per alt judge) rather
+    than the single alt the two-local-model pilot design had.
+
+    Self-preference is reported only for a model that is an alt level of
+    *both* factors -- a judge favoring its own writing is what Q3 asks
+    about, and that is the ``interaction(model, model)`` term, which exists
+    only when ``model`` wrote some of the replies and also judged some of
+    them.
+    """
+    effects: list[JudgeSwapEffect] = []
+    for alt in generator_alts:
+        coefficient, p = overall_model.main_effect("generator", alt)
+        effects.append(
+            JudgeSwapEffect(
+                f"generator_quality_{_model_slug(alt)}",
+                f"generator quality: {alt}",
+                "score_overall",
+                coefficient,
+                overall_model.main_effect_std_error("generator", alt),
+                p,
+            )
+        )
+    for alt in judge_alts:
+        coefficient, p = overall_model.main_effect("judge", alt)
+        effects.append(
+            JudgeSwapEffect(
+                f"judge_generosity_{_model_slug(alt)}",
+                f"judge generosity: {alt}",
+                "score_overall",
+                coefficient,
+                overall_model.main_effect_std_error("judge", alt),
+                p,
+            )
+        )
+    own_family = sorted(set(generator_alts) & set(judge_alts))
+    for model in own_family:
+        coefficient, p = overall_model.interaction(model, model)
+        effects.append(
+            JudgeSwapEffect(
+                f"self_preference_{_model_slug(model)}",
+                f"self-preference: {model} (overall rubric mean)",
+                "score_overall",
+                coefficient,
+                overall_model.interaction_std_error(model, model),
+                p,
+            )
+        )
+        plausibility_coefficient, plausibility_p = plausibility_model.interaction(model, model)
+        effects.append(
+            JudgeSwapEffect(
+                f"self_preference_plausibility_{_model_slug(model)}",
+                f"self-preference: {model} (corpus_plausibility only)",
+                "score_corpus_plausibility",
+                plausibility_coefficient,
+                plausibility_model.interaction_std_error(model, model),
+                plausibility_p,
+            )
+        )
+    return effects
+
+
 @dataclass(frozen=True, slots=True)
 class JudgeSwapFit:
     """One subset of a run, fitted: how big it was and what it found."""
@@ -831,6 +956,39 @@ def fit_subset(
             plausibility_model,
             generator_alt=generator_alt,
             judge_alt=judge_alt,
+        ),
+    )
+
+
+def fit_subset_multi(
+    replies: pd.DataFrame,
+    scores: pd.DataFrame,
+    *,
+    label: str,
+    generator_alts: Sequence[str],
+    generator_ref: str,
+    judge_alts: Sequence[str],
+    judge_ref: str,
+) -> JudgeSwapFit:
+    """:func:`fit_subset` generalized to any number of non-reference model
+    levels -- see :func:`effect_estimates_multi`. Returns the same
+    :class:`JudgeSwapFit` shape, so every reader of ``fit.effect(key)``
+    works unchanged; only how many effects it holds, and their keys,
+    differ from the two-model pilot."""
+    overall_model, plausibility_model = fit_judge_swap_models(
+        scores, generator_reference=generator_ref, judge_reference=judge_ref
+    )
+    return JudgeSwapFit(
+        label=label,
+        n_replies=len(replies),
+        n_scores=len(scores),
+        overall_model=overall_model,
+        plausibility_model=plausibility_model,
+        effects=effect_estimates_multi(
+            overall_model,
+            plausibility_model,
+            generator_alts=generator_alts,
+            judge_alts=judge_alts,
         ),
     )
 
@@ -987,6 +1145,72 @@ def build_two_tone_manifest(
     }
 
 
+def format_multi_model_report(fit: JudgeSwapFit, scores: pd.DataFrame) -> str:
+    """The report for a run with more than two generators/judges -- the
+    free-tier four-model design. Unlike :func:`format_report`, there is no
+    historical "old vs new" row: no earlier run ever covered more than two
+    models, so there is nothing recorded to compare against."""
+    own_family = scores[scores["generator"] == scores["judge"]]
+    own_family_means = own_family.groupby("generator")["score_overall"].mean()
+
+    header = f"{'effect':<48}{'coefficient':>12}{'se':>8}{'p':>8}"
+    lines = [
+        f"Q3 (judge-swap), {fit.label}",
+        "=" * len(header),
+        f"{fit.n_replies} replies, {fit.n_scores} scores",
+        "",
+        header,
+        "-" * len(header),
+    ]
+    for effect in fit.effects:
+        lines.append(
+            f"{effect.label:<48}{effect.coefficient:>+12.3f}{effect.std_error:>8.3f}"
+            f"{effect.p_value:>8.3f}"
+        )
+    lines += [
+        "",
+        f"overall-rubric persona variance: {fit.overall_model.group_variance:.4f}",
+        "",
+        "own-family mean score (generator == judge):",
+        own_family_means.to_string(),
+    ]
+    return "\n".join(lines)
+
+
+def build_multi_model_manifest(
+    fit: JudgeSwapFit,
+    *,
+    generators: Sequence[str],
+    judges: Sequence[str],
+    design: JudgeSwapDesign,
+    n_from_cache: int,
+    n_generated: int,
+) -> dict[str, Any]:
+    """Everything the write-up quotes for a more-than-two-model run.
+
+    Records ``prompt_text_hash``, the same provenance fix every grid
+    manifest in this project has carried since section 51.
+    """
+    return {
+        "run": {
+            "design": design,
+            "generators": list(generators),
+            "judges": list(judges),
+            "prompt_text_hash": prompt_text_hash(),
+            "n_from_cache": n_from_cache,
+            "n_generated": n_generated,
+        },
+        "result": _effects_payload(fit),
+        "caveats": [
+            "one draw per cell; the model reproduces its own decision 60% of the "
+            "time (PROGRESS.md section 50)",
+            "each free-tier model's own self-preference coefficient is measured "
+            "against llama3.2:3b as the reference level, not against the other "
+            "two free-tier models directly",
+        ],
+    }
+
+
 def _report(
     replies: pd.DataFrame,
     scores: pd.DataFrame,
@@ -998,11 +1222,42 @@ def _report(
     n_generated: int,
 ) -> None:
     """Print one run's report. A two-tone run also gets the neutral-only
-    comparison and a manifest file.
+    comparison and a manifest file. A run with more than two models (or two
+    different sets of generators and judges) uses the multi-model report
+    instead -- the 2x2-specific historical comparison only applies to the
+    pilot's two local models.
 
     ``n_from_cache`` and ``n_generated`` describe the process that writes the
     manifest, so an ``--analyse-only`` run records zero of both.
     """
+    if len(generators) > 2 or len(judges) > 2:
+        generator_ref = generators[-1]
+        judge_ref = judges[-1]
+        fit = fit_subset_multi(
+            replies,
+            scores,
+            label=f"free-tier design ({len(generators)} generators, {len(judges)} judges)",
+            generator_alts=list(generators[:-1]),
+            generator_ref=generator_ref,
+            judge_alts=list(judges[:-1]),
+            judge_ref=judge_ref,
+        )
+        print(format_multi_model_report(fit, scores))
+        manifest = build_multi_model_manifest(
+            fit,
+            generators=generators,
+            judges=judges,
+            design=design,
+            n_from_cache=n_from_cache,
+            n_generated=n_generated,
+        )
+        JUDGE_SWAP_FREE_TIER_MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
+        JUDGE_SWAP_FREE_TIER_MANIFEST_PATH.write_text(
+            json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8"
+        )
+        log.info("wrote %s", JUDGE_SWAP_FREE_TIER_MANIFEST_PATH)
+        return
+
     print(
         format_report(
             run_judge_swap_analysis(
@@ -1047,17 +1302,22 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--generators",
-        nargs=2,
-        metavar=("MODEL_A", "MODEL_B"),
+        nargs="+",
+        metavar="MODEL",
         default=list(DEFAULT_GENERATORS),
-        help="The two local models standing in for two generator 'families'.",
+        help=(
+            "The models standing in for generator 'families', at least two. "
+            "The last one is the reference level every effect is measured "
+            "against. Defaults to the two-local-model pilot pair; pass "
+            "FREE_TIER_GENERATORS's four models for the free-tier design."
+        ),
     )
     parser.add_argument(
         "--judges",
-        nargs=2,
-        metavar=("MODEL_A", "MODEL_B"),
+        nargs="+",
+        metavar="MODEL",
         default=None,
-        help="The two local models acting as judge. Defaults to --generators.",
+        help="The models acting as judge, at least two. Defaults to --generators.",
     )
     parser.add_argument(
         "--ollama-host",
@@ -1067,7 +1327,7 @@ def main() -> None:
     parser.add_argument(
         "--cache-only",
         action="store_true",
-        help="Serve only from cache; fail rather than call Ollama.",
+        help="Serve only from cache; fail rather than call a model.",
     )
     parser.add_argument(
         "--limit", type=int, default=None, help="Cap cells per generator, for smoke tests."
@@ -1099,14 +1359,22 @@ def main() -> None:
     args = parser.parse_args()
     design: JudgeSwapDesign = args.design
     judges: list[str] = args.judges if args.judges is not None else list(args.generators)
+    if len(args.generators) < 2 or len(judges) < 2:
+        msg = "need at least two --generators and at least two --judges (one is the reference)"
+        raise ValueError(msg)
 
     configure_logging()
     ensure_dirs()
 
-    default_grid = JUDGE_SWAP_GRID_PATH if design == "pilot" else JUDGE_SWAP_TWO_TONE_GRID_PATH
-    default_scores = (
-        JUDGE_SWAP_SCORES_PATH if design == "pilot" else JUDGE_SWAP_TWO_TONE_SCORES_PATH
-    )
+    multi_model = len(args.generators) > 2 or len(judges) > 2
+    if multi_model:
+        default_grid = JUDGE_SWAP_FREE_TIER_GRID_PATH
+        default_scores = JUDGE_SWAP_FREE_TIER_SCORES_PATH
+    else:
+        default_grid = JUDGE_SWAP_GRID_PATH if design == "pilot" else JUDGE_SWAP_TWO_TONE_GRID_PATH
+        default_scores = (
+            JUDGE_SWAP_SCORES_PATH if design == "pilot" else JUDGE_SWAP_TWO_TONE_SCORES_PATH
+        )
     out_path = Path(args.out) if args.out else default_grid
     scores_out = Path(args.scores_out) if args.scores_out else default_scores
 
@@ -1124,15 +1392,13 @@ def main() -> None:
 
     from thesis.llm.ollama_client import OllamaClient, OllamaUnavailableError
 
-    def _client(model: str) -> OllamaClient:
-        return (
-            OllamaClient(model, host=args.ollama_host) if args.ollama_host else OllamaClient(model)
-        )
+    def _client(model: str) -> LLMClient:
+        return client_for_model(model, ollama_host=args.ollama_host)
 
     grids: list[JudgeSwapGrid] = []
     for model in args.generators:
         client = _client(model)
-        if not client.is_available() and not args.cache_only:
+        if isinstance(client, OllamaClient) and not client.is_available() and not args.cache_only:
             msg = (
                 f"no Ollama server reachable at {client.host}. Start it with "
                 f"'ollama serve', and pull the model with 'ollama pull {model}'."
@@ -1166,7 +1432,7 @@ def main() -> None:
     scores_list: list[JudgeSwapScores] = []
     for judge_model in judges:
         client = _client(judge_model)
-        if not client.is_available() and not args.cache_only:
+        if isinstance(client, OllamaClient) and not client.is_available() and not args.cache_only:
             msg = (
                 f"no Ollama server reachable at {client.host}. Start it with "
                 f"'ollama serve', and pull the model with 'ollama pull {judge_model}'."

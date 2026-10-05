@@ -701,3 +701,205 @@ def test_generate_judge_swap_grid_writes_the_prompt_hash_into_its_manifest(
     assert seen[0].design["prompt_text_hash"] == prompt_text_hash()
     assert seen[0].design["design"] == "two_tone"
     assert seen[0].design["n_scenarios"] == 12
+
+
+# ------------------------------------------- the four-model free-tier design
+#
+# Next-steps item 4 asks for the judge-swap design across the project's real
+# four free-tier models and three families, not the two local 3B models
+# standing in for them. The 2x2-specific pieces above (saturated_2x2_effects,
+# compare_judge_swap, the two-tone historical comparison) stay exactly as
+# they are -- they reproduce sections 23/41/52's published numbers and must
+# keep doing that. What follows tests the additive generalization instead:
+# any number of non-reference levels per factor, not just one.
+
+
+class _FakeInteractionModelWithSE:
+    """Like ``_FakeInteractionModel`` above, but also exposes the two
+    std-error methods ``effect_estimates_multi`` calls, which
+    ``compare_judge_swap`` never needed."""
+
+    def __init__(
+        self,
+        main_effects: dict[tuple[str, str], tuple[float, float]],
+        interactions: dict[tuple[str, str], tuple[float, float]],
+        main_effect_std_errors: dict[tuple[str, str], float],
+        interaction_std_errors: dict[tuple[str, str], float],
+    ) -> None:
+        self._main_effects = main_effects
+        self._interactions = interactions
+        self._main_effect_std_errors = main_effect_std_errors
+        self._interaction_std_errors = interaction_std_errors
+
+    def main_effect(self, factor: str, level: str) -> tuple[float, float]:
+        return self._main_effects[(factor, level)]
+
+    def interaction(self, level1: str, level2: str) -> tuple[float, float]:
+        return self._interactions[(level1, level2)]
+
+    def main_effect_std_error(self, factor: str, level: str) -> float:
+        return self._main_effect_std_errors[(factor, level)]
+
+    def interaction_std_error(self, level1: str, level2: str) -> float:
+        return self._interaction_std_errors[(level1, level2)]
+
+
+def test_effect_estimates_multi_builds_one_row_per_alt_plus_self_preference() -> None:
+    """Three alt generators and three alt judges: three generator-quality
+    rows, three judge-generosity rows, and -- only for a model that is an
+    alt level of *both* factors -- one self-preference pair (overall and
+    plausibility-only). This is the question Q3 asks for each of the three
+    non-reference free-tier models at once, not just one alt against one
+    reference the way the pilot's 2x2 design could only ever ask it."""
+    overall = _FakeInteractionModelWithSE(
+        main_effects={
+            ("generator", "a"): (-0.5, 0.01),
+            ("generator", "b"): (-0.2, 0.30),
+            ("judge", "a"): (0.4, 0.02),
+            ("judge", "b"): (0.1, 0.50),
+        },
+        interactions={("a", "a"): (0.30, 0.04), ("b", "b"): (0.10, 0.60)},
+        main_effect_std_errors={
+            ("generator", "a"): 0.10,
+            ("generator", "b"): 0.15,
+            ("judge", "a"): 0.10,
+            ("judge", "b"): 0.12,
+        },
+        interaction_std_errors={("a", "a"): 0.12, ("b", "b"): 0.20},
+    )
+    plausibility = _FakeInteractionModelWithSE(
+        main_effects={},
+        interactions={("a", "a"): (0.20, 0.10), ("b", "b"): (0.05, 0.70)},
+        main_effect_std_errors={},
+        interaction_std_errors={("a", "a"): 0.15, ("b", "b"): 0.22},
+    )
+
+    effects = judge_swap.effect_estimates_multi(
+        overall, plausibility, generator_alts=["a", "b"], judge_alts=["a", "b"]
+    )
+
+    assert [e.key for e in effects] == [
+        "generator_quality_a",
+        "generator_quality_b",
+        "judge_generosity_a",
+        "judge_generosity_b",
+        "self_preference_a",
+        "self_preference_plausibility_a",
+        "self_preference_b",
+        "self_preference_plausibility_b",
+    ]
+    self_pref_a = next(e for e in effects if e.key == "self_preference_a")
+    assert self_pref_a.coefficient == 0.30
+    assert self_pref_a.std_error == 0.12
+    assert self_pref_a.p_value == 0.04
+
+
+def test_effect_estimates_multi_skips_a_model_that_is_only_a_generator() -> None:
+    """A model present as an alt generator but never as an alt judge (or
+    vice versa) gets no self-preference row -- there is no own-family cell
+    to read an interaction off."""
+    overall = _FakeInteractionModelWithSE(
+        main_effects={("generator", "c"): (0.1, 0.5), ("judge", "a"): (0.1, 0.5)},
+        interactions={},
+        main_effect_std_errors={("generator", "c"): 0.1, ("judge", "a"): 0.1},
+        interaction_std_errors={},
+    )
+    plausibility = _FakeInteractionModelWithSE({}, {}, {}, {})
+
+    effects = judge_swap.effect_estimates_multi(
+        overall, plausibility, generator_alts=["c"], judge_alts=["a"]
+    )
+
+    assert [e.key for e in effects] == ["generator_quality_c", "judge_generosity_a"]
+
+
+def _multi_model_score_frame(
+    generators: Sequence[str], judges: Sequence[str], *, self_preference: dict[str, float]
+) -> pd.DataFrame:
+    """Synthetic scores for an N-generator x N-judge grid: each judge scores
+    every generator's replies for 10 personas. ``self_preference[model]``
+    is added only to the ``generator == judge == model`` cells, so the fit
+    has to recover exactly that much interaction for exactly that model."""
+    rng = np.random.default_rng(0)
+    rows = []
+    for persona in range(40):
+        for generator in generators:
+            for judge in judges:
+                score = (
+                    3.0
+                    + 0.1 * generators.index(generator)
+                    + 0.1 * judges.index(judge)
+                    + (self_preference.get(generator, 0.0) if generator == judge else 0.0)
+                    + float(rng.normal(0.0, 0.2))
+                )
+                rows.append(
+                    {
+                        "item_id": f"{generator}__{judge}__p{persona}",
+                        "generator": generator,
+                        "judge": judge,
+                        "persona_id": f"p{persona}",
+                        "score_overall": score,
+                        "score_corpus_plausibility": score,
+                    }
+                )
+    return pd.DataFrame(rows)
+
+
+def test_fit_subset_multi_recovers_a_different_self_preference_per_model() -> None:
+    """Four models, one reference ('d') and three alts, each with its own
+    injected self-preference. The fit must recover each alt's own number,
+    not one pooled number -- this is exactly what the 2x2 pilot design
+    could never ask, since it only ever had one alt model to begin with."""
+    models = ["a", "b", "c", "d"]
+    injected = {"a": 0.5, "b": 0.0, "c": -0.3}
+    scores = _multi_model_score_frame(models, models, self_preference=injected)
+    replies = pd.DataFrame({"model": models * 40})  # n_replies only; not refit on
+
+    fit = judge_swap.fit_subset_multi(
+        replies,
+        scores,
+        label="free-tier four",
+        generator_alts=["a", "b", "c"],
+        generator_ref="d",
+        judge_alts=["a", "b", "c"],
+        judge_ref="d",
+    )
+
+    for model, expected in injected.items():
+        effect = fit.effect(f"self_preference_{model}")
+        assert effect.coefficient == pytest.approx(expected, abs=0.15)
+        assert effect.std_error > 0
+
+
+def test_client_for_model_dispatches_by_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The four free-tier models are reached through three different
+    providers at once (unlike q1.py/pairs.py's single --local/--nvidia/
+    --groq flag, which only ever picks one per run): this is the lookup
+    that lets one judge-swap run call all three."""
+    monkeypatch.setenv("NVIDIA_API_KEY", "fake-key")
+    monkeypatch.setenv("GROQ_API_KEY", "fake-key")
+    from thesis.llm.groq_client import GroqClient
+    from thesis.llm.nvidia_client import NvidiaClient
+    from thesis.llm.ollama_client import OllamaClient
+
+    assert isinstance(
+        judge_swap.client_for_model("deepseek-ai/deepseek-v4-flash-0731"), NvidiaClient
+    )
+    assert isinstance(judge_swap.client_for_model("openai/gpt-oss-20b@low"), NvidiaClient)
+    assert isinstance(judge_swap.client_for_model("openai/gpt-oss-120b@low"), GroqClient)
+    assert isinstance(judge_swap.client_for_model("llama3.2:3b"), OllamaClient)
+    # An unrecognized model id falls back to local, preserving every
+    # existing two-local-model caller's behavior unchanged.
+    assert isinstance(judge_swap.client_for_model("qwen2.5:3b"), OllamaClient)
+
+
+def test_free_tier_generators_are_exactly_the_four_models_section_2_names() -> None:
+    """The project's own model table (PROGRESS_llms.md section 2) names
+    these four models across three families (Meta, DeepSeek, OpenAI); this
+    constant has to match it exactly, not a different pick."""
+    assert judge_swap.FREE_TIER_GENERATORS == (
+        "deepseek-ai/deepseek-v4-flash-0731",
+        "openai/gpt-oss-20b@low",
+        "openai/gpt-oss-120b@low",
+        "llama3.2:3b",
+    )
