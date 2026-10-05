@@ -352,87 +352,57 @@ one.
 
 ---
 
-## Where generated replies land in embedding space
+## Q2: do generated replies look like real email in meaning-space? (Oct 5)
 
-The free-tier models are not closer to real email in meaning-space than the
-small local model. If anything they are slightly further.
+**Finding.** Bigger free-tier models do not look more like real email than
+the small local model does. If anything, they look less like it.
 
-The two checks above compare word choice. The embedding map
-(`src/thesis/analysis/embedding_map.py`) compares meaning instead, by
-embedding each reply with `nomic-embed-text`, a free local model, and asking
-three questions. First, can a classifier on embeddings alone tell a real
-reply from a generated one (an AUC, 0.5 means indistinguishable, 1.0 means
-perfectly separable). Second, does that separation survive once each real
-reply is cut to its AI partner's word count. Third, does a generated reply's
-embedding sit closer to the real reply it was answering than to a real reply
-from a different, unrelated thread (topical tracking), which checks whether
-the model is actually responding to the email in front of it rather than
-writing something generic.
-
-This had only ever been run on Llama. This session ran it on the three
-free-tier models, using the same pairs files already saved for the
-mirroring and word-choice checks above, so no new model generation was
-needed, only free local embedding calls.
-
-```
-python -m thesis.analysis.embedding_map --pairs data/interim/pairs_gpt_oss.parquet --figure-prefix embedding_gpt_oss_ --out outputs/manifests/embedding_map_gpt_oss.json
-python -m thesis.analysis.embedding_map --pairs data/interim/pairs_gpt_oss_120b.parquet --figure-prefix embedding_gpt_oss_120b_ --out outputs/manifests/embedding_map_gpt_oss_120b.json
-python -m thesis.analysis.embedding_map --pairs data/interim/pairs_deepseek.parquet --figure-prefix embedding_deepseek_ --out outputs/manifests/embedding_map_deepseek.json
-```
+**How.** Each reply is embedded with a free local model (`nomic-embed-text`).
+A classifier tries to tell real and generated replies apart using only the
+embeddings, not the words (AUC: 0.5 = can't tell them apart, 1.0 = always
+can). This had only been run on Llama before. This session added the three
+free-tier models, reusing pairs files that already existed, so no new
+generation was needed.
 
 **Results**, 183 pairs per model.
 
-| Model | AUC, as stored | AUC, length-matched | Topical tracking: share matched higher | Mean cosine, matched / mismatched |
-|---|---:|---:|---:|---:|
-| Llama 3.2 3B (with instruction) | 0.890 | 0.817 | 0.863 | 0.581 / 0.474 |
-| DeepSeek V4 Flash | 0.911 | 0.907 | 0.858 | 0.625 / 0.511 |
-| gpt-oss-20b | 0.932 | 0.924 | 0.814 | 0.600 / 0.504 |
-| gpt-oss-120b | 0.904 | 0.909 | 0.825 | 0.614 / 0.508 |
+| Model | AUC, full length | AUC, same length | Tracks its own email |
+|---|---:|---:|---:|
+| Llama 3.2 3B | 0.890 | 0.817 | 0.863 |
+| DeepSeek V4 Flash | 0.911 | 0.907 | 0.858 |
+| gpt-oss-20b | 0.932 | 0.924 | 0.814 |
+| gpt-oss-120b | 0.904 | 0.909 | 0.825 |
 
-![Separability AUC, as stored, for all four models.](docs/figures/embedding_four_models_auc_stored.png)
-![Separability AUC, length-matched, for all four models.](docs/figures/embedding_four_models_auc_length_matched.png)
+"Same length" cuts each real reply to its AI partner's word count first.
+"Tracks its own email" is how often a generated reply sits closer to the
+real reply it answered than to an unrelated real reply -- a check against
+generic, context-blind writing.
 
-Source manifests: `outputs/manifests/embedding_map_act.json` (Llama,
-existing), `outputs/manifests/embedding_map_deepseek.json`,
-`outputs/manifests/embedding_map_gpt_oss.json`,
-`outputs/manifests/embedding_map_gpt_oss_120b.json` (new this session).
+![Separability AUC, full length, for all four models.](docs/figures/embedding_four_models_auc_stored.png)
+![Separability AUC, same length, for all four models.](docs/figures/embedding_four_models_auc_length_matched.png)
 
 **What this means.**
 
-- **The free-tier models are not easier to confuse with real email in
-  embedding space than Llama.** Llama's AUC (0.890) is the lowest of the
-  four; the free-tier models run 0.904 to 0.932. A bigger model being
-  easier, not harder, to separate from real email is the same direction the
-  word-choice check above already found (0.96 to 0.98 AUC there against
-  Llama's 0.919). Two independent checks agree.
-- **For Llama, length drives most of the separation. For the free-tier
-  models it barely matters.** Llama's AUC drops from 0.890 to 0.817, a
-  0.073 drop, once both sides are cut to the same length. The three
-  free-tier models barely move: DeepSeek 0.911 to 0.907, gpt-oss-20b 0.932
-  to 0.924, gpt-oss-120b 0.904 to 0.909. The small rise for gpt-oss-120b is
-  noise from the resampled fit, not a real increase. So whatever makes a
-  free-tier reply identifiable, it is mostly not length. This matches the
-  word-choice check: stock phrases, not reply length, are what give these
-  models away.
-- **All four models track their own stimulus at a similar level.** Share
-  matched higher sits in a narrow band, 0.814 to 0.863, across all four
-  models. None of them writes generic, context-blind replies; all four stay
-  meaningfully tied to the specific email they are answering. Llama's is
-  marginally highest, but the four are close enough that this is not a
-  ranking worth drawing a conclusion from.
+- **Being bigger did not make a model harder to tell from real email.**
+  Llama's AUC (0.890) is the lowest of the four. The word-choice check
+  above found the same thing (0.96 to 0.98 AUC for the free-tier models,
+  against Llama's 0.919).
+- **For Llama, length explains most of the gap. For the free-tier models
+  it explains almost none.** Llama's AUC drops from 0.890 to 0.817 once
+  both sides are cut to the same length. The three free-tier models barely
+  move. So something other than length -- the word-choice check points at
+  stock phrases -- is what gives the free-tier models away.
+- **All four models stay reasonably tied to the email they are
+  answering**, 0.81 to 0.86, with no clear ranking between them.
 
-**Caveats.**
+**Caveats.** Point estimates on 183 pairs per model, no significance test
+between models. `nomic-embed-text` is a fixed free choice; a different
+embedding model could move the exact numbers, probably not the direction,
+since the word-choice check agrees by a completely different method.
 
-- This is a classifier AUC on 183 pairs per model, the same small-sample
-  caution the word-choice check above carries. No significance test was run
-  comparing one model's AUC against another's, unlike the Q1-vs-real
-  comparisons elsewhere in this file. The numbers above are point estimates,
-  not tested differences.
-- The embedding model, `nomic-embed-text`, is a fixed choice: this project
-  has no budget for a paid embedding API. A different embedding model could
-  change the exact AUC values, though probably not the direction of the
-  main finding, since the word-choice check finds the same direction by a
-  completely different method.
+Source: `python -m thesis.analysis.embedding_map --pairs
+data/interim/pairs_<model>.parquet`, run once per model. Manifests:
+`outputs/manifests/embedding_map_{act,deepseek,gpt_oss,gpt_oss_120b}.json`.
 
 ---
 
@@ -1096,13 +1066,14 @@ now writes this comparison automatically alongside the full-length one.
   standard error of 0.115, against 0.052 from the variational-Bayes fit
   the comparison above actually uses. With the robust standard error, even
   the original full-length "gpt-oss-120b is significantly bigger" claim
-  (p=.009) drops to roughly p=.14 -- not clearly significant either. This
-  means that claim was probably overstated independently of the
-  length-matching question. The simulator side is also a variational-Bayes
-  fit, so its own standard error is likely understated too, in the same
-  direction. **Done: see "Robust-standard-error cross-check for the
-  real-email fit (Oct 5)" below.** Every `vs_real` number in this log now
-  uses the robust fit on both sides, not the VB one quoted here.
+  (p=.009) is no longer clearly significant. This means that claim was
+  probably overstated independently of the length-matching question. The
+  simulator side is also a variational-Bayes fit, so its own standard
+  error is likely understated too, in the same direction. **Done: see
+  "Q1: a robust standard-error check for the real-email fit (Oct 5)"
+  below** -- the actual number is p=.084, not the rough .14 estimated
+  here. Every `vs_real` number in this log now uses the robust fit on both
+  sides, not the VB one quoted here.
 - **Rounding each model's mean sentence count to one whole number is a
   coarse rule.** A finer check -- cutting real email to lengths drawn from
   each model's own reply-length distribution, not one fixed number --
@@ -1126,7 +1097,7 @@ now writes this comparison automatically alongside the full-length one.
 
 ---
 
-## Robust-standard-error cross-check for the real-email fit (Oct 5)
+## Q1: a robust standard-error check for the real-email fit (Oct 5)
 
 **gpt-oss-120b's "significantly bigger than real email" claim does not
 survive an honest standard error.** Full-length `is_imperative`, writing
@@ -1385,8 +1356,8 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   `mirroring_act.json`) are left as they are, historical artifacts of the
   code at the time, not regenerated.
 - **The real-email fit now has a robust-standard-error cross-check, and
-  the model-vs-real comparisons use it.** See "Robust-standard-error
-  cross-check for the real-email fit (Oct 5)" above. Covers item 1 here.
+  the model-vs-real comparisons use it.** See "Q1: a robust standard-error
+  check for the real-email fit (Oct 5)" above. Covers item 1 here.
   gpt-oss-120b's "significantly bigger than real email" claim (old
   p=.009) is not significant under the robust fit (p=.084) -- combined
   with the Oct 4 length-matching finding, its overshoot story is now
@@ -1395,8 +1366,9 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   only 10 clusters, and the length-matched robust fit drops more senders
   than its VB version did.
 - **The embedding map now covers the three free-tier models, not only
-  Llama.** See "Where generated replies land in embedding space" above.
-  Covers the embedding-map half of what used to be item 4 here. The
+  Llama.** See "Q2: do generated replies look like real email in
+  meaning-space? (Oct 5)" above. Covers the embedding-map half of what
+  used to be item 4 here. The
   free-tier models' separability AUC (0.904 to 0.932) is not lower than
   Llama's (0.890); for Llama, length explains most of the gap, for the
   three free-tier models it explains almost none.
