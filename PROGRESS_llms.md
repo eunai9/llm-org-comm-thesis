@@ -352,61 +352,7 @@ one.
 
 ---
 
-## 9. Do generated replies look like real email in meaning-space? (Q2, Oct 5)
-
-**Finding.** Bigger free-tier models do not look more like real email than
-the small local model does. If anything, they look less like it.
-
-**How.** Each reply is embedded with a free local model (`nomic-embed-text`).
-A classifier tries to tell real and generated replies apart using only the
-embeddings, not the words (AUC: 0.5 = can't tell them apart, 1.0 = always
-can). This had only been run on Llama before. This session added the three
-free-tier models, reusing pairs files that already existed, so no new
-generation was needed.
-
-**Results**, 183 pairs per model.
-
-| Model | AUC, full length | AUC, same length | Tracks its own email |
-|---|---:|---:|---:|
-| Llama 3.2 3B | 0.890 | 0.817 | 0.863 |
-| DeepSeek V4 Flash | 0.911 | 0.907 | 0.858 |
-| gpt-oss-20b | 0.932 | 0.924 | 0.814 |
-| gpt-oss-120b | 0.904 | 0.909 | 0.825 |
-
-"Same length" cuts each real reply to its AI partner's word count first.
-"Tracks its own email" is how often a generated reply sits closer to the
-real reply it answered than to an unrelated real reply -- a check against
-generic, context-blind writing.
-
-![Separability AUC, full length, for all four models.](docs/figures/embedding_four_models_auc_stored.png)
-![Separability AUC, same length, for all four models.](docs/figures/embedding_four_models_auc_length_matched.png)
-
-**What this means.**
-
-- **Being bigger did not make a model harder to tell from real email.**
-  Llama's AUC (0.890) is the lowest of the four. The word-choice check
-  above found the same thing (0.96 to 0.98 AUC for the free-tier models,
-  against Llama's 0.919).
-- **For Llama, length explains most of the gap. For the free-tier models
-  it explains almost none.** Llama's AUC drops from 0.890 to 0.817 once
-  both sides are cut to the same length. The three free-tier models barely
-  move. So something other than length -- the word-choice check points at
-  stock phrases -- is what gives the free-tier models away.
-- **All four models stay reasonably tied to the email they are
-  answering**, 0.81 to 0.86, with no clear ranking between them.
-
-**Caveats.** Point estimates on 183 pairs per model, no significance test
-between models. `nomic-embed-text` is a fixed free choice; a different
-embedding model could move the exact numbers, probably not the direction,
-since the word-choice check agrees by a completely different method.
-
-Source: `python -m thesis.analysis.embedding_map --pairs
-data/interim/pairs_<model>.parquet`, run once per model. Manifests:
-`outputs/manifests/embedding_map_{act,deepseek,gpt_oss,gpt_oss_120b}.json`.
-
----
-
-## 10. Does hierarchy change how directive a reply is (Q1)
+## 9. Does hierarchy change how directive a reply is (Q1)
 
 Q1 asks whether a persona's place in the hierarchy changes how directive its
 replies are, that is, whether it gives more orders when writing down to a
@@ -694,7 +640,7 @@ tables -- same effect, two different standard errors.
 
 ---
 
-## 11. The main Q1 run reaches significance (Q1, Sep 23)
+## 10. The main Q1 run reaches significance (Q1, Sep 23)
 
 This is a different grid from the four-model comparison above: not the
 24-scenario pilot, but the main 144-scenario "full" design, Llama 3.2 3B
@@ -829,9 +775,9 @@ Fleiss' kappa=0.367.
 
 ---
 
-## 12. Q1 across models, at full design scale (Q1, Oct 4)
+## 11. Q1 across models, at full design scale (Q1, Oct 4)
 
-The "10. Does hierarchy change how directive a reply is" section above compared
+The "9. Does hierarchy change how directive a reply is" section above compared
 four models on the small pilot grid: 10 personas, 24 scenarios, 240 replies
 each. Since then, two more models have finished the full design (10
 personas, 144 scenarios, about 1,440 replies): gpt-oss-20b (Sep 29) and
@@ -898,7 +844,7 @@ Chance that a sentence gives an order, by direction:
   email is significant using real email's main fit (p=.009) but drops to
   p=.084 using real email's other fit (`q1_real.py`'s sender-fixed-effects
   cross-check, which has a wider standard error). Read this as not settled,
-  not as a confirmed difference -- see "13. Length-matching the Q1-vs-real
+  not as a confirmed difference -- see "12. Length-matching the Q1-vs-real
   comparison" below for two more reasons this gap does not hold up: cutting
   real email to the same reply length, and a robust standard-error check
   that puts this very p=.009 in doubt too.
@@ -995,7 +941,7 @@ the pilot section flagged for its own "vs real email" tables.
 
 ---
 
-## 13. Length-matching the Q1-vs-real comparison (Q1, Oct 4)
+## 12. Length-matching the Q1-vs-real comparison (Q1, Oct 4)
 
 **The problem.** `is_imperative` is a share of a reply's sentences that
 give an order. A short reply inflates this share for the same underlying
@@ -1070,7 +1016,7 @@ now writes this comparison automatically alongside the full-length one.
   probably overstated independently of the length-matching question. The
   simulator side is also a variational-Bayes fit, so its own standard
   error is likely understated too, in the same direction. **Done: see
-  "14. A robust standard-error check for the real-email fit (Q1, Oct 5)"
+  "13. A robust standard-error check for the real-email fit (Q1, Oct 5)"
   below** -- the actual number is p=.084, not the rough .14 estimated
   here. Every `vs_real` number in this log now uses the robust fit on both
   sides, not the VB one quoted here.
@@ -1097,7 +1043,7 @@ now writes this comparison automatically alongside the full-length one.
 
 ---
 
-## 14. A robust standard-error check for the real-email fit (Q1, Oct 5)
+## 13. A robust standard-error check for the real-email fit (Q1, Oct 5)
 
 **gpt-oss-120b's "significantly bigger than real email" claim does not
 survive an honest standard error.** Full-length `is_imperative`, writing
@@ -1130,7 +1076,7 @@ kept under a `"vb"` key. Tests added in `tests/test_q1_real.py` and
 `tests/test_q1_models.py`, full suite passes.
 `outputs/manifests/q1_models_full.json` was regenerated with the same
 command, same three grids, same prompt hash `d4c18550ed56f2de` as the
-"12. Q1 across models, at full design scale" section above -- this is a refit
+"11. Q1 across models, at full design scale" section above -- this is a refit
 of the same data under corrected code, not a new generation run.
 `outputs/manifests/q1_real.json` was not touched; it already held the
 robust fit, just unused until now.
@@ -1196,7 +1142,7 @@ changes here, the p-values just move:
 
 ---
 
-## 15. The new Q1 judge plan, and where Layer 1 failed (Q1, Oct 3)
+## 14. The new Q1 judge plan, and where Layer 1 failed (Q1, Oct 3)
 
 The new Q1 plan has two layers.
 
@@ -1238,6 +1184,63 @@ model tested fails the self-consistency check, and the project has no
 access to a bigger model to try next, since it uses free-tier models only.
 A judge that disagrees with itself cannot be trusted to compare real email
 against generated email, so Layer 1 as designed cannot run.
+
+---
+
+## 15. Do generated replies look like real email in meaning-space? (Q2, Oct 5)
+
+**Finding.** Bigger free-tier models do not look more like real email than
+the small local model does. If anything, they look less like it.
+
+**How.** Each reply is embedded with a free local model (`nomic-embed-text`).
+A classifier tries to tell real and generated replies apart using only the
+embeddings, not the words (AUC: 0.5 = can't tell them apart, 1.0 = always
+can). This had only been run on Llama before. This session added the three
+free-tier models, reusing pairs files that already existed, so no new
+generation was needed. These pairs are the fixed ~183-thread validation
+sample `pairs.py` builds (matched real-thread-plus-persona replies), not
+the Q1 direction grid -- this result does not depend on the full-design
+Q1 generation above.
+
+**Results**, 183 pairs per model.
+
+| Model | AUC, full length | AUC, same length | Tracks its own email |
+|---|---:|---:|---:|
+| Llama 3.2 3B | 0.890 | 0.817 | 0.863 |
+| DeepSeek V4 Flash | 0.911 | 0.907 | 0.858 |
+| gpt-oss-20b | 0.932 | 0.924 | 0.814 |
+| gpt-oss-120b | 0.904 | 0.909 | 0.825 |
+
+"Same length" cuts each real reply to its AI partner's word count first.
+"Tracks its own email" is how often a generated reply sits closer to the
+real reply it answered than to an unrelated real reply -- a check against
+generic, context-blind writing.
+
+![Separability AUC, full length, for all four models.](docs/figures/embedding_four_models_auc_stored.png)
+![Separability AUC, same length, for all four models.](docs/figures/embedding_four_models_auc_length_matched.png)
+
+**What this means.**
+
+- **Being bigger did not make a model harder to tell from real email.**
+  Llama's AUC (0.890) is the lowest of the four. The word-choice check
+  above found the same thing (0.96 to 0.98 AUC for the free-tier models,
+  against Llama's 0.919).
+- **For Llama, length explains most of the gap. For the free-tier models
+  it explains almost none.** Llama's AUC drops from 0.890 to 0.817 once
+  both sides are cut to the same length. The three free-tier models barely
+  move. So something other than length -- the word-choice check points at
+  stock phrases -- is what gives the free-tier models away.
+- **All four models stay reasonably tied to the email they are
+  answering**, 0.81 to 0.86, with no clear ranking between them.
+
+**Caveats.** Point estimates on 183 pairs per model, no significance test
+between models. `nomic-embed-text` is a fixed free choice; a different
+embedding model could move the exact numbers, probably not the direction,
+since the word-choice check agrees by a completely different method.
+
+Source: `python -m thesis.analysis.embedding_map --pairs
+data/interim/pairs_<model>.parquet`, run once per model. Manifests:
+`outputs/manifests/embedding_map_{act,deepseek,gpt_oss,gpt_oss_120b}.json`.
 
 ---
 
@@ -1322,7 +1325,7 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   Commit `36fbc3e`.
 - **The main Q1 run (Llama, local, full design) now shows the writing-down
   effect at a normal significance level** -- 4,320 replies overnight,
-  p=.002 (VB) / p=.0006 (persona-clustered). See "11. The main Q1 run
+  p=.002 (VB) / p=.0006 (persona-clustered). See "10. The main Q1 run
   reaches significance (Q1, Sep 23)" above. This was the 14-more-hours question for
   Llama specifically; it does not cover the other three models (next item).
 - **`draw_stability.grid_draw_reliability` now handles any number of
@@ -1331,18 +1334,18 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   three statistics to the standard multi-rater form (proper ICC, mean
   pairwise correlation, Fleiss' kappa), unchanged at exactly two draws.
   Commit `a9ae1d2`. `run_q1_analysis` now runs on the 3-draw grid without a
-  workaround; see "11. The main Q1 run reaches significance (Q1, Sep 23)"
+  workaround; see "10. The main Q1 run reaches significance (Q1, Sep 23)"
   above for the reliability numbers this produced.
 - **`grid_contrasts` and `contrast_estimates` now use the pooled fit for a
   multi-draw grid.** Both always read the draw-1-only fits, so the CLI's
   "Against real email" table, the "Precision" table, and the manifest's own
   `primary`/`precision` sections silently used a third of the 3-draw
   grid's data. Found independently by a second Claude session cross-checking
-  this file. Commit `82cd1ae`. See "11. The main Q1 run reaches significance
+  this file. Commit `82cd1ae`. See "10. The main Q1 run reaches significance
   (Q1, Sep 23)" above for what changed and what didn't (the effect's own
   significance did not move; the "smaller than real email" comparison did).
 - **The Q1-versus-real comparison now has a length-matched version.** See
-  "13. Length-matching the Q1-vs-real comparison (Q1, Oct 4)" above. Covers what
+  "12. Length-matching the Q1-vs-real comparison (Q1, Oct 4)" above. Covers what
   used to be item 1 here. It found that gpt-oss-120b's "overshoot" is no
   longer detectable once both sides are cut to the same reply length, and
   also exposed a separate problem (see the next item).
@@ -1356,7 +1359,7 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   `mirroring_act.json`) are left as they are, historical artifacts of the
   code at the time, not regenerated.
 - **The real-email fit now has a robust-standard-error cross-check, and
-  the model-vs-real comparisons use it.** See "14. A robust standard-error
+  the model-vs-real comparisons use it.** See "13. A robust standard-error
   check for the real-email fit (Q1, Oct 5)" above. Covers item 1 here.
   gpt-oss-120b's "significantly bigger than real email" claim (old
   p=.009) is not significant under the robust fit (p=.084) -- combined
@@ -1366,7 +1369,7 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   only 10 clusters, and the length-matched robust fit drops more senders
   than its VB version did.
 - **The embedding map now covers the three free-tier models, not only
-  Llama.** See "9. Do generated replies look like real email in
+  Llama.** See "15. Do generated replies look like real email in
   meaning-space? (Q2, Oct 5)" above. Covers the embedding-map half of what
   used to be item 4 here. The
   free-tier models' separability AUC (0.904 to 0.932) is not lower than
