@@ -1209,10 +1209,11 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
    this a multi-day job there, not an overnight one.
 3. **Hand-code a sample of replies by a person.** The mirroring cutoff and
    its validation rest on Claude's first-pass codes of Llama replies only.
-   A coding page is already built: 50 emails, two replies each from two
-   models, in random order, with the model hidden. It is waiting for a
-   coder. One small fix is needed first: the first pass used a label,
-   `wrong_register`, that the codebook never defined.
+   A coding page is already built and committed (`review_pack.py`, commit
+   `50bd3aa`): 50 emails, two replies each from two models, in random
+   order, with the model hidden. The codebook's missing `wrong_register`
+   definition is also already fixed. Nothing left but a person to sit down
+   and code it.
 4. **A run without the act instruction.** This would show whether a larger
    model follows the instruction better than the small local one did
    (`PROGRESS.md` section 43 found only a small effect on Llama). The code
@@ -1231,5 +1232,3 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
 9. **Back up `runs/_cache`.** It holds every reply this project has
    received and exists only on this laptop. It must never go into git,
    because the prompts contain Enron text.
-10. **Commit the rest of the code.** Still uncommitted: the blind-coding
-    module and its tests, and the codebook fix that defines `wrong_register`.
