@@ -15,7 +15,7 @@ directly (the Q1 real-email comparison).
 
 ---
 
-## Status at a glance
+## 1. Status at a glance
 
 | | Llama 3.2 3B | DeepSeek V4 Flash | gpt-oss-20b | gpt-oss-120b |
 |---|---|---|---|---|
@@ -28,11 +28,11 @@ directly (the Q1 real-email comparison).
 
 Other open items: a run without the "act" instruction, an embedding map and
 review pack for the newer models, a judge study across model families, and
-committing the blind-coding module. See "Next steps" at the end.
+committing the blind-coding module. See "17. Next steps" at the end.
 
 ---
 
-## The models compared
+## 2. The models compared
 
 | Model | Family | Reached through | Setting | Notes |
 |---|---|---|---|---|
@@ -49,7 +49,7 @@ instruction existed, and the original Q1 pilot from `PROGRESS.md` section 39.
 
 ---
 
-## A few terms, explained once
+## 3. A few terms, explained once
 
 - **Client**: the code that sends a prompt to a model service and reads the
   answer back.
@@ -74,7 +74,7 @@ instruction existed, and the original Q1 pilot from `PROGRESS.md` section 39.
 
 ---
 
-## Why use free hosted models
+## 4. Why use free hosted models
 
 The thesis will not pay for any LLM API. This was decided with the
 supervisor. All generated replies before this work came from a small local
@@ -97,7 +97,7 @@ Limits to keep in mind:
 
 ---
 
-## Clients, limits, and pacing
+## 5. Clients, limits, and pacing
 
 **Which NVIDIA models answer at all.** The catalog lists 82 models. Each
 candidate got one tiny request.
@@ -167,7 +167,7 @@ unrelated to the code.
 
 ---
 
-## Generation results: speed, reliability, cost
+## 6. Generation results: speed, reliability, cost
 
 Llama's full 183-pair run predates this log; its numbers are in
 `PROGRESS.md`. For the three free-tier models:
@@ -192,7 +192,7 @@ differently than the request pace suggests.
 
 ---
 
-## Mirroring: how much does a reply copy the sender's own words
+## 7. Mirroring: how much does a reply copy the sender's own words (Q2)
 
 A reply mirrors when it is built mostly from the sender's own words, often
 handing a request back to the sender instead of acting on it. This was the
@@ -275,7 +275,7 @@ than real writers, 0.294, so none of them fully matches human behavior.
 
 ---
 
-## Can a generated reply be told apart from a real one
+## 8. Can a generated reply be told apart from a real one (Q2)
 
 **How it is measured.**
 
@@ -352,7 +352,7 @@ one.
 
 ---
 
-## Q2: do generated replies look like real email in meaning-space? (Oct 5)
+## 9. Do generated replies look like real email in meaning-space? (Q2, Oct 5)
 
 **Finding.** Bigger free-tier models do not look more like real email than
 the small local model does. If anything, they look less like it.
@@ -406,7 +406,7 @@ data/interim/pairs_<model>.parquet`, run once per model. Manifests:
 
 ---
 
-## Does hierarchy change how directive a reply is (Q1)
+## 10. Does hierarchy change how directive a reply is (Q1)
 
 Q1 asks whether a persona's place in the hierarchy changes how directive its
 replies are, that is, whether it gives more orders when writing down to a
@@ -683,18 +683,18 @@ tables -- same effect, two different standard errors.
   standard deviation (`hierarchy.py`). gpt-oss-120b's case (reported p=5e-08,
   honest p≈.001) is what exposed it. Fixed: the code now also fits a
   persona-clustered cross-check on its own (`Q1Result.sentence_model_persona_fe`,
-  commit `85e833a`) -- see the "Next steps" done-block below for what still
+  commit `85e833a`) -- see the "17. Next steps" done-block below for what still
   needs it substituted in.
 - **Two small bugs found while checking this result, since fixed.** The Q1
   grid generator now writes `prompt_text_hash()` onto the saved grid instead
   of only computing it in memory (commit `5ee4b46`), and `q1_models.py`'s
   grid loader now counts real cache/generation numbers instead of
-  hard-coding every row as "from cache" (commit `36fbc3e`). See "Next steps"
-  for the one small gap that remains.
+  hard-coding every row as "from cache" (commit `36fbc3e`). See "17. Next
+  steps" for the one small gap that remains.
 
 ---
 
-## The main Q1 run reaches significance (Sep 23)
+## 11. The main Q1 run reaches significance (Q1, Sep 23)
 
 This is a different grid from the four-model comparison above: not the
 24-scenario pilot, but the main 144-scenario "full" design, Llama 3.2 3B
@@ -829,9 +829,9 @@ Fleiss' kappa=0.367.
 
 ---
 
-## Q1 across models, at full design scale (Oct 4)
+## 12. Q1 across models, at full design scale (Q1, Oct 4)
 
-The "Does hierarchy change how directive a reply is" section above compared
+The "10. Does hierarchy change how directive a reply is" section above compared
 four models on the small pilot grid: 10 personas, 24 scenarios, 240 replies
 each. Since then, two more models have finished the full design (10
 personas, 144 scenarios, about 1,440 replies): gpt-oss-20b (Sep 29) and
@@ -898,7 +898,7 @@ Chance that a sentence gives an order, by direction:
   email is significant using real email's main fit (p=.009) but drops to
   p=.084 using real email's other fit (`q1_real.py`'s sender-fixed-effects
   cross-check, which has a wider standard error). Read this as not settled,
-  not as a confirmed difference -- see "Length-matching the Q1-vs-real
+  not as a confirmed difference -- see "13. Length-matching the Q1-vs-real
   comparison" below for two more reasons this gap does not hold up: cutting
   real email to the same reply length, and a robust standard-error check
   that puts this very p=.009 in doubt too.
@@ -906,7 +906,7 @@ Chance that a sentence gives an order, by direction:
   scale** (1.98 at pilot scale, 4.75 for real email). A short reply
   inflates the "orders per sentence" share for the same underlying
   behavior -- the same caveat the pilot section raised. No length-matched
-  version of this comparison exists yet (see "Next steps").
+  version of this comparison exists yet (see "17. Next steps").
 - **Llama still shows no significant difference from real email in either
   direction** (down p=.183, up p=.143, headline-style z-test), matching the
   Sep-23 conclusion above.
@@ -995,7 +995,7 @@ the pilot section flagged for its own "vs real email" tables.
 
 ---
 
-## Length-matching the Q1-vs-real comparison (Oct 4)
+## 13. Length-matching the Q1-vs-real comparison (Q1, Oct 4)
 
 **The problem.** `is_imperative` is a share of a reply's sentences that
 give an order. A short reply inflates this share for the same underlying
@@ -1070,7 +1070,7 @@ now writes this comparison automatically alongside the full-length one.
   probably overstated independently of the length-matching question. The
   simulator side is also a variational-Bayes fit, so its own standard
   error is likely understated too, in the same direction. **Done: see
-  "Q1: a robust standard-error check for the real-email fit (Oct 5)"
+  "14. A robust standard-error check for the real-email fit (Q1, Oct 5)"
   below** -- the actual number is p=.084, not the rough .14 estimated
   here. Every `vs_real` number in this log now uses the robust fit on both
   sides, not the VB one quoted here.
@@ -1097,7 +1097,7 @@ now writes this comparison automatically alongside the full-length one.
 
 ---
 
-## Q1: a robust standard-error check for the real-email fit (Oct 5)
+## 14. A robust standard-error check for the real-email fit (Q1, Oct 5)
 
 **gpt-oss-120b's "significantly bigger than real email" claim does not
 survive an honest standard error.** Full-length `is_imperative`, writing
@@ -1130,7 +1130,7 @@ kept under a `"vb"` key. Tests added in `tests/test_q1_real.py` and
 `tests/test_q1_models.py`, full suite passes.
 `outputs/manifests/q1_models_full.json` was regenerated with the same
 command, same three grids, same prompt hash `d4c18550ed56f2de` as the
-"Q1 across models, at full design scale" section above -- this is a refit
+"12. Q1 across models, at full design scale" section above -- this is a refit
 of the same data under corrected code, not a new generation run.
 `outputs/manifests/q1_real.json` was not touched; it already held the
 robust fit, just unused until now.
@@ -1196,7 +1196,7 @@ changes here, the p-values just move:
 
 ---
 
-## The new Q1 judge plan, and where Layer 1 failed (Oct 3)
+## 15. The new Q1 judge plan, and where Layer 1 failed (Q1, Oct 3)
 
 The new Q1 plan has two layers.
 
@@ -1241,7 +1241,7 @@ against generated email, so Layer 1 as designed cannot run.
 
 ---
 
-## Where the code lives
+## 16. Where the code lives
 
 **The clients.** `src/thesis/llm/openai_compatible.py` holds the shared
 request and retry logic. `nvidia_client.py` and `groq_client.py` are thin
@@ -1290,7 +1290,7 @@ made along the way, are in `PROGRESS_nvidia.md`.
 
 ---
 
-## Next steps
+## 17. Next steps
 
 Most valuable first.
 
@@ -1322,8 +1322,8 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   Commit `36fbc3e`.
 - **The main Q1 run (Llama, local, full design) now shows the writing-down
   effect at a normal significance level** -- 4,320 replies overnight,
-  p=.002 (VB) / p=.0006 (persona-clustered). See "The main Q1 run reaches
-  significance (Sep 23)" above. This was the 14-more-hours question for
+  p=.002 (VB) / p=.0006 (persona-clustered). See "11. The main Q1 run
+  reaches significance (Q1, Sep 23)" above. This was the 14-more-hours question for
   Llama specifically; it does not cover the other three models (next item).
 - **`draw_stability.grid_draw_reliability` now handles any number of
   draws.** It used to require exactly draws 1 and 2 and raised otherwise,
@@ -1331,18 +1331,18 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   three statistics to the standard multi-rater form (proper ICC, mean
   pairwise correlation, Fleiss' kappa), unchanged at exactly two draws.
   Commit `a9ae1d2`. `run_q1_analysis` now runs on the 3-draw grid without a
-  workaround; see "The main Q1 run reaches significance (Sep 23)" above for
-  the reliability numbers this produced.
+  workaround; see "11. The main Q1 run reaches significance (Q1, Sep 23)"
+  above for the reliability numbers this produced.
 - **`grid_contrasts` and `contrast_estimates` now use the pooled fit for a
   multi-draw grid.** Both always read the draw-1-only fits, so the CLI's
   "Against real email" table, the "Precision" table, and the manifest's own
   `primary`/`precision` sections silently used a third of the 3-draw
   grid's data. Found independently by a second Claude session cross-checking
-  this file. Commit `82cd1ae`. See "The main Q1 run reaches significance
-  (Sep 23)" above for what changed and what didn't (the effect's own
+  this file. Commit `82cd1ae`. See "11. The main Q1 run reaches significance
+  (Q1, Sep 23)" above for what changed and what didn't (the effect's own
   significance did not move; the "smaller than real email" comparison did).
 - **The Q1-versus-real comparison now has a length-matched version.** See
-  "Length-matching the Q1-vs-real comparison (Oct 4)" above. Covers what
+  "13. Length-matching the Q1-vs-real comparison (Q1, Oct 4)" above. Covers what
   used to be item 1 here. It found that gpt-oss-120b's "overshoot" is no
   longer detectable once both sides are cut to the same reply length, and
   also exposed a separate problem (see the next item).
@@ -1356,8 +1356,8 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   `mirroring_act.json`) are left as they are, historical artifacts of the
   code at the time, not regenerated.
 - **The real-email fit now has a robust-standard-error cross-check, and
-  the model-vs-real comparisons use it.** See "Q1: a robust standard-error
-  check for the real-email fit (Oct 5)" above. Covers item 1 here.
+  the model-vs-real comparisons use it.** See "14. A robust standard-error
+  check for the real-email fit (Q1, Oct 5)" above. Covers item 1 here.
   gpt-oss-120b's "significantly bigger than real email" claim (old
   p=.009) is not significant under the robust fit (p=.084) -- combined
   with the Oct 4 length-matching finding, its overshoot story is now
@@ -1366,8 +1366,8 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   only 10 clusters, and the length-matched robust fit drops more senders
   than its VB version did.
 - **The embedding map now covers the three free-tier models, not only
-  Llama.** See "Q2: do generated replies look like real email in
-  meaning-space? (Oct 5)" above. Covers the embedding-map half of what
+  Llama.** See "9. Do generated replies look like real email in
+  meaning-space? (Q2, Oct 5)" above. Covers the embedding-map half of what
   used to be item 4 here. The
   free-tier models' separability AUC (0.904 to 0.932) is not lower than
   Llama's (0.890); for Llama, length explains most of the gap, for the
