@@ -246,6 +246,20 @@ def _small_result_two_draws(tmp_path: Path):  # type: ignore[no-untyped-def]
     return run_q1_analysis(grid)
 
 
+def test_summarize_model_includes_the_grids_prompt_hash(tmp_path: Path) -> None:
+    """Every saved Q1 grid carries the prompt hash that made it
+    (``Q1Grid.prompt_text_hash``), but the model-comparison manifest never
+    copied it into a model's own row -- checking which prompt a row in
+    `q1_models_full.json` came from meant opening the grid file itself
+    instead of reading the comparison manifest (PROGRESS_llms.md's Q1 next
+    steps, the gap left by item 1)."""
+    result = _small_result(tmp_path)
+
+    row = summarize_model(result, REAL_MANIFEST_FULL)
+
+    assert row["prompt_text_hash"] == result.grid.prompt_text_hash
+
+
 def test_summarize_model_reports_a_persona_clustered_p_alongside_the_vb_one(
     tmp_path: Path,
 ) -> None:

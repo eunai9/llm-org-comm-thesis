@@ -137,6 +137,7 @@ def summarize_model(
     n_sentences = len(result.sentence_features)
     row: dict[str, Any] = {
         "model": result.grid.model,
+        "prompt_text_hash": result.grid.prompt_text_hash,
         "n_replies": n_replies,
         "n_sentences": n_sentences,
         "sentences_per_reply": round(n_sentences / n_replies, 2),

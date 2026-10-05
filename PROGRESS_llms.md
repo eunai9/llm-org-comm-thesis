@@ -1157,9 +1157,11 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   carries `prompt_text_hash`, also saved as a column on the grid's parquet
   file, so a saved grid records which prompt made it instead of needing a
   by-hand check. A grid saved before this fix reads back as `"unknown"`
-  rather than raising. Commit `5ee4b46`. One small gap remains:
-  `q1_models.py`'s own output manifest does not copy this hash into its
-  per-model entries yet, so checking it still means opening the grid file.
+  rather than raising. Commit `5ee4b46`. The one gap this left -- a
+  model's own row in `q1_models.py`'s output manifest did not carry this
+  hash, so checking it meant opening the grid file -- is also closed now:
+  `summarize_model`'s row carries `prompt_text_hash` too. All three models
+  in `q1_models_full.json` confirm the same hash (`d4c18550ed56f2de`).
 - **`q1_models.py`'s grid loader no longer marks every row "from cache".**
   `load_grid` now counts the real split from the `from_cache` column every
   row already carries, instead of hard-coding `n_from_cache=len(frame)`.
