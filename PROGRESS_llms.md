@@ -352,6 +352,90 @@ one.
 
 ---
 
+## Where generated replies land in embedding space
+
+The free-tier models are not closer to real email in meaning-space than the
+small local model. If anything they are slightly further.
+
+The two checks above compare word choice. The embedding map
+(`src/thesis/analysis/embedding_map.py`) compares meaning instead, by
+embedding each reply with `nomic-embed-text`, a free local model, and asking
+three questions. First, can a classifier on embeddings alone tell a real
+reply from a generated one (an AUC, 0.5 means indistinguishable, 1.0 means
+perfectly separable). Second, does that separation survive once each real
+reply is cut to its AI partner's word count. Third, does a generated reply's
+embedding sit closer to the real reply it was answering than to a real reply
+from a different, unrelated thread (topical tracking), which checks whether
+the model is actually responding to the email in front of it rather than
+writing something generic.
+
+This had only ever been run on Llama. This session ran it on the three
+free-tier models, using the same pairs files already saved for the
+mirroring and word-choice checks above, so no new model generation was
+needed, only free local embedding calls.
+
+```
+python -m thesis.analysis.embedding_map --pairs data/interim/pairs_gpt_oss.parquet --figure-prefix embedding_gpt_oss_ --out outputs/manifests/embedding_map_gpt_oss.json
+python -m thesis.analysis.embedding_map --pairs data/interim/pairs_gpt_oss_120b.parquet --figure-prefix embedding_gpt_oss_120b_ --out outputs/manifests/embedding_map_gpt_oss_120b.json
+python -m thesis.analysis.embedding_map --pairs data/interim/pairs_deepseek.parquet --figure-prefix embedding_deepseek_ --out outputs/manifests/embedding_map_deepseek.json
+```
+
+**Results**, 183 pairs per model.
+
+| Model | AUC, as stored | AUC, length-matched | Topical tracking: share matched higher | Mean cosine, matched / mismatched |
+|---|---:|---:|---:|---:|
+| Llama 3.2 3B (with instruction) | 0.890 | 0.817 | 0.863 | 0.581 / 0.474 |
+| DeepSeek V4 Flash | 0.911 | 0.907 | 0.858 | 0.625 / 0.511 |
+| gpt-oss-20b | 0.932 | 0.924 | 0.814 | 0.600 / 0.504 |
+| gpt-oss-120b | 0.904 | 0.909 | 0.825 | 0.614 / 0.508 |
+
+![Separability AUC, as stored, for all four models.](docs/figures/embedding_four_models_auc_stored.png)
+![Separability AUC, length-matched, for all four models.](docs/figures/embedding_four_models_auc_length_matched.png)
+
+Source manifests: `outputs/manifests/embedding_map_act.json` (Llama,
+existing), `outputs/manifests/embedding_map_deepseek.json`,
+`outputs/manifests/embedding_map_gpt_oss.json`,
+`outputs/manifests/embedding_map_gpt_oss_120b.json` (new this session).
+
+**What this means.**
+
+- **The free-tier models are not easier to confuse with real email in
+  embedding space than Llama.** Llama's AUC (0.890) is the lowest of the
+  four; the free-tier models run 0.904 to 0.932. A bigger model being
+  easier, not harder, to separate from real email is the same direction the
+  word-choice check above already found (0.96 to 0.98 AUC there against
+  Llama's 0.919). Two independent checks agree.
+- **For Llama, length drives most of the separation. For the free-tier
+  models it barely matters.** Llama's AUC drops from 0.890 to 0.817, a
+  0.073 drop, once both sides are cut to the same length. The three
+  free-tier models barely move: DeepSeek 0.911 to 0.907, gpt-oss-20b 0.932
+  to 0.924, gpt-oss-120b 0.904 to 0.909. The small rise for gpt-oss-120b is
+  noise from the resampled fit, not a real increase. So whatever makes a
+  free-tier reply identifiable, it is mostly not length. This matches the
+  word-choice check: stock phrases, not reply length, are what give these
+  models away.
+- **All four models track their own stimulus at a similar level.** Share
+  matched higher sits in a narrow band, 0.814 to 0.863, across all four
+  models. None of them writes generic, context-blind replies; all four stay
+  meaningfully tied to the specific email they are answering. Llama's is
+  marginally highest, but the four are close enough that this is not a
+  ranking worth drawing a conclusion from.
+
+**Caveats.**
+
+- This is a classifier AUC on 183 pairs per model, the same small-sample
+  caution the word-choice check above carries. No significance test was run
+  comparing one model's AUC against another's, unlike the Q1-vs-real
+  comparisons elsewhere in this file. The numbers above are point estimates,
+  not tested differences.
+- The embedding model, `nomic-embed-text`, is a fixed choice: this project
+  has no budget for a paid embedding API. A different embedding model could
+  change the exact AUC values, though probably not the direction of the
+  main finding, since the word-choice check finds the same direction by a
+  completely different method.
+
+---
+
 ## Does hierarchy change how directive a reply is (Q1)
 
 Q1 asks whether a persona's place in the hierarchy changes how directive its
@@ -1310,6 +1394,12 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   change. Two open limitations noted there: the model-side robust fit has
   only 10 clusters, and the length-matched robust fit drops more senders
   than its VB version did.
+- **The embedding map now covers the three free-tier models, not only
+  Llama.** See "Where generated replies land in embedding space" above.
+  Covers the embedding-map half of what used to be item 4 here. The
+  free-tier models' separability AUC (0.904 to 0.932) is not lower than
+  Llama's (0.890); for Llama, length explains most of the gap, for the
+  three free-tier models it explains almost none.
 
 1. **A larger sample would help the three NVIDIA/Groq models too.** Every
    simulator interval in the four-model figure is 0.5 to 0.7 wide, against
@@ -1323,19 +1413,22 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
    `50bd3aa`): 50 emails, two replies each from two models, in random
    order, with the model hidden. The codebook's missing `wrong_register`
    definition is also already fixed. Nothing left but a person to sit down
-   and code it.
+   and code it. This session built three more such packets, one per
+   free-tier model (`outputs/tables/{gpt_oss,gpt_oss_120b,deepseek}/
+   manual_review_sheet.csv` and `manual_review_packet.md`, gitignored
+   prep material, not committed). This is the review-pack half of what
+   used to be item 4 here. Like the Llama-vs-DeepSeek packet above, no
+   one has coded these yet, so they produce no citable numbers so far.
 3. **A run without the act instruction.** This would show whether a larger
    model follows the instruction better than the small local one did
    (`PROGRESS.md` section 43 found only a small effect on Llama). The code
    already has a `--prompt-variant` mechanism; a third variant without the
    instruction would fit it.
-4. **Embedding map and review pack on the newer models.** These only read
-   saved replies, so they need no new generation.
-5. **Judge study (Q3).** Four models across three families are now
+4. **Judge study (Q3).** Four models across three families are now
    available. One can write and another can judge, then the roles can be
    swapped. This needs new model calls.
-6. **Move the line-removal rule into the corpus cleaner**, so every analysis
+5. **Move the line-removal rule into the corpus cleaner**, so every analysis
    uses the same clean real-reply text instead of a one-off script.
-7. **Back up `runs/_cache`.** It holds every reply this project has
+6. **Back up `runs/_cache`.** It holds every reply this project has
    received and exists only on this laptop. It must never go into git,
    because the prompts contain Enron text.
