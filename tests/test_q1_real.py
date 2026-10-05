@@ -21,6 +21,7 @@ from thesis.analysis.q1_real import (
     drop_self_recipients,
     imperative_agreement,
     mark_replies,
+    robust_contrasts,
     select_loose,
     select_strict,
     standardized_levels,
@@ -277,6 +278,39 @@ def test_truncate_sentences_leaves_a_shorter_message_unchanged() -> None:
     truncated = truncate_sentences(sentences, max_sentences=5)
 
     assert len(truncated) == 1
+
+
+def test_robust_contrasts_reads_only_the_sender_fixed_effects_version() -> None:
+    manifest = {
+        "contrasts": [
+            {
+                "version": "strict",
+                "outcome": "is_imperative",
+                "level": "down",
+                "coefficient": 0.2533,
+                "p_value": 1.032e-06,
+            },
+            {
+                "version": "strict_sender_fixed_effects",
+                "outcome": "is_imperative",
+                "level": "down",
+                "coefficient": 0.2491,
+                "p_value": 0.03421,
+            },
+            {
+                "version": "strict_sender_fixed_effects",
+                "outcome": "hedge_rate",
+                "level": "up",
+                "coefficient": -0.009,
+                "p_value": 0.1971,
+            },
+        ]
+    }
+    robust = robust_contrasts(manifest)
+    assert robust == {
+        "is_imperative:down": (0.2491, 0.03421),
+        "hedge_rate:up": (-0.009, 0.1971),
+    }
 
 
 def test_simulator_comparison_gives_no_difference_for_an_identical_contrast() -> None:

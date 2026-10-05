@@ -25,6 +25,11 @@ from typing import Any
 
 import pandas as pd
 
+from thesis.analysis.hierarchy import (
+    FixedEffectsResult,
+    SentenceModelResult,
+    fit_direction_fixed_effects,
+)
 from thesis.analysis.plots import plot_effect_intervals
 from thesis.analysis.q1 import (
     REAL_MANIFEST_PATH,
@@ -38,9 +43,14 @@ from thesis.analysis.q1 import (
     sentence_levels_by_direction,
 )
 from thesis.analysis.q1_real import (
+    CONTRASTS,
+    REFERENCE,
+    SENDER_COL,
+    SENTENCE_OUTCOME,
     SENTENCES_PATH,
     fit_sentence_model,
     implied_se,
+    robust_contrasts,
     truncate_sentences,
 )
 from thesis.logging_setup import configure_logging, get_logger
@@ -126,6 +136,18 @@ def summarize_model(
     draw-1-only persona-FE fit here mixed a draw-1 number with pooled ones in
     the same row (found checking the Oct 4 full-design comparison against
     the Sep 23 PROGRESS_llms.md entry, where the two disagreed).
+
+    ``vs_real`` has the same VB problem one level up: it used to compare the
+    VB sentence model's ``is_imperative`` contrast against real email's own
+    VB fit (``q1_real.py``'s ``"strict"`` version), the same understated
+    pair ``primary`` above stops using. ``vs_real`` now uses the clustered
+    fit on both sides for ``is_imperative`` instead -- this row's own
+    ``persona_fe`` on the model side, and real email's
+    ``strict_sender_fixed_effects`` fit (``q1_real.robust_contrasts``) on
+    the real side. The other two outcomes (``imperative_ratio``,
+    ``hedge_rate``) never had this problem -- they are plain mixed models,
+    not VB -- so they pass through unchanged. The old VB-vs-VB comparison
+    stays available under ``vs_real_vb``, not dropped.
     """
     contrasts = grid_contrasts(result)
     vb_coefficient, p_vb = contrasts[PRIMARY]
@@ -152,11 +174,45 @@ def summarize_model(
             "coefficient_vb": round(vb_coefficient, 4),
             "p_vb": round(p_vb, 4),
         },
-        "vs_real": compare_with_real(contrasts, real_manifest),
+        "vs_real": compare_with_real(
+            _robust_is_imperative(contrasts, persona_fe), _robust_real_manifest(real_manifest)
+        ),
+        "vs_real_vb": compare_with_real(contrasts, real_manifest),
     }
     if real_sentences is not None:
         row["vs_real_length_matched"] = compare_with_length_matched_real(result, real_sentences)
     return row
+
+
+def _robust_is_imperative(
+    contrasts: Mapping[str, tuple[float, float]], persona_fe: FixedEffectsResult
+) -> dict[str, tuple[float, float]]:
+    """``contrasts`` with its ``is_imperative`` entries replaced by the
+    persona-clustered fixed-effects fit's own contrasts, the same fit
+    ``primary`` already reports -- everything else (the two outcomes that
+    were never VB-fitted) passes through unchanged."""
+    return {
+        **contrasts,
+        **{f"is_imperative:{level}": persona_fe.contrast(level) for level in CONTRASTS},
+    }
+
+
+def _robust_real_manifest(real_manifest: Mapping[str, Any]) -> dict[str, Any]:
+    """``real_manifest`` with its ``is_imperative`` entries in
+    ``simulator_vs_real`` replaced by the sender-clustered fixed-effects
+    fit (:func:`thesis.analysis.q1_real.robust_contrasts`), everything else
+    unchanged."""
+    robust = robust_contrasts(real_manifest)
+    return {
+        "simulator_vs_real": {
+            **real_manifest["simulator_vs_real"],
+            **{
+                key: {"real": coefficient, "real_p": p_value}
+                for key, (coefficient, p_value) in robust.items()
+                if key.startswith("is_imperative:")
+            },
+        }
+    }
 
 
 def compare_with_length_matched_real(
@@ -174,30 +230,60 @@ def compare_with_length_matched_real(
     same real-email model ``q1_real.py`` already fits. Same z-test
     ``compare_with_real`` already uses, with a length-matched real side
     instead of the manifest's full-length one.
+
+    Both sides use the sender/persona-clustered fixed-effects fit, not the
+    VB sentence model -- the VB fit's posterior SD understates uncertainty
+    on this outcome (PROGRESS_llms.md, Oct 4: a sender-clustered robust SE
+    came out about twice the VB-implied one on the full-length version of
+    this same comparison). The VB-based version is still returned under
+    ``"vb"``, not dropped, the way ``primary`` keeps ``coefficient_vb``.
     """
     max_sentences = max(1, round(len(result.sentence_features) / len(result.reply_features)))
-    matched = fit_sentence_model(
-        truncate_sentences(real_sentences, max_sentences), control_rank=True, per_email=True
+    truncated = truncate_sentences(real_sentences, max_sentences)
+    matched = fit_direction_fixed_effects(
+        truncated, SENTENCE_OUTCOME, cluster_col=SENDER_COL, reference=REFERENCE, family="logistic"
     )
-    synthetic_real_manifest = {
-        "simulator_vs_real": {
-            f"is_imperative:{level}": {
-                "real": matched.contrast(level)[0],
-                "real_p": matched.contrast(level)[1],
-            }
-            for level in ("down", "up")
-        }
+    matched_vb = fit_sentence_model(truncated, control_rank=True, per_email=True)
+
+    persona_fe = result.sentence_model_persona_fe_pooled or result.sentence_model_persona_fe
+    model_contrasts = {f"is_imperative:{level}": persona_fe.contrast(level) for level in CONTRASTS}
+    vb_model_contrasts = {
+        k: v for k, v in grid_contrasts(result).items() if k.startswith("is_imperative:")
     }
-    contrasts = grid_contrasts(result)
-    is_imperative_contrasts = {k: v for k, v in contrasts.items() if k.startswith("is_imperative:")}
-    comparison = compare_with_real(is_imperative_contrasts, synthetic_real_manifest)
-    return {"max_sentences": max_sentences, **comparison}
+
+    def _synthetic_real(fit: FixedEffectsResult | SentenceModelResult) -> dict[str, Any]:
+        return {
+            "simulator_vs_real": {
+                f"is_imperative:{level}": {
+                    "real": fit.contrast(level)[0],
+                    "real_p": fit.contrast(level)[1],
+                }
+                for level in CONTRASTS
+            }
+        }
+
+    comparison = compare_with_real(model_contrasts, _synthetic_real(matched))
+    comparison_vb = compare_with_real(vb_model_contrasts, _synthetic_real(matched_vb))
+    return {"max_sentences": max_sentences, "vb": comparison_vb, **comparison}
 
 
 def real_row(real_manifest: Mapping[str, Any]) -> dict[str, float]:
-    """The real-email benchmark for the primary contrast, with its interval."""
-    real = real_manifest["simulator_vs_real"][PRIMARY]
-    coefficient, p_value = float(real["real"]), float(real["real_p"])
+    """The real-email benchmark for the primary contrast, with its interval.
+
+    Uses the sender-clustered fixed-effects fit
+    (:func:`thesis.analysis.q1_real.robust_contrasts`) when the manifest
+    carries one, since ``PRIMARY`` is ``is_imperative:down`` and that
+    outcome's VB fit understates its own uncertainty (PROGRESS_llms.md,
+    Oct 4). Falls back to ``simulator_vs_real``'s VB contrast for a
+    manifest built before this fit existed, or a hand-built test fixture
+    that only sets ``simulator_vs_real``.
+    """
+    robust = robust_contrasts(real_manifest)
+    if PRIMARY in robust:
+        coefficient, p_value = robust[PRIMARY]
+    else:
+        real = real_manifest["simulator_vs_real"][PRIMARY]
+        coefficient, p_value = float(real["real"]), float(real["real_p"])
     se = implied_se(coefficient, p_value)
     return {
         "coefficient": round(coefficient, 4),

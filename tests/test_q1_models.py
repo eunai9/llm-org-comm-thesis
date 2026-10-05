@@ -30,6 +30,26 @@ from thesis.sim.persona import Persona, PersonaStyle
 
 REAL_MANIFEST = {"simulator_vs_real": {PRIMARY: {"real": 0.253, "real_p": 0.0004}}}
 
+REAL_MANIFEST_WITH_ROBUST = {
+    "simulator_vs_real": {PRIMARY: {"real": 0.253, "real_p": 1.032e-06}},
+    "contrasts": [
+        {
+            "version": "strict_sender_fixed_effects",
+            "outcome": "is_imperative",
+            "level": "down",
+            "coefficient": 0.2491,
+            "p_value": 0.03421,
+        },
+        {
+            "version": "strict_sender_fixed_effects",
+            "outcome": "is_imperative",
+            "level": "up",
+            "coefficient": 0.0717,
+            "p_value": 0.4038,
+        },
+    ],
+}
+
 
 def test_parse_grid_arg_splits_label_and_path() -> None:
     label, path = parse_grid_arg("gpt-oss-20b=data/interim/grid.parquet")
@@ -53,6 +73,26 @@ def test_real_row_interval_is_centered_on_the_coefficient() -> None:
     assert row["coefficient"] == pytest.approx(0.253)
     assert row["ci_high"] - row["coefficient"] == pytest.approx(Z_95 * row["se"], abs=1e-3)
     assert row["coefficient"] - row["ci_low"] == pytest.approx(Z_95 * row["se"], abs=1e-3)
+
+
+def test_real_row_prefers_the_sender_clustered_fit_when_the_manifest_has_one() -> None:
+    """``PRIMARY`` is ``is_imperative:down``. Its VB fit understates its own
+    uncertainty (PROGRESS_llms.md, Oct 4): the same 0.253 coefficient reads
+    as p=1.032e-06 there but p=0.03421 under a sender-clustered robust fit.
+    ``real_row`` must report the robust pair whenever the manifest has one,
+    not the VB pair that sits right next to it in ``simulator_vs_real``."""
+    row = real_row(REAL_MANIFEST_WITH_ROBUST)
+    assert row["coefficient"] == pytest.approx(0.2491)
+    assert row["p"] == pytest.approx(0.03421)
+
+
+def test_real_row_falls_back_to_simulator_vs_real_without_a_contrasts_list() -> None:
+    """A hand-built manifest (or one from before this fit existed) has no
+    ``contrasts`` list. ``real_row`` must still work from ``simulator_vs_real``
+    alone, as it always did."""
+    row = real_row(REAL_MANIFEST)
+    assert row["coefficient"] == pytest.approx(0.253)
+    assert row["p"] == pytest.approx(0.0004)
 
 
 def _model(coefficient: float, p: float) -> dict[str, object]:
@@ -128,7 +168,19 @@ REAL_MANIFEST_FULL = {
         f"{outcome}:{level}": {"real": 0.2, "real_p": 0.01}
         for outcome in ("imperative_ratio", "is_imperative", "hedge_rate")
         for level in ("down", "up")
-    }
+    },
+    # Deliberately different from the VB pair above, so a test can tell
+    # whether summarize_model's "vs_real" read this fit or the VB one.
+    "contrasts": [
+        {
+            "version": "strict_sender_fixed_effects",
+            "outcome": "is_imperative",
+            "level": level,
+            "coefficient": 0.35,
+            "p_value": 0.2,
+        }
+        for level in ("down", "up")
+    ],
 }
 
 
@@ -279,6 +331,37 @@ def test_summarize_model_reports_a_persona_clustered_p_alongside_the_vb_one(
     assert primary["coefficient"] == pytest.approx(clustered_coefficient, abs=1e-4)
     assert primary["coefficient_vb"] == pytest.approx(vb_coefficient, abs=1e-4)
     assert primary["ci_low"] < primary["coefficient"] < primary["ci_high"]
+
+
+def test_summarize_model_vs_real_uses_the_clustered_fit_on_both_sides(
+    tmp_path: Path,
+) -> None:
+    """``vs_real`` used to compare the VB sentence model against real
+    email's own VB fit -- both understate their uncertainty on
+    ``is_imperative`` (PROGRESS_llms.md, Oct 4). It must now compare this
+    row's own persona-clustered fit (``primary``'s ``coefficient``/``p``)
+    against real email's sender-clustered fit
+    (``REAL_MANIFEST_FULL``'s ``strict_sender_fixed_effects`` rows), not
+    the VB pair -- while ``vs_real_vb`` keeps comparing the two VB fits, so
+    the old numbers are not lost."""
+    result = _small_result(tmp_path)
+
+    row = summarize_model(result, REAL_MANIFEST_FULL)
+
+    persona_fe = result.sentence_model_persona_fe_pooled or result.sentence_model_persona_fe
+    grid_coefficient, _ = persona_fe.contrast("down")
+    assert row["vs_real"][PRIMARY]["grid"] == pytest.approx(grid_coefficient, abs=1e-4)
+    assert row["vs_real"][PRIMARY]["real"] == pytest.approx(0.35)
+    assert row["vs_real_vb"][PRIMARY]["real"] == pytest.approx(0.2)
+    assert row["vs_real_vb"][PRIMARY]["grid"] == pytest.approx(row["primary"]["coefficient_vb"])
+    # The other two outcomes never had a VB fit, so they are unaffected.
+    # Compared field by field, not by dict equality: this fixture's small
+    # sample gives hedge_rate a p-value of exactly 0 on some fits, which
+    # makes "difference_p" come out NaN on both sides -- and NaN != NaN.
+    for field in ("grid", "real", "difference"):
+        assert (
+            row["vs_real"]["hedge_rate:down"][field] == row["vs_real_vb"]["hedge_rate:down"][field]
+        )
 
 
 def test_summarize_model_uses_the_pooled_persona_fe_fit_for_a_multi_draw_grid(

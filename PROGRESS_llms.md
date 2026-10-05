@@ -1016,9 +1016,9 @@ now writes this comparison automatically alongside the full-length one.
   means that claim was probably overstated independently of the
   length-matching question. The simulator side is also a variational-Bayes
   fit, so its own standard error is likely understated too, in the same
-  direction. No model in this log has a robust-SE cross-check yet for the
-  real-email side the way `sentence_model_persona_fe` is one for the
-  simulator side -- see "Next steps."
+  direction. **Done: see "Robust-standard-error cross-check for the
+  real-email fit (Oct 5)" below.** Every `vs_real` number in this log now
+  uses the robust fit on both sides, not the VB one quoted here.
 - **Rounding each model's mean sentence count to one whole number is a
   coarse rule.** A finer check -- cutting real email to lengths drawn from
   each model's own reply-length distribution, not one fixed number --
@@ -1039,6 +1039,105 @@ now writes this comparison automatically alongside the full-length one.
   full-length gap against .183 quoted above) -- the underlying
   variational-Bayes fit's optimizer is not bit-for-bit repeatable. This
   does not change any conclusion in this log.
+
+---
+
+## Robust-standard-error cross-check for the real-email fit (Oct 5)
+
+**gpt-oss-120b's "significantly bigger than real email" claim does not
+survive an honest standard error.** Full-length `is_imperative`, writing
+down: p was .009 under the variational-Bayes (VB) fit both sides used
+before. Under a robust fit both sides now use, p is .084. Not
+significant.
+
+**Why this follows from the section above.** The caveat there found real
+email's VB-implied standard error (0.052) was about half the size of a
+sender-clustered robust standard error (0.115) computed on the same fit.
+That robust fit already existed in `q1_real.py`, under
+`strict_sender_fixed_effects`, and the simulator side already had its own
+robust equivalent (`sentence_model_persona_fe`, clustered by persona) --
+but the model-vs-real-email comparison in `q1_models.py` still put the VB
+fit on both sides, even though each side's own headline number already
+used the robust one. So the comparison's p-values were built on a
+different, less honest fit than the effect sizes sitting next to them.
+This closes that gap: `vs_real` now compares each model's robust,
+persona-clustered fit against real email's robust, sender-clustered fit,
+for `is_imperative` only -- `imperative_ratio` and `hedge_rate` were never
+VB-fitted, so they are untouched. The old VB-vs-VB comparison is kept,
+not deleted, under a new `vs_real_vb` key.
+
+New function `robust_contrasts` in `q1_real.py` reads the
+`strict_sender_fixed_effects` rows `run_q1_real` already computes and
+saves in its `contrasts` list -- nothing new was fitted, this data existed
+and was unused. `real_row` and `summarize_model` in `q1_models.py` now use
+it. `compare_with_length_matched_real` gets the same swap, old VB version
+kept under a `"vb"` key. Tests added in `tests/test_q1_real.py` and
+`tests/test_q1_models.py`, full suite passes.
+`outputs/manifests/q1_models_full.json` was regenerated with the same
+command, same three grids, same prompt hash `d4c18550ed56f2de` as the
+"Q1 across models, at full design scale" section above -- this is a refit
+of the same data under corrected code, not a new generation run.
+`outputs/manifests/q1_real.json` was not touched; it already held the
+robust fit, just unused until now.
+
+Full-length comparison, `is_imperative`, writing down versus lateral (the
+project's primary contrast):
+
+| | Old: VB fit, both sides | New: robust fit, both sides |
+|---|---:|---:|
+| Real email's own effect | +0.253, p<.001 | +0.249, p=.034 |
+| Llama 3.2 3B (3 draws) vs real, p | .182 | .322 |
+| gpt-oss-20b vs real, p | .984 | .943 |
+| gpt-oss-120b vs real, p | .009 | .084 |
+
+Length-matched comparison (real email cut to each model's own mean reply
+length, from the Oct 4 section above) was already not significant under
+the VB fit and stays not significant under the robust fit. No conclusion
+changes here, the p-values just move:
+
+| Model | VB p | Robust p |
+|---|---:|---:|
+| Llama 3.2 3B (3 draws) | .635 | .650 |
+| gpt-oss-20b | .151 | .291 |
+| gpt-oss-120b | .681 | .841 |
+
+- **gpt-oss-120b's "overshoot" story is now unsupported under either
+  check.** The full-length claim was the one surviving piece of evidence
+  that gpt-oss-120b writes more directively than real email when writing
+  down. It does not survive the robust standard error (p=.084), and it
+  already did not survive length-matching (Oct 4, p=.681). Nothing left
+  in this log says gpt-oss-120b overshoots real email on this measure.
+- **Llama and gpt-oss-20b's conclusions do not change.** Both already read
+  as "no detectable difference from real email." The exact p-values move
+  (Llama .182 to .322, gpt-oss-20b .984 to .943), but neither crosses .05
+  either way.
+- **Real email's own effect is no longer p<.001.** Under the robust fit it
+  is p=.034, still significant, but noticeably weaker. From here on, say
+  plainly which fit a quoted real-email number comes from -- VB and
+  robust give different p-values for the same coefficient, and reading
+  one line's VB p-value against another line's robust p-value would be
+  comparing two different things without realizing it.
+
+**Caveats.**
+
+- **The model-side robust fit has only 10 clusters** (10 personas, every
+  grid). A cluster-robust standard error with only 10 clusters tends to
+  come out too small, with its normal-reference p-value too lenient --
+  a known small-sample property of cluster-robust standard errors, not
+  specific to this codebase. It shows up here: on the model side the
+  robust standard error is smaller than the VB one (Llama: 0.037 against
+  VB's 0.051), the opposite direction from real email's side (102
+  senders, robust bigger than VB). Even doubling the model-side standard
+  error as a conservative correction, gpt-oss-120b vs real stays not
+  significant (p rises to roughly .19), and the other two conclusions do
+  not move. This is an open limitation of the model-side fit, not a fixed
+  problem. A firmer fix (CR2 or a wild-cluster bootstrap standard error)
+  is future work.
+- **The length-matched robust fit drops more senders than the
+  length-matched VB fit.** Clusters with no variation left in the
+  cut-down sentences get dropped from a fixed-effects fit; at Llama's
+  1-sentence cut, 65 of 107 senders survive. That real-side number comes
+  from a smaller, selected group of senders than the full-length version.
 
 ---
 
@@ -1201,42 +1300,42 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   `mirroring_gpt_oss_120b.json`, `mirroring_deepseek.json`,
   `mirroring_act.json`) are left as they are, historical artifacts of the
   code at the time, not regenerated.
+- **The real-email fit now has a robust-standard-error cross-check, and
+  the model-vs-real comparisons use it.** See "Robust-standard-error
+  cross-check for the real-email fit (Oct 5)" above. Covers item 1 here.
+  gpt-oss-120b's "significantly bigger than real email" claim (old
+  p=.009) is not significant under the robust fit (p=.084) -- combined
+  with the Oct 4 length-matching finding, its overshoot story is now
+  unsupported either way. Llama and gpt-oss-20b's conclusions did not
+  change. Two open limitations noted there: the model-side robust fit has
+  only 10 clusters, and the length-matched robust fit drops more senders
+  than its VB version did.
 
-1. **Build a robust-standard-error cross-check for the real-email fit.**
-   The length-matching work above found that real email's variational-Bayes
-   standard error (0.052, full length) is about half the size of a
-   sender-clustered robust one (0.115) -- the same kind of understatement
-   `sentence_model_persona_fe` was built to catch on the simulator side,
-   but real email has no such cross-check yet. With the robust error, the
-   full-length "gpt-oss-120b is significantly bigger than real email" claim
-   (p=.009) drops to roughly p=.14. Until this exists, treat every p-value
-   in this log that compares a model against real email as possibly
-   overstated, not just the ones already flagged.
-2. **A larger sample would help the three NVIDIA/Groq models too.** Every
+1. **A larger sample would help the three NVIDIA/Groq models too.** Every
    simulator interval in the four-model figure is 0.5 to 0.7 wide, against
    0.2 for real email's 2,202 emails -- true for DeepSeek, gpt-oss-20b and
    gpt-oss-120b still, now that Llama's own version of this question is
    answered above. gpt-oss-120b's Groq rate cap (200,000 tokens/day) makes
    this a multi-day job there, not an overnight one.
-3. **Hand-code a sample of replies by a person.** The mirroring cutoff and
+2. **Hand-code a sample of replies by a person.** The mirroring cutoff and
    its validation rest on Claude's first-pass codes of Llama replies only.
    A coding page is already built and committed (`review_pack.py`, commit
    `50bd3aa`): 50 emails, two replies each from two models, in random
    order, with the model hidden. The codebook's missing `wrong_register`
    definition is also already fixed. Nothing left but a person to sit down
    and code it.
-4. **A run without the act instruction.** This would show whether a larger
+3. **A run without the act instruction.** This would show whether a larger
    model follows the instruction better than the small local one did
    (`PROGRESS.md` section 43 found only a small effect on Llama). The code
    already has a `--prompt-variant` mechanism; a third variant without the
    instruction would fit it.
-5. **Embedding map and review pack on the newer models.** These only read
+4. **Embedding map and review pack on the newer models.** These only read
    saved replies, so they need no new generation.
-6. **Judge study (Q3).** Four models across three families are now
+5. **Judge study (Q3).** Four models across three families are now
    available. One can write and another can judge, then the roles can be
    swapped. This needs new model calls.
-7. **Move the line-removal rule into the corpus cleaner**, so every analysis
+6. **Move the line-removal rule into the corpus cleaner**, so every analysis
    uses the same clean real-reply text instead of a one-off script.
-8. **Back up `runs/_cache`.** It holds every reply this project has
+7. **Back up `runs/_cache`.** It holds every reply this project has
    received and exists only on this laptop. It must never go into git,
    because the prompts contain Enron text.

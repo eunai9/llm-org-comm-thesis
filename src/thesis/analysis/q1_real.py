@@ -484,6 +484,31 @@ def implied_se(coefficient: float, p_value: float) -> float:
     return abs(coefficient) / float(stats.norm.isf(p_value / 2))
 
 
+def robust_contrasts(manifest: Mapping[str, Any]) -> dict[str, tuple[float, float]]:
+    """Each outcome:level contrast from the sender-clustered fixed-effects
+    fit (``version == "strict_sender_fixed_effects"``), keyed the way
+    ``compare_with_simulator`` keys its own output.
+
+    This module already fits this cross-check for every outcome, next to
+    the mixed models -- the same honest-but-conservative check
+    ``sentence_model_persona_fe`` is for the simulator side (see
+    :func:`thesis.analysis.hierarchy.fit_direction_fixed_effects`'s
+    docstring). It was sitting unused in ``run_q1_real``'s own
+    ``contrasts`` list. ``q1_models.py`` needs it because the VB sentence
+    model's posterior SD understates uncertainty on ``is_imperative``: a
+    sender-clustered robust SE came out about twice the VB-implied one
+    (0.118 against 0.052, PROGRESS_llms.md Oct 4), which moved the
+    gpt-oss-120b-vs-real-email p-value from .009 to .084 once both sides
+    of the comparison use their own clustered fit (results-verifier,
+    Oct 5) -- not significant either way.
+    """
+    return {
+        f"{row['outcome']}:{row['level']}": (float(row["coefficient"]), float(row["p_value"]))
+        for row in manifest.get("contrasts", [])
+        if row["version"] == "strict_sender_fixed_effects"
+    }
+
+
 def compare_with_simulator(rows: Sequence[ContrastRow]) -> dict[str, dict[str, float]]:
     """Each real contrast next to the simulator's, with a rough z-test of the
     difference.
