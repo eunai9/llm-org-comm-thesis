@@ -1,0 +1,93 @@
+{
+  "caveats": [
+    "one draw per cell; the model reproduces its own decision 60% of the time (PROGRESS.md section 50)",
+    "each free-tier model's own self-preference coefficient is measured against llama3.2:3b as the reference level, not against the other two free-tier models directly"
+  ],
+  "result": {
+    "effects": {
+      "generator_quality_deepseek-ai_deepseek-v4-flash-0731": {
+        "coefficient": 0.1556,
+        "label": "generator quality: deepseek-ai/deepseek-v4-flash-0731",
+        "outcome": "score_overall",
+        "p_value": 0.07316,
+        "std_error": 0.0868
+      },
+      "generator_quality_openai_gpt-oss-120b@low": {
+        "coefficient": 0.3333,
+        "label": "generator quality: openai/gpt-oss-120b@low",
+        "outcome": "score_overall",
+        "p_value": 0.0001232,
+        "std_error": 0.0868
+      },
+      "generator_quality_openai_gpt-oss-20b@low": {
+        "coefficient": 0.347,
+        "label": "generator quality: openai/gpt-oss-20b@low",
+        "outcome": "score_overall",
+        "p_value": 6.887e-05,
+        "std_error": 0.0872
+      },
+      "judge_generosity_openai_gpt-oss-120b@low": {
+        "coefficient": -0.8083,
+        "label": "judge generosity: openai/gpt-oss-120b@low",
+        "outcome": "score_overall",
+        "p_value": 1.264e-20,
+        "std_error": 0.0868
+      },
+      "judge_generosity_openai_gpt-oss-20b@low": {
+        "coefficient": -0.6861,
+        "label": "judge generosity: openai/gpt-oss-20b@low",
+        "outcome": "score_overall",
+        "p_value": 2.716e-15,
+        "std_error": 0.0868
+      },
+      "self_preference_openai_gpt-oss-120b@low": {
+        "coefficient": 0.6806,
+        "label": "self-preference: openai/gpt-oss-120b@low (overall rubric mean)",
+        "outcome": "score_overall",
+        "p_value": 2.969e-08,
+        "std_error": 0.1228
+      },
+      "self_preference_openai_gpt-oss-20b@low": {
+        "coefficient": 0.5872,
+        "label": "self-preference: openai/gpt-oss-20b@low (overall rubric mean)",
+        "outcome": "score_overall",
+        "p_value": 1.907e-06,
+        "std_error": 0.1233
+      },
+      "self_preference_plausibility_openai_gpt-oss-120b@low": {
+        "coefficient": 0.4833,
+        "label": "self-preference: openai/gpt-oss-120b@low (corpus_plausibility only)",
+        "outcome": "score_corpus_plausibility",
+        "p_value": 0.003881,
+        "std_error": 0.1674
+      },
+      "self_preference_plausibility_openai_gpt-oss-20b@low": {
+        "coefficient": 0.6175,
+        "label": "self-preference: openai/gpt-oss-20b@low (corpus_plausibility only)",
+        "outcome": "score_corpus_plausibility",
+        "p_value": 0.000239,
+        "std_error": 0.1681
+      }
+    },
+    "n_replies": 239,
+    "n_scores": 717,
+    "persona_variance": 0.0046
+  },
+  "run": {
+    "design": "pilot",
+    "generators": [
+      "deepseek-ai/deepseek-v4-flash-0731",
+      "openai/gpt-oss-20b@low",
+      "openai/gpt-oss-120b@low",
+      "llama3.2:3b"
+    ],
+    "judges": [
+      "openai/gpt-oss-20b@low",
+      "openai/gpt-oss-120b@low",
+      "llama3.2:3b"
+    ],
+    "n_from_cache": 240,
+    "n_generated": 0,
+    "prompt_text_hash": "d4c18550ed56f2de"
+  }
+}

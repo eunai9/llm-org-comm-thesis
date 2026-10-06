@@ -920,6 +920,28 @@ def main() -> None:
         y_label="mean rubric score, own family (1-5)",
     )
 
+    # Next-steps item 4 (Q3): the judge-swap design on the project's real
+    # four free-tier models and three families, not the two local 3B
+    # stand-ins sections 23/41/52 used. DeepSeek could not judge (NVIDIA
+    # retired deepseek-v4-flash-0731 mid-project), so only gpt-oss-20b and
+    # gpt-oss-120b have a self-preference coefficient here -- each
+    # measured against llama3.2:3b as the reference judge/generator.
+    # Coefficients and standard errors from
+    # outputs/manifests/judge_swap_free_tier.json.
+    plot_effect_intervals(
+        ("openai/gpt-oss-120b@low", "openai/gpt-oss-20b@low"),
+        (0.6806, 0.5872),
+        (0.6806 - 1.96 * 0.1228, 0.5872 - 1.96 * 0.1233),
+        (0.6806 + 1.96 * 0.1228, 0.5872 + 1.96 * 0.1233),
+        path=DOCS_FIGURES_DIR / "judge_swap_free_tier_self_preference.png",
+        title="Judge swap on the real free-tier models: self-preference holds",
+        subtitle=(
+            "Self-preference interaction (overall rubric mean), vs. llama3.2:3b "
+            "as reference. Both p<.0001. 239 replies, 717 scores."
+        ),
+        x_label="self-preference coefficient (rubric points, own replies vs. predicted)",
+    )
+
     # Section 45: the power score split into its two halves and checked
     # against seniority separately. Three lines, not two, so
     # plot_factor_interaction's cap does not fit -- this is exactly the case

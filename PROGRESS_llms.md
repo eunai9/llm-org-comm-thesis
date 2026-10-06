@@ -27,8 +27,8 @@ directly (the Q1 real-email comparison).
 | Hand-coded by a person | No | No | No | No |
 
 Other open items: a run without the "act" instruction, an embedding map and
-review pack for the newer models, a judge study across model families, and
-committing the blind-coding module. See "17. Next steps" at the end.
+review pack for the newer models, and committing the blind-coding module.
+See "18. Next steps" at the end.
 
 ---
 
@@ -683,13 +683,13 @@ tables -- same effect, two different standard errors.
   standard deviation (`hierarchy.py`). gpt-oss-120b's case (reported p=5e-08,
   honest p≈.001) is what exposed it. Fixed: the code now also fits a
   persona-clustered cross-check on its own (`Q1Result.sentence_model_persona_fe`,
-  commit `85e833a`) -- see the "17. Next steps" done-block below for what still
+  commit `85e833a`) -- see the "18. Next steps" done-block below for what still
   needs it substituted in.
 - **Two small bugs found while checking this result, since fixed.** The Q1
   grid generator now writes `prompt_text_hash()` onto the saved grid instead
   of only computing it in memory (commit `5ee4b46`), and `q1_models.py`'s
   grid loader now counts real cache/generation numbers instead of
-  hard-coding every row as "from cache" (commit `36fbc3e`). See "17. Next
+  hard-coding every row as "from cache" (commit `36fbc3e`). See "18. Next
   steps" for the one small gap that remains.
 
 ---
@@ -906,7 +906,7 @@ Chance that a sentence gives an order, by direction:
   scale** (1.98 at pilot scale, 4.75 for real email). A short reply
   inflates the "orders per sentence" share for the same underlying
   behavior -- the same caveat the pilot section raised. No length-matched
-  version of this comparison exists yet (see "17. Next steps").
+  version of this comparison exists yet (see "18. Next steps").
 - **Llama still shows no significant difference from real email in either
   direction** (down p=.183, up p=.143, headline-style z-test), matching the
   Sep-23 conclusion above.
@@ -1241,7 +1241,89 @@ against generated email, so Layer 1 as designed cannot run.
 
 ---
 
-## 16. Where the code lives
+## 16. The judge-swap design on the real free-tier models (Q3, Oct 6)
+
+**Finding.** A judge favors its own kind of model, and this holds on the
+project's real four free-tier models, not only the two local stand-ins the
+earlier pilot used (PROGRESS.md sections 23, 41, 52). gpt-oss-120b scores
+its own replies 0.68 rubric points higher than its normal habits predict.
+gpt-oss-20b does the same by 0.59 points. Both p<.0001.
+
+**How.** Four models write replies to the same 60 scenarios (10 personas x
+6 scenarios, the design sections 23/41/52 use). Three models then score
+every reply, including their own, on the 1-5 rubric. Self-preference is
+the interaction term of a `generator x judge` model: how much a model's
+own-written-own-judged score sits above what its general writing quality
+and its general judging habits already predict, measured against
+llama3.2:3b as the baseline for both. Read it as a disagreement between two
+judges, not one model's bias alone -- how much more the model's own judge
+prefers its writing than llama's judge does.
+
+**DeepSeek could not judge.** NVIDIA retired the DeepSeek model this
+project uses mid-session (`deepseek-v4-flash-0731`, end of life
+2026-09-21, confirmed by a live HTTP 410 response). Its replies were
+already cached from earlier work, so it still writes here. It cannot be
+called live any more, so it was dropped as a judge. DeepSeek's own
+self-preference is not tested.
+
+**Results**, 239 replies (one gpt-oss-20b reply did not parse and was
+dropped), 717 scores.
+
+| Effect | Coefficient | SE | p |
+|---|---:|---:|---:|
+| gpt-oss-120b self-preference (overall rubric) | +0.681 | 0.123 | <.0001 |
+| gpt-oss-20b self-preference (overall rubric) | +0.587 | 0.123 | <.0001 |
+| gpt-oss-120b self-preference (corpus_plausibility only) | +0.483 | 0.167 | .004 |
+| gpt-oss-20b self-preference (corpus_plausibility only) | +0.618 | 0.168 | .0002 |
+
+![Self-preference coefficient and 95% interval, gpt-oss-120b and gpt-oss-20b as judge, llama3.2:3b as the reference.](docs/figures/judge_swap_free_tier_self_preference.png)
+
+**What this means.**
+
+- **Stronger and clearer than the two-local-model pilot found.** Section 52
+  found +0.40 (p=.005) with two similar 3B local models. Real,
+  differently-trained models give a bigger, more significant effect for
+  both OpenAI models -- the finding does not shrink when the stand-ins are
+  replaced with the real thing.
+- **This is model-level, not family-level.** gpt-oss-20b and gpt-oss-120b
+  are the same family (OpenAI). The design tests whether each favors its
+  own exact writing, not whether one favors the other's.
+- **The near-zero persona variance did not understate the result.** The
+  mixed-model fit logged a singular-covariance warning, the same
+  degenerate case sections 33/34/41/52 hit. A cluster-robust OLS refit
+  gives the same coefficients (0.681 and 0.587) at the same or slightly
+  tighter precision.
+- **Both judges' harsh general scoring is overcome by self-preference.**
+  gpt-oss-120b and gpt-oss-20b score every reply 0.7-0.8 points lower than
+  llama on average, yet both end up with a higher own-family mean score
+  (4.49 and 4.53, against llama's 4.28) -- only possible because
+  self-preference adds back more than the harsh scoring takes away.
+
+**A real bug this surfaced.** Judging with an NVIDIA or Groq model as
+judge, never done before in this project, crashed with an unpriced-model
+error -- `judge/run.py`'s cost check named the local-model case but not the
+free-tier API case. Fixed in the same commit, with a regression test per
+provider.
+
+**Caveats.** One draw per cell. DeepSeek has no self-preference number
+(see above). All four p-values survive a Holm correction across the four
+tests. Generation cost nothing (all 240 cells already cached); judging
+needed 717 live calls, run through the same resumable, backoff-retrying
+script the qwen3.8-27b Q1 run uses, since gpt-oss-120b hit Groq's shared
+daily cap repeatedly.
+
+Source:
+```
+python -m thesis.analysis.judge_swap \
+  --generators deepseek-ai/deepseek-v4-flash-0731 openai/gpt-oss-20b@low openai/gpt-oss-120b@low llama3.2:3b \
+  --judges openai/gpt-oss-20b@low openai/gpt-oss-120b@low llama3.2:3b --design pilot
+```
+Manifest: `outputs/manifests/judge_swap_free_tier.json`. Prompt hash
+`d4c18550ed56f2de`, matching every other current-prompt section.
+
+---
+
+## 17. Where the code lives
 
 **The clients.** `src/thesis/llm/openai_compatible.py` holds the shared
 request and retry logic. `nvidia_client.py` and `groq_client.py` are thin
@@ -1290,7 +1372,7 @@ made along the way, are in `PROGRESS_nvidia.md`.
 
 ---
 
-## 17. Next steps
+## 18. Next steps
 
 Most valuable first.
 
@@ -1372,6 +1454,13 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   free-tier models' separability AUC (0.904 to 0.932) is not lower than
   Llama's (0.890); for Llama, length explains most of the gap, for the
   three free-tier models it explains almost none.
+- **The judge-swap design now covers the project's real four free-tier
+  models, not two local stand-ins.** See "16. The judge-swap design on the
+  real free-tier models (Q3, Oct 6)" above. Covers item 4 here.
+  gpt-oss-120b and gpt-oss-20b both show self-preference against llama as
+  reference (+0.68 and +0.59, both p<.0001), stronger than the two-local-
+  model pilot found. DeepSeek could not be tested as judge: NVIDIA retired
+  the model this project uses mid-session.
 
 1. **A larger sample would help the three NVIDIA/Groq models too.** Every
    simulator interval in the four-model figure is 0.5 to 0.7 wide, against
@@ -1396,11 +1485,8 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
    (`PROGRESS.md` section 43 found only a small effect on Llama). The code
    already has a `--prompt-variant` mechanism; a third variant without the
    instruction would fit it.
-4. **Judge study (Q3).** Four models across three families are now
-   available. One can write and another can judge, then the roles can be
-   swapped. This needs new model calls.
-5. **Move the line-removal rule into the corpus cleaner**, so every analysis
+4. **Move the line-removal rule into the corpus cleaner**, so every analysis
    uses the same clean real-reply text instead of a one-off script.
-6. **Back up `runs/_cache`.** It holds every reply this project has
+5. **Back up `runs/_cache`.** It holds every reply this project has
    received and exists only on this laptop. It must never go into git,
    because the prompts contain Enron text.
