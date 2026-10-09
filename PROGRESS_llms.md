@@ -1300,6 +1300,19 @@ error -- `judge/run.py`'s cost check named the local-model case but not the
 free-tier API case. Fixed in the same commit, with a regression test per
 provider.
 
+**Recommendation.** For future automated judging in this project, pair
+gpt-oss-20b as generator with llama3.2:3b as judge. Both gpt-oss models
+write better replies than llama by llama's own judgment (+0.35 and +0.33,
+both p<.0001) -- a comparison llama has no stake in, unlike a model
+judging itself. Llama's own self-preference cannot be read off this fit
+(it is the reference level every effect above is measured against), but
+it is the only one of the three tested judges this design did not catch
+favoring its own writing. gpt-oss-20b over gpt-oss-120b as generator:
+their generator-quality coefficients are close (+0.35 and +0.33, not
+tested directly against each other), but gpt-oss-20b runs on NVIDIA's
+free tier, not Groq's, so it avoids the daily cap that slowed this very
+run and the qwen3.8-27b Q1 run for days.
+
 **Caveats.** One draw per cell. DeepSeek has no self-preference number
 (see above). All four p-values survive a Holm correction across the four
 tests. Generation cost nothing (all 240 cells already cached); judging
