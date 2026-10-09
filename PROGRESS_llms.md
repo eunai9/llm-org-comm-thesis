@@ -925,11 +925,6 @@ Chance that a sentence gives an order, by direction:
   grids** (Llama 0.0, gpt-oss-20b 0.0004, gpt-oss-120b 0.0006), the same
   pattern the pilot section found. This does not threaten the contrast,
   since every persona answers all three directions.
-- **DeepSeek has no full-design grid.** Its NVIDIA access stopped working
-  (see Oct 3 session notes) before one could be generated, so it is not in
-  this comparison. A fourth model, qwen3.8-27b, is generating its full grid
-  now (`q1_direction_grid_qwen_full.parquet`, not finished as of Oct 4) and
-  can be added once it is.
 
 **Against the real-email benchmark**, the same six contrasts the pilot
 section compared, using the z-test `compare_with_real` already uses (rough,
