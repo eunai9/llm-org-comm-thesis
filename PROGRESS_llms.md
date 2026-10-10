@@ -342,11 +342,12 @@ Model size (20B against 120B) moved neither the mirroring result nor this
 one.
 
 **This disagrees with section 16's rubric scores, and that disagreement is
-itself worth noting.** The same three models that a plain word-choice
-classifier flags instantly here (0.96-0.98 AUC) score 4.2-4.9 out of 5 on
-`corpus_plausibility` and `contextual_fit` when an LLM judge reads the same
-kind of reply (section 16). Two measures of "does this look real," same
-models, same underlying question, opposite readings. Either the LLM judge
+itself worth noting.** Llama, gpt-oss-20b and gpt-oss-120b -- three of the
+four models in the table above -- are flagged instantly by this
+word-choice classifier (0.92-0.97 AUC, full text) but score 4.0-4.9 out of
+5 on `corpus_plausibility` and `contextual_fit` when an LLM judge reads the
+same kind of reply (section 16). Two measures of "does this look real,"
+same models, same underlying question, opposite readings. Either the LLM judge
 is not sensitive to the specific stock-phrase tells this classifier catches
 ("I'll review...", "Let me know..."), or "reads as plausible" and "is
 statistically indistinguishable from real" are genuinely different
@@ -1249,12 +1250,17 @@ against generated email, so Layer 1 as designed cannot run.
 
 ---
 
-## 16. Rubric scores for the three free-tier models (Q2, Oct 10)
+## 16. Rubric scores for the three models (Q2, Oct 10)
 
 **Finding.** Judged by one model (llama3.2:3b) on the same six-item rubric
-Q3 uses, all three free-tier models score in a narrow 4.2-4.9 band (1-5
-scale) on every item. DeepSeek scores lowest on five of the six items; the
-two gpt-oss models trade off which one is highest depending on the item.
+Q3 uses, Llama, gpt-oss-20b and gpt-oss-120b -- the same three models
+section 9's embedding classifier compares -- score in a narrow 4.0-4.9 band
+(1-5 scale) on every item. Llama scores lowest on every item; the two
+gpt-oss models trade off which one is highest depending on the item.
+DeepSeek is not part of this table: it is excluded from every new result
+in this project, the same decision section 4 of the deck records (still
+usable where it was already cached before the cutoff, as in section 17,
+but not added to new comparisons).
 
 **How.** The same 60 replies per model from the judge-swap design (section
 17), scored by llama3.2:3b alone -- plain means, no model fit, no
@@ -1268,52 +1274,56 @@ separate from Q3's question about whether the judge itself can be trusted
 **Results**, 60 replies per model (59 for gpt-oss-20b -- one reply did not
 parse, the same gap section 17 notes).
 
-| Item | DeepSeek | gpt-oss-20b | gpt-oss-120b |
+| Item | Llama 3.2 3B | gpt-oss-20b | gpt-oss-120b |
 |---|---:|---:|---:|
-| overall rubric mean | 4.44 | 4.63 | 4.62 |
-| role_consistency | 4.53 | 4.78 | 4.67 |
-| contextual_fit | 4.45 | 4.63 | 4.68 |
+| overall rubric mean | 4.28 | 4.63 | 4.62 |
+| role_consistency | 4.50 | 4.78 | 4.67 |
+| contextual_fit | 4.03 | 4.63 | 4.68 |
 | corpus_plausibility | 4.38 | 4.76 | 4.85 |
-| clarity | 4.70 | 4.76 | 4.83 |
-| politeness_appropriateness | 4.35 | 4.58 | 4.48 |
-| conflict_management | 4.22 | 4.27 | 4.18 |
+| clarity | 4.57 | 4.76 | 4.83 |
+| politeness_appropriateness | 4.03 | 4.58 | 4.48 |
+| conflict_management | 4.18 | 4.27 | 4.18 |
 
 **What this means.**
 
-- **DeepSeek** -- lowest score on five of the six items (every one except
-  conflict_management), most clearly on corpus_plausibility (4.38, half a
-  point below the other two).
+- **Llama 3.2 3B** -- lowest score on every item, most clearly on
+  contextual_fit and politeness_appropriateness (4.03 each, roughly three
+  quarters of a point below the two gpt-oss models).
 - **gpt-oss-20b** -- highest score on three items (role_consistency,
   politeness_appropriateness, conflict_management) and the highest overall
   mean (4.63).
 - **gpt-oss-120b** -- highest score on the other three items
-  (contextual_fit, corpus_plausibility, clarity), but lowest on
-  conflict_management (4.18) -- the one item where it is not at or near the
-  top.
+  (contextual_fit, corpus_plausibility, clarity), but tied with Llama for
+  lowest on conflict_management (4.18).
 
 **Caveats.**
 
-- One judge, not independently checked against a person. No reply in this
-  project has been hand-coded yet (next-steps item 2).
+- One judge (llama), scoring its own writing here too, not independently
+  checked against a person. No reply in this project has been hand-coded
+  yet (next-steps item 2).
 - A different judge could rank these three models differently. Section 17
   (right after this one) finds the three tested judges disagree sharply
   about some of these same replies -- the gpt-oss judges rate llama's
   writing far below how llama rates itself, on these same rubric items.
-  That result is about judge disagreement, not about the three models
-  scored here, but it is a reason not to read this table as a single,
-  judge-independent ranking.
+  That result is about judge disagreement, not about the ranking shown
+  here, but it is a reason not to read this table as a single,
+  judge-independent ranking -- and a specific reason Llama's own low scores
+  above should not be over-read, since Llama is both one of the three
+  models being scored and the only judge used.
 - One draw per cell, same as every other judge-swap number in this project.
 - **This disagrees with section 8's word-choice classifier, and that
   disagreement is itself worth noting.** Section 8 flags these same three
-  models instantly by vocabulary alone (0.96-0.98 AUC); here, an LLM judge
-  reading the same kind of reply rates `corpus_plausibility` and
-  `contextual_fit` at 4.2-4.9 out of 5. Same models, same underlying Q2
-  question -- "does this look real" -- opposite readings depending on
-  whether a classifier or an LLM judge is doing the looking. See section
-  8's own note on this for the same point from the other side.
+  models (among its four) instantly by vocabulary alone (0.84-0.98 AUC,
+  full text); here, an LLM judge reading the same kind of reply rates
+  `corpus_plausibility` and `contextual_fit` at 4.0-4.9 out of 5. Same
+  models, same underlying Q2 question -- "does this look real" -- opposite
+  readings depending on whether a classifier or an LLM judge is doing the
+  looking. See section 8's own note on this for the same point from the
+  other side.
 
 Source: the same `judge_swap_scores_free_tier.parquet` section 17 produces,
-filtered to `judge == "llama3.2:3b"`. No new API calls.
+filtered to `judge == "llama3.2:3b"` and `generator != "deepseek-ai/..."`.
+No new API calls.
 
 ---
 
