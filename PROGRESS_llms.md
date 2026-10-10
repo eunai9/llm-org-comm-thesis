@@ -1470,12 +1470,15 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   model pilot found. DeepSeek could not be tested as judge: NVIDIA retired
   the model this project uses mid-session.
 
-1. **A larger sample would help the three NVIDIA/Groq models too.** Every
-   simulator interval in the four-model figure is 0.5 to 0.7 wide, against
-   0.2 for real email's 2,202 emails -- true for DeepSeek, gpt-oss-20b and
+1. **A larger sample would help the two remaining NVIDIA/Groq models too.**
+   Every simulator interval in the four-model figure is 0.5 to 0.7 wide,
+   against 0.2 for real email's 2,202 emails -- true for gpt-oss-20b and
    gpt-oss-120b still, now that Llama's own version of this question is
-   answered above. gpt-oss-120b's Groq rate cap (200,000 tokens/day) makes
-   this a multi-day job there, not an overnight one.
+   answered above. DeepSeek is no longer a candidate here: NVIDIA retired
+   the model this project uses (see section 16), so its 240 cached replies
+   are fixed in place and cannot be enlarged. gpt-oss-120b's Groq rate cap
+   (200,000 tokens/day) makes this a multi-day job there, not an overnight
+   one.
 2. **Hand-code a sample of replies by a person.** The mirroring cutoff and
    its validation rest on Claude's first-pass codes of Llama replies only.
    A coding page is already built and committed (`review_pack.py`, commit
