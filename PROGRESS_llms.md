@@ -341,6 +341,19 @@ closer to a realistic length, and are still easy to spot by word choice.
 Model size (20B against 120B) moved neither the mirroring result nor this
 one.
 
+**This disagrees with section 16's rubric scores, and that disagreement is
+itself worth noting.** The same three models that a plain word-choice
+classifier flags instantly here (0.96-0.98 AUC) score 4.2-4.9 out of 5 on
+`corpus_plausibility` and `contextual_fit` when an LLM judge reads the same
+kind of reply (section 16). Two measures of "does this look real," same
+models, same underlying question, opposite readings. Either the LLM judge
+is not sensitive to the specific stock-phrase tells this classifier catches
+("I'll review...", "Let me know..."), or "reads as plausible" and "is
+statistically indistinguishable from real" are genuinely different
+properties -- a model can have one without the other. Not resolved here;
+flagged so the two results are not read as redundant confirmations of each
+other.
+
 **Caveats.**
 
 - The line-removal rule that cleans signature and header lines is a one-off
@@ -1290,6 +1303,14 @@ parse, the same gap section 17 notes).
   scored here, but it is a reason not to read this table as a single,
   judge-independent ranking.
 - One draw per cell, same as every other judge-swap number in this project.
+- **This disagrees with section 8's word-choice classifier, and that
+  disagreement is itself worth noting.** Section 8 flags these same three
+  models instantly by vocabulary alone (0.96-0.98 AUC); here, an LLM judge
+  reading the same kind of reply rates `corpus_plausibility` and
+  `contextual_fit` at 4.2-4.9 out of 5. Same models, same underlying Q2
+  question -- "does this look real" -- opposite readings depending on
+  whether a classifier or an LLM judge is doing the looking. See section
+  8's own note on this for the same point from the other side.
 
 Source: the same `judge_swap_scores_free_tier.parquet` section 17 produces,
 filtered to `judge == "llama3.2:3b"`. No new API calls.
