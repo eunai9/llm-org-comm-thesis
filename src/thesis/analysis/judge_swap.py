@@ -1276,6 +1276,7 @@ def _report(
     judges: Sequence[str],
     n_from_cache: int,
     n_generated: int,
+    manifest_path: Path | None = None,
 ) -> None:
     """Print one run's report. A two-tone run also gets the neutral-only
     comparison and a manifest file. A run with more than two models (or two
@@ -1285,6 +1286,13 @@ def _report(
 
     ``n_from_cache`` and ``n_generated`` describe the process that writes the
     manifest, so an ``--analyse-only`` run records zero of both.
+
+    ``manifest_path`` overrides the default free-tier manifest path (only
+    used by the multi-model branch). Needed to re-fit the same cached scores
+    with a different reference level -- e.g. a writer no judge in the grid
+    belongs to, to check whether a "self-preference" interaction survives a
+    reference that cannot be judge-severity towards one particular writer --
+    without clobbering the primary run's manifest.
     """
     if len(generators) > 2 or len(judges) > 2:
         generator_ref = generators[-1]
@@ -1307,11 +1315,10 @@ def _report(
             n_from_cache=n_from_cache,
             n_generated=n_generated,
         )
-        JUDGE_SWAP_FREE_TIER_MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
-        JUDGE_SWAP_FREE_TIER_MANIFEST_PATH.write_text(
-            json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8"
-        )
-        log.info("wrote %s", JUDGE_SWAP_FREE_TIER_MANIFEST_PATH)
+        out = manifest_path if manifest_path is not None else JUDGE_SWAP_FREE_TIER_MANIFEST_PATH
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+        log.info("wrote %s", out)
         return
 
     print(
@@ -1412,6 +1419,16 @@ def main() -> None:
     )
     parser.add_argument("--out", default=None, help="Where to write the replies.")
     parser.add_argument("--scores-out", default=None, help="Where to write the scores.")
+    parser.add_argument(
+        "--manifest-out",
+        default=None,
+        help=(
+            "Where to write the multi-model manifest (free-tier design only). "
+            "Lets a second --analyse-only pass re-fit the same cached scores "
+            "with a different --generators order (a different reference "
+            "level) without overwriting the primary run's manifest."
+        ),
+    )
     args = parser.parse_args()
     design: JudgeSwapDesign = args.design
     judges: list[str] = args.judges if args.judges is not None else list(args.generators)
@@ -1434,6 +1451,8 @@ def main() -> None:
     out_path = Path(args.out) if args.out else default_grid
     scores_out = Path(args.scores_out) if args.scores_out else default_scores
 
+    manifest_out = Path(args.manifest_out) if args.manifest_out else None
+
     if args.analyse_only:
         _report(
             pd.read_parquet(out_path),
@@ -1443,6 +1462,7 @@ def main() -> None:
             judges=judges,
             n_from_cache=0,
             n_generated=0,
+            manifest_path=manifest_out,
         )
         return
 
@@ -1524,6 +1544,7 @@ def main() -> None:
         judges=judges,
         n_from_cache=sum(g.n_from_cache for g in grids),
         n_generated=sum(g.n_generated for g in grids),
+        manifest_path=manifest_out,
     )
 
 

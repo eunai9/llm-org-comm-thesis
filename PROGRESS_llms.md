@@ -1273,26 +1273,124 @@ dropped), 717 scores.
 
 ![Self-preference coefficient and 95% interval, gpt-oss-120b and gpt-oss-20b as judge, llama3.2:3b as the reference.](docs/figures/judge_swap_free_tier_self_preference.png)
 
+**Correction (Oct 10): the result above is mis-specified.** The interaction
+is measured relative to llama3.2:3b as the one reference writer. That choice
+turned out not to be neutral.
+
+The code was generalized this session to fit the same interaction on every
+individual rubric item, not only `corpus_plausibility` (every judge call
+already scores all six; only two were ever being fit). Doing that first:
+
+| Item | gpt-oss-120b | p | gpt-oss-20b | p |
+|---|---:|---:|---:|---:|
+| overall rubric mean | +0.681 | <.0001 | +0.587 | <.0001 |
+| role_consistency | +1.317 | <.0001 | +1.004 | <.0001 |
+| contextual_fit | +1.383 | <.0001 | +1.203 | <.0001 |
+| corpus_plausibility | +0.483 | .004 | +0.618 | .0002 |
+| clarity | +0.200 | .094 | +0.254 | .034 |
+| politeness_appropriateness | +0.117 | .498 | +0.130 | .452 |
+| conflict_management | +0.583 | .006 | +0.316 | .140 |
+
+Self-preference is far from uniform -- it concentrates in `role_consistency`
+and `contextual_fit`. That pattern is what exposed the problem: those are
+exactly the two items `build_judge_items` cannot give the judge enough
+information to answer. It sends the reply text alone, no role, no original
+message -- yet `role_consistency` asks about "the stated role" and
+`contextual_fit` asks about "the specific message it is responding to." A
+judge scoring those from the reply alone is scoring general writing quality
+under a specific-sounding label, not role or context fit.
+
+Re-fitting the identical model with `deepseek-ai/deepseek-v4-flash-0731` as
+the reference writer instead -- a model no judge in this grid ever belongs
+to, so it cannot produce a self-preference effect by construction -- settles
+it:
+
+| Item | gpt-oss-120b | p | gpt-oss-20b | p |
+|---|---:|---:|---:|---:|
+| overall rubric mean | -0.211 | .086 | -0.241 | .051 |
+| role_consistency | -0.050 | .794 | -0.429 | .026 |
+| contextual_fit | -0.150 | .511 | -0.231 | .314 |
+| corpus_plausibility | -0.533 | .001 | -0.316 | .060 |
+| clarity | -0.133 | .264 | -0.080 | .506 |
+| politeness_appropriateness | -0.183 | .287 | -0.203 | .239 |
+| conflict_management | -0.217 | .308 | -0.184 | .388 |
+
+Every coefficient collapses to roughly zero or goes negative. The cell means
+explain why in plain terms: both gpt-oss judges score llama3.2:3b's replies
+far below how llama scores itself (`role_consistency` 2.33/2.75 under the
+gpt-oss judges against llama's own 4.50; `contextual_fit` 2.78/2.98 against
+llama's own 4.03), while scoring DeepSeek's replies about as well as their
+own writing, sometimes slightly better (`role_consistency` 3.73/4.22 against
+their own-writing scores of 3.82/4.03; `contextual_fit` 4.73/4.83 against
+their own 4.82/4.78). **The honest reading: the gpt-oss judges are not
+generous to their own writing. They are harsh on llama's writing
+specifically, and llama's own lenient self-judging does not share that
+harshness.** Measuring self-preference against llama as the one reference
+writer mistook that asymmetry for self-preference.
+
+![Self-preference coefficient and 95% interval, overall rubric mean, each gpt-oss model measured against llama3.2:3b and against DeepSeek as the reference writer.](docs/figures/judge_swap_free_tier_self_preference_corrected.png)
+
+This does not have a clean answer for llama's own self-preference (it still
+cannot be measured -- it is always one of the two reference levels here, and
+DeepSeek cannot judge to give it a judge-free comparison either), and it does
+not revisit the two-local-model pilot (PROGRESS.md section 52): with only
+two models there, every writer is also a judge, so no judge-free reference
+exists to re-fit against.
+
+The `clarity` row above also needs a second look once more tests are run on
+the same table: 14 self-preference tests in the llama-referenced table alone
+(7 outcomes x 2 models), not 4. Holm-corrected across those 14 (checked
+directly, not estimated), gpt-oss-20b's `clarity` row (p=.034 uncorrected)
+needs p<=.010 to survive and does not -- treat it as noise, not an effect.
+Every other significance call in the llama-referenced table is unchanged by
+the correction. Separately, `clarity` is likely at a ceiling (86% of scores
+are a 5), which would mute any real effect there whether or not it is
+significant.
+
+Code: `fit_rubric_item_models` (all six items) and a new `--manifest-out`
+flag (re-fit the same cached scores against a different `--generators`
+reference order without overwriting the primary manifest), both in
+`src/thesis/analysis/judge_swap.py`. Re-fit source:
+```
+python -m thesis.analysis.judge_swap \
+  --generators llama3.2:3b openai/gpt-oss-20b@low openai/gpt-oss-120b@low deepseek-ai/deepseek-v4-flash-0731 \
+  --judges openai/gpt-oss-20b@low openai/gpt-oss-120b@low llama3.2:3b \
+  --analyse-only --manifest-out outputs/manifests/judge_swap_free_tier_deepseek_ref.json
+```
+Manifests: `outputs/manifests/judge_swap_free_tier.json` (llama-referenced,
+now all six items) and `outputs/manifests/judge_swap_free_tier_deepseek_ref.json`
+(new, DeepSeek-referenced).
+
 **What this means.**
 
-- **Stronger and clearer than the two-local-model pilot found.** Section 52
-  found +0.40 (p=.005) with two similar 3B local models. Real,
-  differently-trained models give a bigger, more significant effect for
-  both OpenAI models -- the finding does not shrink when the stand-ins are
-  replaced with the real thing.
+- **Not safe as stated -- see the correction above.** This bullet originally
+  said the real four-model result was "stronger and clearer than the
+  two-local-model pilot found" (section 52's +0.40, p=.005, against this
+  section's +0.68/+0.59). That comparison assumed both numbers measure the
+  same thing. The correction above shows this section's number is mostly
+  judge severity toward llama, not self-preference, so the two are not
+  comparable as stated. Whether the pilot's own +0.40 has the same problem
+  is not checked here -- it would need its own judge-free reference writer,
+  which the two-local-model design does not have.
 - **This is model-level, not family-level.** gpt-oss-20b and gpt-oss-120b
   are the same family (OpenAI). The design tests whether each favors its
-  own exact writing, not whether one favors the other's.
+  own exact writing, not whether one favors the other's. (Unaffected by the
+  correction -- this is about which models were compared, not the reference
+  writer.)
 - **The near-zero persona variance did not understate the result.** The
   mixed-model fit logged a singular-covariance warning, the same
   degenerate case sections 33/34/41/52 hit. A cluster-robust OLS refit
   gives the same coefficients (0.681 and 0.587) at the same or slightly
-  tighter precision.
-- **Both judges' harsh general scoring is overcome by self-preference.**
-  gpt-oss-120b and gpt-oss-20b score every reply 0.7-0.8 points lower than
-  llama on average, yet both end up with a higher own-family mean score
-  (4.49 and 4.53, against llama's 4.28) -- only possible because
-  self-preference adds back more than the harsh scoring takes away.
+  tighter precision. (Unaffected by the correction -- this is about the
+  standard error, not what the coefficient measures.)
+- **Not safe as stated -- see the correction above.** This bullet originally
+  read the own-family means (4.49 and 4.53, against llama's 4.28) as
+  self-preference "adding back" more than harsh general scoring "takes
+  away." DeepSeek's replies score just as high under both gpt-oss judges
+  (4.52 and 4.58) without any own-family relationship to them, so the
+  own-family means being high is not evidence of self-preference either --
+  both gpt-oss judges simply rate DeepSeek's and their own writing alike,
+  and rate llama's much lower.
 
 **A real bug this surfaced.** Judging with an NVIDIA or Groq model as
 judge, never done before in this project, crashed with an unpriced-model
@@ -1304,10 +1402,11 @@ provider.
 gpt-oss-20b as generator with llama3.2:3b as judge. Both gpt-oss models
 write better replies than llama by llama's own judgment (+0.35 and +0.33,
 both p<.0001) -- a comparison llama has no stake in, unlike a model
-judging itself. Llama's own self-preference cannot be read off this fit
-(it is the reference level every effect above is measured against), but
-it is the only one of the three tested judges this design did not catch
-favoring its own writing. gpt-oss-20b over gpt-oss-120b as generator:
+judging itself. (The second half of this recommendation, as originally
+written, leaned on gpt-oss "favoring its own writing" -- see the correction
+above; that reasoning no longer holds, but the generator-quality numbers
+above are unaffected, so the recommendation itself stands on those alone.)
+gpt-oss-20b over gpt-oss-120b as generator:
 their generator-quality coefficients are close (+0.35 and +0.33, not
 tested directly against each other), but gpt-oss-20b runs on NVIDIA's
 free tier, not Groq's, so it avoids the daily cap that slowed this very

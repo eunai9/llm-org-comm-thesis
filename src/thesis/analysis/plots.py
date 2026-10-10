@@ -430,15 +430,22 @@ def plot_effect_intervals(
     title: str,
     subtitle: str = "",
     x_label: str = "",
+    second_series: Sequence[int] | None = None,
 ) -> Path:
     """One estimate with a 95% interval per row, and a line at zero.
 
-    The first row is drawn in the second series color. In the Q1 comparison
-    that row is real email, the benchmark every model is held against.
+    ``second_series`` is the set of row indices (0-based, in ``labels``
+    order) drawn in the second series color instead of the first. Defaults
+    to ``{0}`` -- the original single-highlighted-row behavior, for the Q1
+    comparison where that row is real email, the benchmark every model is
+    held against. Pass a larger set to color rows by group instead (e.g.
+    every row measured against the same reference level), so color still
+    follows what the row actually is rather than only its position.
     """
     if not len(labels) == len(estimates) == len(lower) == len(upper):
         msg = "labels, estimates, lower and upper must all be the same length"
         raise ValueError(msg)
+    highlighted = {0} if second_series is None else set(second_series)
 
     # Index 0 sits at the bottom of the axis; reverse so the first row reads first.
     y = list(range(len(labels)))[::-1]
@@ -450,7 +457,7 @@ def plot_effect_intervals(
     ax.axvline(0.0, color=BASELINE, linewidth=1.5, zorder=3)
 
     for i, (yi, est, lo, hi) in enumerate(zip(y, estimates, lower, upper, strict=True)):
-        color = SERIES_2 if i == 0 else SERIES_1
+        color = SERIES_2 if i in highlighted else SERIES_1
         ax.plot([lo, hi], [yi, yi], color=color, linewidth=2.2, zorder=2)
         ax.plot([est], [yi], marker="o", markersize=7, color=color, zorder=4)
         ax.annotate(
@@ -940,6 +947,49 @@ def main() -> None:
             "as reference. Both p<.0001. 239 replies, 717 scores."
         ),
         x_label="self-preference coefficient (rubric points, own replies vs. predicted)",
+    )
+
+    # Correction (Oct 10): the figure above measures self-preference against
+    # llama3.2:3b as the one reference writer. Re-fit against
+    # deepseek-ai/deepseek-v4-flash-0731 instead -- a writer no judge in this
+    # grid belongs to, so it cannot produce a self-preference effect by
+    # construction -- and both coefficients collapse to roughly zero. What
+    # the llama-referenced fit was actually picking up: both gpt-oss judges
+    # score llama's writing far below how llama scores itself, which a
+    # judge-free reference reclassified below as the plain read on its own
+    # (both negative, borderline p=.05-.09). Coefficients and standard
+    # errors from outputs/manifests/judge_swap_free_tier.json (llama
+    # reference) and outputs/manifests/judge_swap_free_tier_deepseek_ref.json
+    # (DeepSeek reference).
+    plot_effect_intervals(
+        (
+            "gpt-oss-120b (vs. llama3.2:3b)",
+            "gpt-oss-120b (vs. DeepSeek)",
+            "gpt-oss-20b (vs. llama3.2:3b)",
+            "gpt-oss-20b (vs. DeepSeek)",
+        ),
+        (0.6806, -0.2111, 0.5872, -0.2405),
+        (
+            0.6806 - 1.96 * 0.1228,
+            -0.2111 - 1.96 * 0.1228,
+            0.5872 - 1.96 * 0.1233,
+            -0.2405 - 1.96 * 0.1233,
+        ),
+        (
+            0.6806 + 1.96 * 0.1228,
+            -0.2111 + 1.96 * 0.1228,
+            0.5872 + 1.96 * 0.1233,
+            -0.2405 + 1.96 * 0.1233,
+        ),
+        path=DOCS_FIGURES_DIR / "judge_swap_free_tier_self_preference_corrected.png",
+        title="Judge swap, corrected: self-preference depends on the reference writer",
+        subtitle=(
+            "Same self-preference interaction (overall rubric mean), re-fit against two "
+            "different reference writers. Against llama, p<.0001 for both models; against "
+            "DeepSeek (no judge in the grid writes it), both collapse to roughly zero."
+        ),
+        x_label="self-preference coefficient (rubric points, own replies vs. predicted)",
+        second_series=(0, 2),  # the two "vs. llama3.2:3b" rows, colored as one group
     )
 
     # Section 45: the power score split into its two halves and checked
