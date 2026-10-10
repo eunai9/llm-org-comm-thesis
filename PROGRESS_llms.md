@@ -1236,7 +1236,67 @@ against generated email, so Layer 1 as designed cannot run.
 
 ---
 
-## 16. The judge-swap design on the real free-tier models (Q3, Oct 6)
+## 16. Rubric scores for the three free-tier models (Q2, Oct 10)
+
+**Finding.** Judged by one model (llama3.2:3b) on the same six-item rubric
+Q3 uses, all three free-tier models score in a narrow 4.2-4.9 band (1-5
+scale) on every item. DeepSeek scores lowest on five of the six items; the
+two gpt-oss models trade off which one is highest depending on the item.
+
+**How.** The same 60 replies per model from the judge-swap design (section
+17), scored by llama3.2:3b alone -- plain means, no model fit, no
+self-preference statistic. llama is the judge used here because it is the
+one of the three tested judges not caught favoring its own writing (section
+17). This answers Q2's question -- does a generated reply look like it
+fits its role and situation -- using the rubric's existing items, kept
+separate from Q3's question about whether the judge itself can be trusted
+(section 17's subject).
+
+**Results**, 60 replies per model (59 for gpt-oss-20b -- one reply did not
+parse, the same gap section 17 notes).
+
+| Item | DeepSeek | gpt-oss-20b | gpt-oss-120b |
+|---|---:|---:|---:|
+| overall rubric mean | 4.44 | 4.63 | 4.62 |
+| role_consistency | 4.53 | 4.78 | 4.67 |
+| contextual_fit | 4.45 | 4.63 | 4.68 |
+| corpus_plausibility | 4.38 | 4.76 | 4.85 |
+| clarity | 4.70 | 4.76 | 4.83 |
+| politeness_appropriateness | 4.35 | 4.58 | 4.48 |
+| conflict_management | 4.22 | 4.27 | 4.18 |
+
+**What this means.**
+
+- **DeepSeek** -- lowest score on five of the six items (every one except
+  conflict_management), most clearly on corpus_plausibility (4.38, half a
+  point below the other two).
+- **gpt-oss-20b** -- highest score on three items (role_consistency,
+  politeness_appropriateness, conflict_management) and the highest overall
+  mean (4.63).
+- **gpt-oss-120b** -- highest score on the other three items
+  (contextual_fit, corpus_plausibility, clarity), but lowest on
+  conflict_management (4.18) -- the one item where it is not at or near the
+  top.
+
+**Caveats.**
+
+- One judge, not independently checked against a person. No reply in this
+  project has been hand-coded yet (next-steps item 2).
+- A different judge could rank these three models differently. Section 17
+  (right after this one) finds the three tested judges disagree sharply
+  about some of these same replies -- the gpt-oss judges rate llama's
+  writing far below how llama rates itself, on these same rubric items.
+  That result is about judge disagreement, not about the three models
+  scored here, but it is a reason not to read this table as a single,
+  judge-independent ranking.
+- One draw per cell, same as every other judge-swap number in this project.
+
+Source: the same `judge_swap_scores_free_tier.parquet` section 17 produces,
+filtered to `judge == "llama3.2:3b"`. No new API calls.
+
+---
+
+## 17. The judge-swap design on the real free-tier models (Q3, Oct 6)
 
 **Finding.** A judge favors its own kind of model, and this holds on the
 project's real four free-tier models, not only the two local stand-ins the
@@ -1430,7 +1490,7 @@ Manifest: `outputs/manifests/judge_swap_free_tier.json`. Prompt hash
 
 ---
 
-## 17. Where the code lives
+## 18. Where the code lives
 
 **The clients.** `src/thesis/llm/openai_compatible.py` holds the shared
 request and retry logic. `nvidia_client.py` and `groq_client.py` are thin
@@ -1479,7 +1539,7 @@ made along the way, are in `PROGRESS_nvidia.md`.
 
 ---
 
-## 18. Next steps
+## 19. Next steps
 
 Most valuable first.
 
@@ -1574,7 +1634,7 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
    against 0.2 for real email's 2,202 emails -- true for gpt-oss-20b and
    gpt-oss-120b still, now that Llama's own version of this question is
    answered above. DeepSeek is no longer a candidate here: NVIDIA retired
-   the model this project uses (see section 16), so its 240 cached replies
+   the model this project uses (see section 17), so its 240 cached replies
    are fixed in place and cannot be enlarged. gpt-oss-120b's Groq rate cap
    (200,000 tokens/day) makes this a multi-day job there, not an overnight
    one.

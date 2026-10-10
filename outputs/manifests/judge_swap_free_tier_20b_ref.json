@@ -1,0 +1,163 @@
+{
+  "caveats": [
+    "one draw per cell; the model reproduces its own decision 60% of the time (PROGRESS.md section 50)",
+    "each free-tier model's own self-preference coefficient is measured against llama3.2:3b as the reference level, not against the other two free-tier models directly"
+  ],
+  "result": {
+    "effects": {
+      "generator_quality_deepseek-ai_deepseek-v4-flash-0731": {
+        "coefficient": 0.0491,
+        "label": "generator quality: deepseek-ai/deepseek-v4-flash-0731",
+        "outcome": "score_overall",
+        "p_value": 0.5734,
+        "std_error": 0.0872
+      },
+      "generator_quality_llama3_2_3b": {
+        "coefficient": -0.9342,
+        "label": "generator quality: llama3.2:3b",
+        "outcome": "score_overall",
+        "p_value": 8.575e-27,
+        "std_error": 0.0872
+      },
+      "generator_quality_openai_gpt-oss-120b@low": {
+        "coefficient": 0.0296,
+        "label": "generator quality: openai/gpt-oss-120b@low",
+        "outcome": "score_overall",
+        "p_value": 0.7338,
+        "std_error": 0.0872
+      },
+      "judge_generosity_llama3_2_3b": {
+        "coefficient": 0.0989,
+        "label": "judge generosity: llama3.2:3b",
+        "outcome": "score_overall",
+        "p_value": 0.2587,
+        "std_error": 0.0875
+      },
+      "judge_generosity_openai_gpt-oss-120b@low": {
+        "coefficient": -0.0169,
+        "label": "judge generosity: openai/gpt-oss-120b@low",
+        "outcome": "score_overall",
+        "p_value": 0.8465,
+        "std_error": 0.0875
+      },
+      "self_preference_clarity_llama3_2_3b": {
+        "coefficient": 0.2537,
+        "label": "self-preference: llama3.2:3b (clarity)",
+        "outcome": "score_clarity",
+        "p_value": 0.03439,
+        "std_error": 0.1199
+      },
+      "self_preference_clarity_openai_gpt-oss-120b@low": {
+        "coefficient": 0.0167,
+        "label": "self-preference: openai/gpt-oss-120b@low (clarity)",
+        "outcome": "score_clarity",
+        "p_value": 0.8895,
+        "std_error": 0.1199
+      },
+      "self_preference_conflict_management_llama3_2_3b": {
+        "coefficient": 0.3155,
+        "label": "self-preference: llama3.2:3b (conflict_management)",
+        "outcome": "score_conflict_management",
+        "p_value": 0.1397,
+        "std_error": 0.2136
+      },
+      "self_preference_conflict_management_openai_gpt-oss-120b@low": {
+        "coefficient": -0.2489,
+        "label": "self-preference: openai/gpt-oss-120b@low (conflict_management)",
+        "outcome": "score_conflict_management",
+        "p_value": 0.2441,
+        "std_error": 0.2136
+      },
+      "self_preference_contextual_fit_llama3_2_3b": {
+        "coefficient": 1.2025,
+        "label": "self-preference: llama3.2:3b (contextual_fit)",
+        "outcome": "score_contextual_fit",
+        "p_value": 1.515e-07,
+        "std_error": 0.229
+      },
+      "self_preference_contextual_fit_openai_gpt-oss-120b@low": {
+        "coefficient": 0.0164,
+        "label": "self-preference: openai/gpt-oss-120b@low (contextual_fit)",
+        "outcome": "score_contextual_fit",
+        "p_value": 0.943,
+        "std_error": 0.229
+      },
+      "self_preference_corpus_plausibility_llama3_2_3b": {
+        "coefficient": 0.6175,
+        "label": "self-preference: llama3.2:3b (corpus_plausibility)",
+        "outcome": "score_corpus_plausibility",
+        "p_value": 0.000239,
+        "std_error": 0.1681
+      },
+      "self_preference_corpus_plausibility_openai_gpt-oss-120b@low": {
+        "coefficient": -0.0172,
+        "label": "self-preference: openai/gpt-oss-120b@low (corpus_plausibility)",
+        "outcome": "score_corpus_plausibility",
+        "p_value": 0.9183,
+        "std_error": 0.1681
+      },
+      "self_preference_llama3_2_3b": {
+        "coefficient": 0.5872,
+        "label": "self-preference: llama3.2:3b (overall rubric mean)",
+        "outcome": "score_overall",
+        "p_value": 1.907e-06,
+        "std_error": 0.1233
+      },
+      "self_preference_openai_gpt-oss-120b@low": {
+        "coefficient": -0.0553,
+        "label": "self-preference: openai/gpt-oss-120b@low (overall rubric mean)",
+        "outcome": "score_overall",
+        "p_value": 0.6539,
+        "std_error": 0.1233
+      },
+      "self_preference_politeness_appropriateness_llama3_2_3b": {
+        "coefficient": 0.1299,
+        "label": "self-preference: llama3.2:3b (politeness_appropriateness)",
+        "outcome": "score_politeness_appropriateness",
+        "p_value": 0.4521,
+        "std_error": 0.1728
+      },
+      "self_preference_politeness_appropriateness_openai_gpt-oss-120b@low": {
+        "coefficient": -0.1017,
+        "label": "self-preference: openai/gpt-oss-120b@low (politeness_appropriateness)",
+        "outcome": "score_politeness_appropriateness",
+        "p_value": 0.5563,
+        "std_error": 0.1728
+      },
+      "self_preference_role_consistency_llama3_2_3b": {
+        "coefficient": 1.0042,
+        "label": "self-preference: llama3.2:3b (role_consistency)",
+        "outcome": "score_role_consistency",
+        "p_value": 1.87e-07,
+        "std_error": 0.1927
+      },
+      "self_preference_role_consistency_openai_gpt-oss-120b@low": {
+        "coefficient": 0.0031,
+        "label": "self-preference: openai/gpt-oss-120b@low (role_consistency)",
+        "outcome": "score_role_consistency",
+        "p_value": 0.9871,
+        "std_error": 0.1927
+      }
+    },
+    "n_replies": 239,
+    "n_scores": 717,
+    "persona_variance": 0.0046
+  },
+  "run": {
+    "design": "pilot",
+    "generators": [
+      "deepseek-ai/deepseek-v4-flash-0731",
+      "openai/gpt-oss-120b@low",
+      "llama3.2:3b",
+      "openai/gpt-oss-20b@low"
+    ],
+    "judges": [
+      "openai/gpt-oss-120b@low",
+      "llama3.2:3b",
+      "openai/gpt-oss-20b@low"
+    ],
+    "n_from_cache": 0,
+    "n_generated": 0,
+    "prompt_text_hash": "d4c18550ed56f2de"
+  }
+}
