@@ -48,7 +48,7 @@ from thesis.analysis.judge_swap import (
     score_judge_swap_replies,
     subset_to_neutral,
 )
-from thesis.judge.rubric import RUBRIC_ITEMS
+from thesis.judge.rubric import RUBRIC_BY_KEY, RUBRIC_ITEMS
 from thesis.llm.base import Capabilities, CompletionRequest, CompletionResponse, Provider, Usage
 from thesis.llm.cache import ResponseCache
 from thesis.llm.cost import CostLedger
@@ -747,10 +747,12 @@ class _FakeInteractionModelWithSE:
 def test_effect_estimates_multi_builds_one_row_per_alt_plus_self_preference() -> None:
     """Three alt generators and three alt judges: three generator-quality
     rows, three judge-generosity rows, and -- only for a model that is an
-    alt level of *both* factors -- one self-preference pair (overall and
-    plausibility-only). This is the question Q3 asks for each of the three
-    non-reference free-tier models at once, not just one alt against one
-    reference the way the pilot's 2x2 design could only ever ask it."""
+    alt level of *both* factors -- one self-preference row per rubric
+    outcome supplied (overall, plus one per item in ``item_models``). This
+    is the question Q3 asks for each of the three non-reference free-tier
+    models at once, not just one alt against one reference the way the
+    pilot's 2x2 design could only ever ask it, and across every rubric item
+    actually measured, not only one of the six picked in advance."""
     overall = _FakeInteractionModelWithSE(
         main_effects={
             ("generator", "a"): (-0.5, 0.01),
@@ -773,9 +775,19 @@ def test_effect_estimates_multi_builds_one_row_per_alt_plus_self_preference() ->
         main_effect_std_errors={},
         interaction_std_errors={("a", "a"): 0.15, ("b", "b"): 0.22},
     )
+    clarity = _FakeInteractionModelWithSE(
+        main_effects={},
+        interactions={("a", "a"): (0.15, 0.08), ("b", "b"): (0.02, 0.90)},
+        main_effect_std_errors={},
+        interaction_std_errors={("a", "a"): 0.11, ("b", "b"): 0.18},
+    )
+    item_models = {
+        "score_corpus_plausibility": plausibility,
+        "score_clarity": clarity,
+    }
 
     effects = judge_swap.effect_estimates_multi(
-        overall, plausibility, generator_alts=["a", "b"], judge_alts=["a", "b"]
+        overall, item_models, generator_alts=["a", "b"], judge_alts=["a", "b"]
     )
 
     assert [e.key for e in effects] == [
@@ -784,14 +796,19 @@ def test_effect_estimates_multi_builds_one_row_per_alt_plus_self_preference() ->
         "judge_generosity_a",
         "judge_generosity_b",
         "self_preference_a",
-        "self_preference_plausibility_a",
+        "self_preference_corpus_plausibility_a",
+        "self_preference_clarity_a",
         "self_preference_b",
-        "self_preference_plausibility_b",
+        "self_preference_corpus_plausibility_b",
+        "self_preference_clarity_b",
     ]
     self_pref_a = next(e for e in effects if e.key == "self_preference_a")
     assert self_pref_a.coefficient == 0.30
     assert self_pref_a.std_error == 0.12
     assert self_pref_a.p_value == 0.04
+    clarity_a = next(e for e in effects if e.key == "self_preference_clarity_a")
+    assert clarity_a.coefficient == 0.15
+    assert clarity_a.outcome == "score_clarity"
 
 
 def test_effect_estimates_multi_skips_a_model_that_is_only_a_generator() -> None:
@@ -804,11 +821,8 @@ def test_effect_estimates_multi_skips_a_model_that_is_only_a_generator() -> None
         main_effect_std_errors={("generator", "c"): 0.1, ("judge", "a"): 0.1},
         interaction_std_errors={},
     )
-    plausibility = _FakeInteractionModelWithSE({}, {}, {}, {})
 
-    effects = judge_swap.effect_estimates_multi(
-        overall, plausibility, generator_alts=["c"], judge_alts=["a"]
-    )
+    effects = judge_swap.effect_estimates_multi(overall, {}, generator_alts=["c"], judge_alts=["a"])
 
     assert [e.key for e in effects] == ["generator_quality_c", "judge_generosity_a"]
 
@@ -819,7 +833,10 @@ def _multi_model_score_frame(
     """Synthetic scores for an N-generator x N-judge grid: each judge scores
     every generator's replies for 10 personas. ``self_preference[model]``
     is added only to the ``generator == judge == model`` cells, so the fit
-    has to recover exactly that much interaction for exactly that model."""
+    has to recover exactly that much interaction for exactly that model.
+    Every rubric item column is filled identically to ``score_overall`` --
+    this test checks the fit machinery runs end to end on all six items, not
+    that items differ from one another, so one shared value is enough."""
     rng = np.random.default_rng(0)
     rows = []
     for persona in range(40):
@@ -832,16 +849,16 @@ def _multi_model_score_frame(
                     + (self_preference.get(generator, 0.0) if generator == judge else 0.0)
                     + float(rng.normal(0.0, 0.2))
                 )
-                rows.append(
-                    {
-                        "item_id": f"{generator}__{judge}__p{persona}",
-                        "generator": generator,
-                        "judge": judge,
-                        "persona_id": f"p{persona}",
-                        "score_overall": score,
-                        "score_corpus_plausibility": score,
-                    }
-                )
+                row = {
+                    "item_id": f"{generator}__{judge}__p{persona}",
+                    "generator": generator,
+                    "judge": judge,
+                    "persona_id": f"p{persona}",
+                    "score_overall": score,
+                }
+                for key in RUBRIC_BY_KEY:
+                    row[f"score_{key}"] = score
+                rows.append(row)
     return pd.DataFrame(rows)
 
 
@@ -849,7 +866,9 @@ def test_fit_subset_multi_recovers_a_different_self_preference_per_model() -> No
     """Four models, one reference ('d') and three alts, each with its own
     injected self-preference. The fit must recover each alt's own number,
     not one pooled number -- this is exactly what the 2x2 pilot design
-    could never ask, since it only ever had one alt model to begin with."""
+    could never ask, since it only ever had one alt model to begin with.
+    Checked on the overall-rubric effect and on every individual rubric
+    item, since all six are now fit, not only ``corpus_plausibility``."""
     models = ["a", "b", "c", "d"]
     injected = {"a": 0.5, "b": 0.0, "c": -0.3}
     scores = _multi_model_score_frame(models, models, self_preference=injected)
@@ -869,6 +888,10 @@ def test_fit_subset_multi_recovers_a_different_self_preference_per_model() -> No
         effect = fit.effect(f"self_preference_{model}")
         assert effect.coefficient == pytest.approx(expected, abs=0.15)
         assert effect.std_error > 0
+        for key in RUBRIC_BY_KEY:
+            item_effect = fit.effect(f"self_preference_{key}_{model}")
+            assert item_effect.coefficient == pytest.approx(expected, abs=0.15)
+            assert item_effect.outcome == f"score_{key}"
 
 
 def test_client_for_model_dispatches_by_provider(monkeypatch: pytest.MonkeyPatch) -> None:

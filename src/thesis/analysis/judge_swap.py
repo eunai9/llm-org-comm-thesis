@@ -245,6 +245,15 @@ HISTORICAL_CELL_MEANS: dict[tuple[str, str], float] = {
 HISTORICAL_INTERACTION_P_OVERALL = 0.065
 HISTORICAL_INTERACTION_P_PLAUSIBILITY = 0.20
 
+# Every individual rubric item's score column, in the rubric's own order.
+# The two-local-model pilot (section 23) only ever reported self-preference
+# on the overall mean and on corpus_plausibility alone -- the other five
+# items were measured (every judge call scores all six) but never fit,
+# because section 23's own per-reply scores were never archived and there
+# was nothing to compare a second item against. The free-tier multi-model
+# design has no such historical anchor, so it fits every item.
+RUBRIC_OUTCOME_COLUMNS: tuple[str, ...] = tuple(f"score_{key}" for key in RUBRIC_BY_KEY)
+
 
 def build_judge_swap_scenarios(design: JudgeSwapDesign = "pilot") -> list[Scenario]:
     """The scenarios one design runs, filtered out of the full 144-scenario
@@ -583,6 +592,35 @@ def fit_judge_swap_models(
     return overall, plausibility
 
 
+def fit_rubric_item_models(
+    scores: pd.DataFrame,
+    *,
+    generator_reference: str,
+    judge_reference: str,
+) -> dict[str, InteractionModelResult]:
+    """Fit the ``generator x judge`` interaction model on every individual
+    rubric item (:data:`RUBRIC_OUTCOME_COLUMNS`), not only ``score_overall``
+    or ``corpus_plausibility`` alone.
+
+    Used by the free-tier multi-model design, which has no historical
+    baseline tying it to exactly those two outcomes the way the
+    two-local-model pilot does (see :func:`fit_judge_swap_models`), so it is
+    free to report self-preference on all six rubric items at once.
+    """
+    return {
+        outcome: fit_interaction_model(
+            scores,
+            outcome,
+            factor1_col="generator",
+            factor2_col="judge",
+            cluster_col="persona_id",
+            reference1=generator_reference,
+            reference2=judge_reference,
+        )
+        for outcome in RUBRIC_OUTCOME_COLUMNS
+    }
+
+
 @dataclass(frozen=True, slots=True)
 class JudgeSwapComparison:
     """One before/after number: section 23's value next to this run's."""
@@ -843,15 +881,20 @@ def effect_estimates(
 
 def effect_estimates_multi(
     overall_model: InteractionModelResult,
-    plausibility_model: InteractionModelResult,
+    item_models: Mapping[str, InteractionModelResult],
     *,
     generator_alts: Sequence[str],
     judge_alts: Sequence[str],
 ) -> list[JudgeSwapEffect]:
-    """:func:`effect_estimates` generalized to any number of non-reference
-    levels per factor, for the four free-tier models (one generator-quality
-    row per alt generator, one judge-generosity row per alt judge) rather
-    than the single alt the two-local-model pilot design had.
+    """:func:`effect_estimates` generalized two ways: any number of
+    non-reference levels per factor (one generator-quality row per alt
+    generator, one judge-generosity row per alt judge, rather than the
+    single alt the two-local-model pilot design had), and self-preference
+    fit on every rubric item in ``item_models``, not just one picked in
+    advance. All six rubric items were built to measure different things --
+    role_consistency and conflict_management are not the same claim -- so
+    reporting self-preference only on the overall mean hides whether it is
+    uniform across the rubric or concentrated in a few dimensions.
 
     Self-preference is reported only for a model that is an alt level of
     *both* factors -- a judge favoring its own writing is what Q3 asks
@@ -886,10 +929,11 @@ def effect_estimates_multi(
         )
     own_family = sorted(set(generator_alts) & set(judge_alts))
     for model in own_family:
+        slug = _model_slug(model)
         coefficient, p = overall_model.interaction(model, model)
         effects.append(
             JudgeSwapEffect(
-                f"self_preference_{_model_slug(model)}",
+                f"self_preference_{slug}",
                 f"self-preference: {model} (overall rubric mean)",
                 "score_overall",
                 coefficient,
@@ -897,17 +941,19 @@ def effect_estimates_multi(
                 p,
             )
         )
-        plausibility_coefficient, plausibility_p = plausibility_model.interaction(model, model)
-        effects.append(
-            JudgeSwapEffect(
-                f"self_preference_plausibility_{_model_slug(model)}",
-                f"self-preference: {model} (corpus_plausibility only)",
-                "score_corpus_plausibility",
-                plausibility_coefficient,
-                plausibility_model.interaction_std_error(model, model),
-                plausibility_p,
+        for outcome, item_model in item_models.items():
+            item_key = outcome.removeprefix("score_")
+            item_coefficient, item_p = item_model.interaction(model, model)
+            effects.append(
+                JudgeSwapEffect(
+                    f"self_preference_{item_key}_{slug}",
+                    f"self-preference: {model} ({item_key})",
+                    outcome,
+                    item_coefficient,
+                    item_model.interaction_std_error(model, model),
+                    item_p,
+                )
             )
-        )
     return effects
 
 
@@ -974,8 +1020,18 @@ def fit_subset_multi(
     levels -- see :func:`effect_estimates_multi`. Returns the same
     :class:`JudgeSwapFit` shape, so every reader of ``fit.effect(key)``
     works unchanged; only how many effects it holds, and their keys,
-    differ from the two-model pilot."""
-    overall_model, plausibility_model = fit_judge_swap_models(
+    differ from the two-model pilot. Fits all six rubric items
+    (:func:`fit_rubric_item_models`), not only ``corpus_plausibility``."""
+    overall_model = fit_interaction_model(
+        scores,
+        "score_overall",
+        factor1_col="generator",
+        factor2_col="judge",
+        cluster_col="persona_id",
+        reference1=generator_ref,
+        reference2=judge_ref,
+    )
+    item_models = fit_rubric_item_models(
         scores, generator_reference=generator_ref, judge_reference=judge_ref
     )
     return JudgeSwapFit(
@@ -983,10 +1039,10 @@ def fit_subset_multi(
         n_replies=len(replies),
         n_scores=len(scores),
         overall_model=overall_model,
-        plausibility_model=plausibility_model,
+        plausibility_model=item_models["score_corpus_plausibility"],
         effects=effect_estimates_multi(
             overall_model,
-            plausibility_model,
+            item_models,
             generator_alts=generator_alts,
             judge_alts=judge_alts,
         ),
