@@ -635,8 +635,18 @@ def judge_self_consistency(
     Stop condition (checked by the caller, not enforced here): a kappa
     below about 0.4 means the judge is not reliable enough to trust for
     the full run.
+
+    An item invalid or unparseable on even one pass is dropped from the
+    agreement calculation entirely, not just that one pass -- a real
+    failure running this live against gpt-oss-20b: one item out of 300
+    came back as non-JSON on one pass, leaving it with no result for that
+    replicate while the other two items present had all three. Scoring
+    agreement needs the same items at every pass; keeping an item some
+    passes see and others don't would either crash building the aligned
+    series (what happened here) or silently misalign rows if built more
+    carelessly.
     """
-    passes: list[pd.Series] = []
+    by_item_per_pass: list[dict[str, str]] = []
     for replicate in range(1, n_passes + 1):
         results, _ = run_role_inference_absolute(
             items,
@@ -647,10 +657,27 @@ def judge_self_consistency(
             run_id=f"{run_id}-pass{replicate}",
             replicate=replicate,
         )
-        by_item = {r.item_id: r.inferred_direction for r in results}
-        passes.append(
-            pd.Series([by_item[item.item_id] for item in items], name=f"pass_{replicate}")
+        by_item_per_pass.append({r.item_id: r.inferred_direction for r in results})
+
+    complete_ids = [
+        item.item_id
+        for item in items
+        if all(item.item_id in by_item for by_item in by_item_per_pass)
+    ]
+    n_dropped = len(items) - len(complete_ids)
+    if n_dropped:
+        log.warning(
+            "judge_self_consistency: dropping %d of %d items invalid or "
+            "unparseable on at least one of %d passes",
+            n_dropped,
+            len(items),
+            n_passes,
         )
+
+    passes = [
+        pd.Series([by_item[item_id] for item_id in complete_ids], name=f"pass_{replicate}")
+        for replicate, by_item in enumerate(by_item_per_pass, start=1)
+    ]
     return decision_stability_n(passes)
 
 

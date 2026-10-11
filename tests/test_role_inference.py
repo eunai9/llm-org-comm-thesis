@@ -438,6 +438,49 @@ def test_judge_self_consistency_is_perfect_when_every_pass_agrees(tmp_path: Path
     assert result.share_agree == 1.0
 
 
+def test_judge_self_consistency_drops_an_item_missing_from_one_pass(tmp_path: Path) -> None:
+    """A real failure mode running this live against gpt-oss-20b: one item
+    out of 300 came back as non-JSON on one pass, so it has no result for
+    that replicate while the other two items do. The old code built each
+    pass's series with ``by_item[item.item_id]``, assuming every item in
+    the request list got a result every pass -- a plain KeyError the
+    moment one doesn't. An item missing even one pass should be dropped
+    from the agreement calculation instead of crashing it; the items that
+    do have a complete set of passes should still be scored normally."""
+    items = [
+        _item("i1", "Sure, I'll take care of it."),
+        _item("i2", "Please advise."),
+        _item("i3", "Approved."),
+    ]
+    # pass 1: all three parse. pass 2: i2 comes back invalid (direction
+    # outside the enum), so it is dropped from that pass's results.
+    # pass 3: all three parse again. i1 always "up", i3 always "down" --
+    # perfectly self-consistent once i2 is excluded.
+    responses = [
+        _response({"evidence": "x", "inferred_direction": "up"}),  # i1, pass 1
+        _response({"evidence": "x", "inferred_direction": "lateral"}),  # i2, pass 1
+        _response({"evidence": "x", "inferred_direction": "down"}),  # i3, pass 1
+        _response({"evidence": "x", "inferred_direction": "up"}),  # i1, pass 2
+        _response({"evidence": "x", "inferred_direction": "sideways"}),  # i2, pass 2 (invalid)
+        _response({"evidence": "x", "inferred_direction": "down"}),  # i3, pass 2
+        _response({"evidence": "x", "inferred_direction": "up"}),  # i1, pass 3
+        _response({"evidence": "x", "inferred_direction": "lateral"}),  # i2, pass 3
+        _response({"evidence": "x", "inferred_direction": "down"}),  # i3, pass 3
+    ]
+    client = _ScriptedClient(responses)
+    result = judge_self_consistency(
+        items,
+        client,
+        model="qwen2.5:3b",
+        cache=_cache(tmp_path),
+        ledger=_ledger(tmp_path),
+        run_id="test-run",
+    )
+    assert result.n == 2
+    assert result.kappa == 1.0
+    assert result.share_agree == 1.0
+
+
 def test_build_manifest_orders_real_email_first() -> None:
     """plot_accuracy_vs_real's docstring convention: the first key drawn
     is the reference row. The manifest's own ordering must put real email
