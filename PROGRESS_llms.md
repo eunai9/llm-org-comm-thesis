@@ -1292,6 +1292,56 @@ access to a bigger model to try next, since it uses free-tier models only.
 A judge that disagrees with itself cannot be trusted to compare real email
 against generated email, so Layer 1 as designed cannot run.
 
+**Correction (Oct 11): "no bigger free-tier model to try" was not quite
+right, and it has now actually been checked.** gpt-oss-20b and
+gpt-oss-120b -- bigger than all three models tested above -- were already
+available as free-tier models by Oct 4 (generating Q1 replies since Sep 14
+and Sep 17). What did not exist yet was the code to call them *as a judge*:
+this script hardcoded a local Ollama client, and the dispatch that lets a
+judge call reach NVIDIA or Groq (`client_for_model`) was not built until
+Oct 5, for Q3's judge-swap work, one day after this decision. So the
+decision's reasoning was off, even though the decision itself turned out
+right -- see below.
+
+Tested now: gpt-oss-20b's self-consistency kappa, same 300-reply sample,
+same method.
+
+| Judge model | Kappa (n) | Pass? |
+|---|---:|:---:|
+| gpt-oss-20b | -0.016 (n=297) | No |
+
+(297, not 300 -- 3 of the 300 items failed to parse on at least one of the
+three passes and were dropped, a real gap `judge_self_consistency` had no
+handling for until this session; see the code note below.)
+
+**gpt-oss-20b fails as badly as the three smaller models did.** Agreement
+across the three passes was 13.8% -- worse than the chance level this task
+would hit by guessing. Being a bigger, newer free-tier model did not fix
+the reliability problem; if anything, it is squarely in the same failure
+pattern as qwen2.5:7b and llama3.1:8b (kappa near zero or negative), not
+qwen2.5:3b's somewhat-less-bad 0.293. **This strengthens the Oct 4
+decision rather than reopening it** -- the reasoning given at the time was
+incomplete, but testing the model that reasoning skipped confirms the same
+conclusion.
+
+Two things fixed to make this test possible at all, both regression-tested
+and committed:
+
+- `role_inference.py` hardcoded `OllamaClient`; swapped for
+  `judge_swap.client_for_model` so an NVIDIA or Groq model can judge here
+  too. Its own billable check also only named `is_local_model`, missing
+  `is_nim_model`/`is_groq_model` -- the same billing gap Q3 hit on Oct 5,
+  waiting here too, since no earlier caller had ever judged with a
+  free-tier API model from inside this script.
+- `judge_self_consistency` assumed every item gets a result on every one of
+  the three passes, and built each pass's comparison series with a plain
+  dict lookup -- a `KeyError` the moment one doesn't. Caught running this
+  live: one item came back as non-JSON output on one pass. Fixed to drop
+  any item missing a result on any pass from the whole comparison, with the
+  dropped count logged.
+
+gpt-oss-120b is being tested next, the same way, via Groq.
+
 ---
 
 ## 16. Rubric scores for the three models (Q2, Oct 10)
