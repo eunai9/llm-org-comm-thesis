@@ -123,6 +123,75 @@ def test_run_scores_one_item_end_to_end(tmp_path: Path) -> None:
     assert results[0].item_id == "i1"
 
 
+def test_nim_model_scores_are_not_billed(tmp_path: Path) -> None:
+    """The same bug test_judge.py's test_nim_model_scores_are_not_billed
+    caught in judge/run.py: this module's own billable check names
+    is_local_model but not is_nim_model/is_groq_model, so an NVIDIA or Groq
+    judge model fell through to cost_usd(), which has no price for a
+    free-tier model and raises UnknownModelPriceError. Never caught before
+    this, because role_inference.py's CLI hardcoded OllamaClient -- only an
+    Ollama model could ever reach this path until client_for_model let the
+    self-consistency gate run against gpt-oss-20b/120b too."""
+    model = "nim/openai/gpt-oss-20b@low"
+    client = _ScriptedClient(
+        [
+            _response(
+                {"evidence": "no directive language", "inferred_direction": "lateral"},
+                model=model,
+            )
+        ]
+    )
+    _, summary = run_role_inference_absolute(
+        [_item()],
+        client,
+        model=model,
+        cache=_cache(tmp_path),
+        ledger=_ledger(tmp_path),
+        run_id="test-run",
+    )
+    assert summary.total_cost_usd == 0.0
+
+
+def test_groq_model_scores_are_not_billed(tmp_path: Path) -> None:
+    """Same gap, the Groq side."""
+    model = "groq/openai/gpt-oss-120b@low"
+    client = _ScriptedClient(
+        [
+            _response(
+                {"evidence": "no directive language", "inferred_direction": "lateral"},
+                model=model,
+            )
+        ]
+    )
+    _, summary = run_role_inference_absolute(
+        [_item()],
+        client,
+        model=model,
+        cache=_cache(tmp_path),
+        ledger=_ledger(tmp_path),
+        run_id="test-run",
+    )
+    assert summary.total_cost_usd == 0.0
+
+
+def test_paired_nim_and_groq_model_scores_are_not_billed(tmp_path: Path) -> None:
+    """The same billing gap, in run_role_inference_paired's own copy of the
+    check -- a separate function, a separate bug instance."""
+    for model in ("nim/openai/gpt-oss-20b@low", "groq/openai/gpt-oss-120b@low"):
+        client = _ScriptedClient(
+            [_response({"evidence": "more direct", "answer": "A"}, model=model)]
+        )
+        _, summary = run_role_inference_paired(
+            [_paired_item()],
+            client,
+            model=model,
+            cache=_cache(tmp_path),
+            ledger=_ledger(tmp_path),
+            run_id="test-run",
+        )
+        assert summary.total_cost_usd == 0.0
+
+
 def test_invalid_response_is_counted_not_raised(tmp_path: Path) -> None:
     client = _ScriptedClient([_response({"evidence": "x", "inferred_direction": "sideways"})])
     results, summary = run_role_inference_absolute(

@@ -44,12 +44,15 @@ from statsmodels.stats.proportion import proportion_confint
 
 from thesis.analysis.blinding import strip_identity
 from thesis.analysis.draw_stability import DecisionStability, decision_stability_n
+from thesis.analysis.judge_swap import client_for_model
 from thesis.analysis.plots import plot_effect_intervals
 from thesis.analysis.q1_real import load_bodies
 from thesis.judge.prompt import JudgeItem, render_item_block
 from thesis.llm.base import CompletionRequest, CompletionResponse, Message, Provider
 from thesis.llm.cache import ResponseCache, cache_key
 from thesis.llm.cost import CostLedger, LedgerEntry, cost_usd
+from thesis.llm.groq_client import is_groq_model
+from thesis.llm.nvidia_client import is_nim_model
 from thesis.llm.ollama_client import OllamaClient, OllamaUnavailableError, is_local_model
 from thesis.llm.stub_client import is_stub_model
 from thesis.logging_setup import configure_logging, get_logger
@@ -228,6 +231,8 @@ def run_role_inference_absolute(
             not response.from_cache
             and not is_stub_model(response.model)
             and not is_local_model(response.model)
+            and not is_nim_model(response.model)
+            and not is_groq_model(response.model)
         )
         cost = cost_usd(response.model, response.usage) if billable else 0.0
         summary.total_cost_usd += cost
@@ -383,6 +388,8 @@ def run_role_inference_paired(
             not response.from_cache
             and not is_stub_model(response.model)
             and not is_local_model(response.model)
+            and not is_nim_model(response.model)
+            and not is_groq_model(response.model)
         )
         cost = cost_usd(response.model, response.usage) if billable else 0.0
         summary.total_cost_usd += cost
@@ -483,13 +490,18 @@ def main() -> None:
         help="Skip the self-consistency and positive-control checks. For re-runs "
         "once the gate has already passed once; never for a first run.",
     )
+    parser.add_argument(
+        "--ollama-host",
+        default=None,
+        help="Override the Ollama server URL (default: http://127.0.0.1:11434).",
+    )
     args = parser.parse_args()
 
     configure_logging()
     ensure_dirs()
 
-    client = OllamaClient(args.judge_model)
-    if not client.is_available():
+    client = client_for_model(args.judge_model, ollama_host=args.ollama_host)
+    if isinstance(client, OllamaClient) and not client.is_available():
         msg = (
             f"no Ollama server reachable; start it with 'ollama serve' and pull {args.judge_model}"
         )
