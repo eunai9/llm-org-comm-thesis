@@ -873,6 +873,50 @@ each model's already-generated grid file, no API call. Manifest:
 `outputs/manifests/q1_models_full.json`. Figure:
 `docs/figures/q1_models_full_writing_down.png`.
 
+**The same measure, for writing up.** `direction` is a three-level factor
+(down, lateral, up); the persona-clustered fit above already estimates both
+non-reference contrasts at once, it just was not pulled out for "up" until
+now. Same grids, same fit, the other coefficient:
+
+| Model | Writing-up effect | p | 95% interval | vs real email, p |
+|---|---:|---:|---|---:|
+| Real email | +0.072 | .404 | [-0.10, +0.24] | |
+| Llama 3.2 3B (3 draws) | -0.009 | .820 | [-0.09, +0.07] | .142 |
+| gpt-oss-20b | +0.005 | .951 | [-0.14, +0.15] | .356 |
+| gpt-oss-120b | +0.106 | .046 | [+0.00, +0.21] | .704 |
+
+Replies and sentences per model are the same as the writing-down table
+above (same grid, same fit, the other contrast).
+
+**What this means.**
+
+- **Real email itself shows no writing-up effect** (p=.404). Hierarchy's
+  effect on directiveness in this corpus is asymmetric: strong going down,
+  essentially absent going up.
+- **gpt-oss-120b is the only model with a significant writing-up effect by
+  this fit** (p=.046); Llama and gpt-oss-20b show none (p=.820, p=.951),
+  matching real email.
+- **gpt-oss-120b's effect is not significantly different from real email's
+  own non-effect** (p=.704) -- the same "sits inside real email's own
+  uncertainty" read the closing bullet above gives every other contrast.
+  Being significant on its own and being different from real email are two
+  different questions; this clears the first but not the second.
+- **This disagrees with the VB-based fit further down** ("Both measures,
+  both directions"): that fit gives gpt-oss-120b's writing-up coefficient
+  as +0.103, p=.160 (not significant); this persona-clustered fit gives
+  +0.106, p=.046 (significant) -- nearly the same coefficient, a very
+  different p-value. This looks like the same VB-understates-uncertainty
+  problem this project already found and fixed for the down contrast
+  (sections 11/14), showing up again here on the up side, for this one
+  model -- not yet checked with the same robust-SE tooling those sections
+  built for down.
+
+Source: re-fit directly from the same three grids
+(`data/interim/q1_direction_grid_full_3draws.parquet`,
+`..._gpt_oss_20b_full.parquet`, `..._gpt_oss_120b_full.parquet`),
+`persona_fe.contrast("up")` instead of `"down"` on the same fitted object
+the headline table already built. No new API calls, no new model fit.
+
 **Both measures, both directions**, using each grid's own code-path fit
 (the pooled clustered fit for Llama's 3 draws, the same thing as draw 1 for
 the other two single-draw grids -- this is the variational-Bayes-based fit,
