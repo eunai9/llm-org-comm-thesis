@@ -1390,6 +1390,8 @@ separate from Q3's question about whether the judge itself can be trusted
 **Results**, 60 replies per model (59 for gpt-oss-20b -- one reply did not
 parse, the same gap section 17 notes).
 
+Judge = llama3.2:3b:
+
 | Item | Llama 3.2 3B | gpt-oss-20b | gpt-oss-120b |
 |---|---:|---:|---:|
 | overall rubric mean | 4.28 | 4.63 | 4.62 |
@@ -1400,46 +1402,92 @@ parse, the same gap section 17 notes).
 | politeness_appropriateness | 4.03 | 4.58 | 4.48 |
 | conflict_management | 4.18 | 4.27 | 4.18 |
 
+**Extended Oct 12: the other two judges score the same 180 replies very
+differently.** The table above uses one judge. Running the same replies
+through gpt-oss-20b and gpt-oss-120b as judges -- the same scores section
+17 already has cached, just grouped differently -- answers whether the
+narrow 4.0-4.9 band above is a property of the replies or a property of
+llama as judge.
+
+Judge = gpt-oss-20b:
+
+| Item | Llama 3.2 3B | gpt-oss-20b | gpt-oss-120b |
+|---|---:|---:|---:|
+| overall rubric mean | 3.60 | 4.53 | 4.56 |
+| role_consistency | 2.75 | 4.03 | 4.00 |
+| contextual_fit | 2.98 | 4.78 | 4.78 |
+| corpus_plausibility | 3.82 | 4.81 | 4.80 |
+| clarity | 4.53 | 4.98 | 4.98 |
+| politeness_appropriateness | 3.70 | 4.37 | 4.40 |
+| conflict_management | 3.80 | 4.20 | 4.40 |
+
+Judge = gpt-oss-120b:
+
+| Item | Llama 3.2 3B | gpt-oss-20b | gpt-oss-120b |
+|---|---:|---:|---:|
+| overall rubric mean | 3.48 | 4.51 | 4.49 |
+| role_consistency | 2.33 | 3.85 | 3.82 |
+| contextual_fit | 2.78 | 4.80 | 4.82 |
+| corpus_plausibility | 3.87 | 4.85 | 4.82 |
+| clarity | 4.53 | 4.98 | 5.00 |
+| politeness_appropriateness | 3.83 | 4.47 | 4.40 |
+| conflict_management | 3.50 | 4.14 | 4.08 |
+
 **What this means.**
 
-- **Llama 3.2 3B** -- lowest score on every item, most clearly on
-  contextual_fit and politeness_appropriateness (4.03 each, roughly three
-  quarters of a point below the two gpt-oss models).
-- **gpt-oss-20b** -- highest score on three items (role_consistency,
-  politeness_appropriateness, conflict_management) and the highest overall
-  mean (4.63).
-- **gpt-oss-120b** -- highest score on the other three items
-  (contextual_fit, corpus_plausibility, clarity), but tied with Llama for
-  lowest on conflict_management (4.18).
+- **The narrow band only holds under llama's own judging.** Under llama as
+  judge, all three models sit in a 4.0-4.9 band on every item. Under
+  either gpt-oss judge, that band breaks for one model only: llama's own
+  replies drop (overall 4.28 under llama's own judging, down to 3.60 under
+  gpt-oss-20b and 3.48 under gpt-oss-120b). gpt-oss-20b's and
+  gpt-oss-120b's replies stay in roughly the same high band, overall
+  4.5-4.6, under every judge, including themselves.
+- **The drop concentrates on the same two items section 17 already
+  flagged, and for the same reason -- judge severity toward llama, not
+  self-preference.** role_consistency goes from llama's own score of 4.50
+  down to 2.75 under gpt-oss-20b and 2.33 under gpt-oss-120b.
+  contextual_fit goes from llama's own 4.03 down to 2.98 and 2.78. Section
+  17's Oct 10 correction already found and explained this exact asymmetry:
+  the gpt-oss judges are harsh on llama's writing specifically, and
+  llama's own lenient self-judging does not share that harshness. Section
+  17 also already flagged why those two items move the most -- the judge
+  prompt sends only the reply text, not the role or the original message,
+  so role_consistency and contextual_fit cannot really be answered from
+  what the judge is given. This section's three-judge table is new, the
+  explanation for it is not.
+- **So Q2's question -- does a generated reply look plausible and fit its
+  role -- does not have one judge-independent answer.** Which judge you
+  ask changes the answer for llama's replies. It does not change the
+  answer for gpt-oss-20b's or gpt-oss-120b's replies, which stay high under
+  every judge tested.
+- Under llama as judge specifically: Llama 3.2 3B scores lowest on every
+  item, most clearly on contextual_fit and politeness_appropriateness
+  (4.03 each); gpt-oss-20b is highest on three items (role_consistency,
+  politeness_appropriateness, conflict_management); gpt-oss-120b is
+  highest on the other three (contextual_fit, corpus_plausibility,
+  clarity), tied with Llama for lowest on conflict_management (4.18).
 
 **Caveats.**
 
-- One judge (llama), scoring its own writing here too, not independently
-  checked against a person. No reply in this project has been hand-coded
-  yet (next-steps item 2).
-- A different judge could rank these three models differently. Section 17
-  (right after this one) finds the three tested judges disagree sharply
-  about some of these same replies -- the gpt-oss judges rate llama's
-  writing far below how llama rates itself, on these same rubric items.
-  That result is about judge disagreement, not about the ranking shown
-  here, but it is a reason not to read this table as a single,
-  judge-independent ranking -- and a specific reason Llama's own low scores
-  above should not be over-read, since Llama is both one of the three
-  models being scored and the only judge used.
-- One draw per cell, same as every other judge-swap number in this project.
+- Three judges now, not independently checked against a person. No reply
+  in this project has been hand-coded yet (next-steps item 2).
+- One draw per cell, same as every other judge-swap number in this
+  project. 60 replies per model, except gpt-oss-20b at 59 (one reply did
+  not parse, same gap as above).
 - **This disagrees with section 8's word-choice classifier, and that
   disagreement is itself worth noting.** Section 8 flags these same three
   models (among its four) instantly by vocabulary alone (0.84-0.98 AUC,
   full text); here, an LLM judge reading the same kind of reply rates
-  `corpus_plausibility` and `contextual_fit` at 4.0-4.9 out of 5. Same
-  models, same underlying Q2 question -- "does this look real" -- opposite
-  readings depending on whether a classifier or an LLM judge is doing the
-  looking. See section 8's own note on this for the same point from the
-  other side.
+  `corpus_plausibility` and `contextual_fit` at 2.8-4.9 out of 5 depending
+  on which judge is asked. Same models, same underlying Q2 question --
+  "does this look real" -- opposite readings depending on whether a
+  classifier or an LLM judge is doing the looking. See section 8's own
+  note on this for the same point from the other side.
 
-Source: the same `judge_swap_scores_free_tier.parquet` section 17 produces,
-filtered to `judge == "llama3.2:3b"` and `generator != "deepseek-ai/..."`.
-No new API calls.
+Source: the same `judge_swap_scores_free_tier.parquet` section 17
+produces, filtered to `generator != "deepseek-ai/..."`, grouped by
+(judge, generator) and averaged per rubric item -- plain means, no model
+fit (the model fit is section 17's job). No new API calls.
 
 ---
 
