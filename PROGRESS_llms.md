@@ -1340,7 +1340,29 @@ and committed:
   any item missing a result on any pass from the whole comparison, with the
   dropped count logged.
 
-gpt-oss-120b is being tested next, the same way, via Groq.
+**gpt-oss-120b passes.** Same method, same 300-reply sample, via Groq.
+
+| Judge model | Kappa (n) | Pass? |
+|---|---:|:---:|
+| gpt-oss-120b | 0.542 (n=300) | Yes |
+
+Agreement across the three passes was 65.3% -- comfortably past the 0.4
+bar, and all 300 items parsed cleanly this time (no drops, unlike
+gpt-oss-20b above). The positive control also passed (accuracy 0.952,
+close to 1.0): the harness correctly detects a real signal when the
+direction-framing sentence is actually present in the text, so gpt-oss-120b
+passing the self-consistency gate is not an artifact of a broken check.
+
+**This changes the picture for Layer 1.** Four judge models have now been
+tested for self-consistency; three fail (qwen2.5:3b, qwen2.5:7b,
+llama3.1:8b), one is bad in the same way (gpt-oss-20b), and one passes
+cleanly. gpt-oss-120b is a real candidate judge for the absolute-form
+comparison Layer 1 was actually designed to answer -- does a generated
+reply give away hierarchy as well as real email does -- which has never
+been run for any model, because every earlier candidate judge failed this
+reliability gate first. Layer 1 is not dead; it was never actually tried
+with a judge able to pass its own check. The Oct 4 decision to drop it
+stands for every judge tried before gpt-oss-120b, not for the plan itself.
 
 ---
 
