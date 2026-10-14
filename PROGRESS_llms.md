@@ -1263,10 +1263,8 @@ is missing the real signal of hierarchy.
 given, hedging, self-reference). Only makes sense once Layer 1 finds a
 real signal. Not started yet.
 
-**Four judge models failed the reliability check before gpt-oss-120b passed it.**
-
 Before trusting a judge, it has to agree with itself: score the same
-replies three times, check agreement with kappa (0 = chance, 1 =
+replies three times and check agreement with kappa (0 = chance, 1 =
 perfect). The bar is 0.4.
 
 | Judge model | Kappa (n) | Pass? |
@@ -1275,62 +1273,22 @@ perfect). The bar is 0.4.
 | qwen2.5:7b | 0.017 (n=90) | No |
 | llama3.1:8b | -0.013 (n=90) | No |
 | gpt-oss-20b | -0.016 (n=297) | No |
-
-(qwen2.5:7b and llama3.1:8b were scored on 90 replies due to a bug, not
-the intended 300 -- fixed since, but not worth rerunning: both fail by
-too wide a margin for 300 to change the answer. gpt-oss-20b's n is 297,
-not 300: 3 of 300 items failed to parse on at least one pass and were
-dropped.)
-
-All four fail. The bigger three mostly answer "down" no matter what the
-email says -- gpt-oss-20b, bigger and newer than the local models, fails
-just as badly (13.8% agreement across three passes, worse than chance),
-so being a bigger model does not fix this on its own. qwen2.5:3b varies
-its answers more, but still disagrees with itself pass to pass.
-
-The project initially judged the search over at this point, reasoning
-there was no bigger free-tier model left to try. That reasoning was
-wrong: gpt-oss-20b and gpt-oss-120b were both already available as
-free-tier models, generating Q1 replies since mid-September. What was
-actually missing was code to call them *as a judge* rather than a
-generator, which did not exist until a day after the project paused this
-search (built for Q3's judge-swap work instead). Testing gpt-oss-20b
-above closes that gap; testing gpt-oss-120b below reopens the search with
-the model that reasoning had skipped.
-
-Two code gaps this testing found and fixed, both regression-tested:
-
-- `role_inference.py` hardcoded a local Ollama client; swapped for
-  `judge_swap.client_for_model` so an NVIDIA or Groq model can judge here
-  too. Its billable check also only named `is_local_model`, missing
-  `is_nim_model`/`is_groq_model` -- the same billing gap Q3 hit for the
-  same reason.
-- `judge_self_consistency` assumed every item gets a result on every one
-  of three passes, and crashed with a `KeyError` the moment one didn't
-  (one item returned non-JSON output on one pass, out of 300). Fixed to
-  drop any item missing a result on any pass from the whole comparison,
-  with the dropped count logged.
-
-**gpt-oss-120b passes.** Same method, same 300-reply sample, via Groq.
-
-| Judge model | Kappa (n) | Pass? |
-|---|---:|:---:|
 | gpt-oss-120b | 0.542 (n=300) | Yes |
 
-Agreement across the three passes was 65.3% -- comfortably past the 0.4
-bar. The positive control also passed (accuracy 0.952): the harness
-correctly detects a real signal when the direction-framing sentence is
-actually present in the text, so this pass is not an artifact of a broken
-check.
+Five judge models were tested; the first four failed, each the same way
+-- near-zero or negative kappa, the model mostly answers "down" no matter
+what the email says, or flips its own answer pass to pass. At that point
+the project judged the search over, reasoning there was no bigger
+free-tier model left to try -- that reasoning was wrong: gpt-oss-120b was
+already available, the project just had no code yet to call it as a
+judge rather than a generator. Once that code existed, gpt-oss-120b
+passed decisively (65.3% agreement across three passes, positive-control
+accuracy 0.952), reopening Layer 1 with a judge finally able to pass its
+own reliability check.
 
-**This changes the picture for Layer 1.** Five judge models have now been
-tested; four fail, one passes cleanly. gpt-oss-120b is a real candidate
-judge for the absolute-form comparison Layer 1 was actually designed to
-answer -- does a generated reply give away hierarchy as well as real
-email does -- which has never been run for any model, because every
-earlier candidate judge failed this reliability gate first. Layer 1 is
-not dead; it was never actually tried with a judge able to pass its own
-check.
+The actual comparison Layer 1 was designed to answer -- does a generated
+reply give away hierarchy as well as real email does -- is now running
+with gpt-oss-120b as judge. Results go here once it finishes.
 
 ---
 
