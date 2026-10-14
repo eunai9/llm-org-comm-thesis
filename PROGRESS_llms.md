@@ -28,7 +28,7 @@ directly (the Q1 real-email comparison).
 
 Other open items: a run without the "act" instruction, an embedding map and
 review pack for the newer models, and committing the blind-coding module.
-See "18. Next steps" at the end.
+See "20. Next steps" at the end.
 
 ---
 
@@ -341,12 +341,12 @@ closer to a realistic length, and are still easy to spot by word choice.
 Model size (20B against 120B) moved neither the mirroring result nor this
 one.
 
-**This disagrees with section 16's rubric scores, and that disagreement is
+**This disagrees with section 17's rubric scores, and that disagreement is
 itself worth noting.** Llama, gpt-oss-20b and gpt-oss-120b -- three of the
 four models in the table above -- are flagged instantly by this
 word-choice classifier (0.92-0.97 AUC, full text) but score 4.0-4.9 out of
 5 on `corpus_plausibility` and `contextual_fit` when an LLM judge reads the
-same kind of reply (section 16). Two measures of "does this look real,"
+same kind of reply (section 17). Two measures of "does this look real,"
 same models, same underlying question, opposite readings. Either the LLM judge
 is not sensitive to the specific stock-phrase tells this classifier catches
 ("I'll review...", "Let me know..."), or "reads as plausible" and "is
@@ -697,22 +697,59 @@ tables -- same effect, two different standard errors.
   standard deviation (`hierarchy.py`). gpt-oss-120b's case (reported p=5e-08,
   honest p≈.001) is what exposed it. Fixed: the code now also fits a
   persona-clustered cross-check on its own (`Q1Result.sentence_model_persona_fe`,
-  commit `85e833a`) -- see the "18. Next steps" done-block below for what still
+  commit `85e833a`) -- see the "20. Next steps" done-block below for what still
   needs it substituted in.
 - **Two small bugs found while checking this result, since fixed.** The Q1
   grid generator now writes `prompt_text_hash()` onto the saved grid instead
   of only computing it in memory (commit `5ee4b46`), and `q1_models.py`'s
   grid loader now counts real cache/generation numbers instead of
-  hard-coding every row as "from cache" (commit `36fbc3e`). See "18. Next
+  hard-coding every row as "from cache" (commit `36fbc3e`). See "20. Next
   steps" for the one small gap that remains.
 
 ---
 
-## 11. The main Q1 run reaches significance (Q1, Sep 23)
+## 11. The full design: how the 1,440-cell grid differs from the pilot (Q1)
 
-This is a different grid from the four-model comparison above: not the
-24-scenario pilot, but the main 144-scenario "full" design, Llama 3.2 3B
-only, generated locally. It is the run `HANDOVER.md` section 6.2 and
+Every Q1 section before this one uses the same small grid: 24 scenarios
+(2 task types x 3 directions x 4 tones) x 10 personas, one reply each,
+240 replies. This is the pilot design fixed in `PROGRESS.md` section 39.
+
+**The full design is bigger, not different.** It uses all 144 scenarios
+(6 task types x 3 directions x 2 stakes x 4 tones) x 10 personas: 1,440
+cells. The pilot's 24 scenarios are an exact subset of these 144, so a
+full-design run reuses every pilot reply already generated -- nothing
+from the pilot is thrown away or regenerated.
+
+**Why run it.** Real email shows the writing-down effect clearly
+(+0.253, p<.001, 2,202 emails). The pilot's 240 replies were too few to
+show the same effect at a normal significance level, even though the
+estimate itself held steady as the pilot was re-run at different sizes.
+Reaching 80% power on an effect this size needed about 4,028 replies
+(`HANDOVER.md` section 6.2's estimate) -- more than one pass of the full
+design (1,440) and more than the pilot by a factor of 17. For Llama, it
+took three full-design draws, 4,320 replies, to clear that bar (section
+12, directly below).
+
+**Which models have run it, and at what scale.**
+
+| Model | Draws at full scale | Total replies |
+|---|---:|---:|
+| Llama 3.2 3B | 3 | 4,320 |
+| gpt-oss-20b | 1 | 1,428 |
+| gpt-oss-120b | 1 | 1,440 |
+| qwen3.8-27b | 1 (in progress) | up to 1,440 |
+| DeepSeek V4 Flash | 0 -- pilot only | 240 |
+
+DeepSeek never ran the full design: NVIDIA retired the model this
+project uses (section 18) before one was attempted, so its 240 pilot
+replies are fixed in place.
+
+---
+
+## 12. The main Q1 run reaches significance (Q1, Sep 23)
+
+This section covers Llama 3.2 3B's own full-design run (section 11),
+generated locally. It is the run `HANDOVER.md` section 6.2 and
 `PROGRESS.md` sections 39/51/54 track, and the "14-more-hours" question
 `PROGRESS_llms.md`'s Next steps item 2 pointed back to.
 
@@ -843,18 +880,17 @@ Fleiss' kappa=0.367.
 
 ---
 
-## 12. Q1 across models, at full design scale (Q1, Oct 4)
+## 13. Q1 across models, at full design scale (Q1, Oct 4)
 
-The "10. Does hierarchy change how directive a reply is" section above compared
-four models on the small pilot grid: 10 personas, 24 scenarios, 240 replies
-each. Since then, two more models have finished the full design (10
-personas, 144 scenarios, about 1,440 replies): gpt-oss-20b (Sep 29) and
-gpt-oss-120b (Oct 2). Llama already had its own full-design result above.
-This section puts all three side by side at full scale, measured the same
-way the pilot ones were: reply level (share of a reply's sentences that are
-imperative, a linear mixed model) and sentence level (each sentence an
-order or not, a logistic model), each compared across directions against
-writing to a peer.
+The "10. Does hierarchy change how directive a reply is" section above
+compared four models on the pilot grid (section 11 explains the full
+design used from here on). gpt-oss-20b (Sep 29) and gpt-oss-120b (Oct 2)
+finished the full design; Llama's own full-design run is section 12,
+directly above. This section puts all three side by side at full scale,
+measured the same way the pilot ones were: reply level (share of a
+reply's sentences that are imperative, a linear mixed model) and sentence
+level (each sentence an order or not, a logistic model), each compared
+across directions against writing to a peer.
 
 **Headline.** The same persona-clustered fixed-effects cross-check the
 pilot section used for gpt-oss-120b, now computed correctly for a
@@ -907,7 +943,7 @@ above (same grid, same fit, the other contrast).
   +0.106, p=.046 (significant) -- nearly the same coefficient, a very
   different p-value. This looks like the same VB-understates-uncertainty
   problem this project already found and fixed for the down contrast
-  (sections 11/14), showing up again here on the up side, for this one
+  (sections 12/15), showing up again here on the up side, for this one
   model -- not yet checked with the same robust-SE tooling those sections
   built for down.
 
@@ -956,7 +992,7 @@ Chance that a sentence gives an order, by direction:
   email is significant using real email's main fit (p=.009) but drops to
   p=.084 using real email's other fit (`q1_real.py`'s sender-fixed-effects
   cross-check, which has a wider standard error). Read this as not settled,
-  not as a confirmed difference -- see "13. Length-matching the Q1-vs-real
+  not as a confirmed difference -- see "14. Length-matching the Q1-vs-real
   comparison" below for two more reasons this gap does not hold up: cutting
   real email to the same reply length, and a robust standard-error check
   that puts this very p=.009 in doubt too.
@@ -964,7 +1000,7 @@ Chance that a sentence gives an order, by direction:
   scale** (1.98 at pilot scale, 4.75 for real email). A short reply
   inflates the "orders per sentence" share for the same underlying
   behavior -- the same caveat the pilot section raised. No length-matched
-  version of this comparison exists yet (see "18. Next steps").
+  version of this comparison exists yet (see "20. Next steps").
 - **Llama still shows no significant difference from real email in either
   direction** (down p=.183, up p=.143, headline-style z-test), matching the
   Sep-23 conclusion above.
@@ -1048,7 +1084,7 @@ the pilot section flagged for its own "vs real email" tables.
 
 ---
 
-## 13. Length-matching the Q1-vs-real comparison (Q1, Oct 4)
+## 14. Length-matching the Q1-vs-real comparison (Q1, Oct 4)
 
 **The problem.** `is_imperative` is a share of a reply's sentences that
 give an order. A short reply inflates this share for the same underlying
@@ -1123,7 +1159,7 @@ now writes this comparison automatically alongside the full-length one.
   probably overstated independently of the length-matching question. The
   simulator side is also a variational-Bayes fit, so its own standard
   error is likely understated too, in the same direction. **Done: see
-  "14. A robust standard-error check for the real-email fit (Q1, Oct 5)"
+  "15. A robust standard-error check for the real-email fit (Q1, Oct 5)"
   below** -- the actual number is p=.084, not the rough .14 estimated
   here. Every `vs_real` number in this log now uses the robust fit on both
   sides, not the VB one quoted here.
@@ -1150,7 +1186,7 @@ now writes this comparison automatically alongside the full-length one.
 
 ---
 
-## 14. A robust standard-error check for the real-email fit (Q1, Oct 5)
+## 15. A robust standard-error check for the real-email fit (Q1, Oct 5)
 
 **gpt-oss-120b's "significantly bigger than real email" claim does not
 survive an honest standard error.** Full-length `is_imperative`, writing
@@ -1183,7 +1219,7 @@ kept under a `"vb"` key. Tests added in `tests/test_q1_real.py` and
 `tests/test_q1_models.py`, full suite passes.
 `outputs/manifests/q1_models_full.json` was regenerated with the same
 command, same three grids, same prompt hash `d4c18550ed56f2de` as the
-"12. Q1 across models, at full design scale" section above -- this is a refit
+"13. Q1 across models, at full design scale" section above -- this is a refit
 of the same data under corrected code, not a new generation run.
 `outputs/manifests/q1_real.json` was not touched; it already held the
 robust fit, just unused until now.
@@ -1249,7 +1285,7 @@ changes here, the p-values just move:
 
 ---
 
-## 15. The new Q1 judge plan, and where Layer 1 failed (Q1, Oct 3)
+## 16. The new Q1 judge plan, and where Layer 1 failed (Q1, Oct 3)
 
 The new Q1 plan has two layers.
 
@@ -1292,7 +1328,7 @@ with gpt-oss-120b as judge. Results go here once it finishes.
 
 ---
 
-## 16. Rubric scores for the three models (Q2, Oct 10)
+## 17. Rubric scores for the three models (Q2, Oct 10)
 
 **Finding.** Judged by one model (llama3.2:3b) on the same six-item rubric
 Q3 uses, Llama, gpt-oss-20b and gpt-oss-120b -- the same three models
@@ -1301,20 +1337,20 @@ section 9's embedding classifier compares -- score in a narrow 4.0-4.9 band
 gpt-oss models trade off which one is highest depending on the item.
 DeepSeek is not part of this table: it is excluded from every new result
 in this project, the same decision section 4 of the deck records (still
-usable where it was already cached before the cutoff, as in section 17,
+usable where it was already cached before the cutoff, as in section 18,
 but not added to new comparisons).
 
 **How.** The same 60 replies per model from the judge-swap design (section
-17), scored by llama3.2:3b alone -- plain means, no model fit, no
+18), scored by llama3.2:3b alone -- plain means, no model fit, no
 self-preference statistic. llama is the judge used here because it is the
 one of the three tested judges not caught favoring its own writing (section
-17). This answers Q2's question -- does a generated reply look like it
+18). This answers Q2's question -- does a generated reply look like it
 fits its role and situation -- using the rubric's existing items, kept
 separate from Q3's question about whether the judge itself can be trusted
-(section 17's subject).
+(section 18's subject).
 
 **Results**, 60 replies per model (59 for gpt-oss-20b -- one reply did not
-parse, the same gap section 17 notes).
+parse, the same gap section 18 notes).
 
 Judge = llama3.2:3b:
 
@@ -1368,7 +1404,7 @@ Judge = gpt-oss-120b:
   gpt-oss-20b and 3.48 under gpt-oss-120b). gpt-oss-20b's and
   gpt-oss-120b's replies stay in roughly the same high band, overall
   4.5-4.6, under every judge, including themselves.
-- **The drop concentrates on the same two items section 17 already
+- **The drop concentrates on the same two items section 18 already
   flagged, and for the same reason -- judge severity toward llama, not
   self-preference.** role_consistency goes from llama's own score of 4.50
   down to 2.75 under gpt-oss-20b and 2.33 under gpt-oss-120b.
@@ -1410,14 +1446,14 @@ Judge = gpt-oss-120b:
   classifier or an LLM judge is doing the looking. See section 8's own
   note on this for the same point from the other side.
 
-Source: the same `judge_swap_scores_free_tier.parquet` section 17
+Source: the same `judge_swap_scores_free_tier.parquet` section 18
 produces, filtered to `generator != "deepseek-ai/..."`, grouped by
 (judge, generator) and averaged per rubric item -- plain means, no model
-fit (the model fit is section 17's job). No new API calls.
+fit (the model fit is section 18's job). No new API calls.
 
 ---
 
-## 17. The judge-swap design on the real free-tier models (Q3, Oct 6)
+## 18. The judge-swap design on the real free-tier models (Q3, Oct 6)
 
 **Finding.** A judge favors its own kind of model, and this holds on the
 project's real four free-tier models, not only the two local stand-ins the
@@ -1611,7 +1647,7 @@ Manifest: `outputs/manifests/judge_swap_free_tier.json`. Prompt hash
 
 ---
 
-## 18. Where the code lives
+## 19. Where the code lives
 
 **The clients.** `src/thesis/llm/openai_compatible.py` holds the shared
 request and retry logic. `nvidia_client.py` and `groq_client.py` are thin
@@ -1660,7 +1696,7 @@ made along the way, are in `PROGRESS_nvidia.md`.
 
 ---
 
-## 19. Next steps
+## 20. Next steps
 
 Most valuable first.
 
@@ -1692,8 +1728,8 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   Commit `36fbc3e`.
 - **The main Q1 run (Llama, local, full design) now shows the writing-down
   effect at a normal significance level** -- 4,320 replies overnight,
-  p=.002 (VB) / p=.0006 (persona-clustered). See "11. The main Q1 run
-  reaches significance (Q1, Sep 23)" above. This was the 14-more-hours question for
+  p=.002 (VB) / p=.0006 (persona-clustered). See "12. The main Q1 run
+  reaches significance (Q1, Sep 23)" above.
   Llama specifically; it does not cover the other three models (next item).
 - **`draw_stability.grid_draw_reliability` now handles any number of
   draws.** It used to require exactly draws 1 and 2 and raised otherwise,
@@ -1701,18 +1737,18 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   three statistics to the standard multi-rater form (proper ICC, mean
   pairwise correlation, Fleiss' kappa), unchanged at exactly two draws.
   Commit `a9ae1d2`. `run_q1_analysis` now runs on the 3-draw grid without a
-  workaround; see "11. The main Q1 run reaches significance (Q1, Sep 23)"
+  workaround; see "12. The main Q1 run reaches significance (Q1, Sep 23)"
   above for the reliability numbers this produced.
 - **`grid_contrasts` and `contrast_estimates` now use the pooled fit for a
   multi-draw grid.** Both always read the draw-1-only fits, so the CLI's
   "Against real email" table, the "Precision" table, and the manifest's own
   `primary`/`precision` sections silently used a third of the 3-draw
   grid's data. Found independently by a second Claude session cross-checking
-  this file. Commit `82cd1ae`. See "11. The main Q1 run reaches significance
+  this file. See "12. The main Q1 run reaches significance
   (Q1, Sep 23)" above for what changed and what didn't (the effect's own
   significance did not move; the "smaller than real email" comparison did).
 - **The Q1-versus-real comparison now has a length-matched version.** See
-  "13. Length-matching the Q1-vs-real comparison (Q1, Oct 4)" above. Covers what
+  "14. Length-matching the Q1-vs-real comparison (Q1, Oct 4)" above. Covers what
   used to be item 1 here. It found that gpt-oss-120b's "overshoot" is no
   longer detectable once both sides are cut to the same reply length, and
   also exposed a separate problem (see the next item).
@@ -1726,7 +1762,7 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   `mirroring_act.json`) are left as they are, historical artifacts of the
   code at the time, not regenerated.
 - **The real-email fit now has a robust-standard-error cross-check, and
-  the model-vs-real comparisons use it.** See "14. A robust standard-error
+  See "15. A robust standard-error
   check for the real-email fit (Q1, Oct 5)" above. Covers item 1 here.
   gpt-oss-120b's "significantly bigger than real email" claim (old
   p=.009) is not significant under the robust fit (p=.084) -- combined
@@ -1743,7 +1779,7 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   Llama's (0.890); for Llama, length explains most of the gap, for the
   three free-tier models it explains almost none.
 - **The judge-swap design now covers the project's real four free-tier
-  models, not two local stand-ins.** See "16. The judge-swap design on the
+  models, not two local stand-ins.** See "18. The judge-swap design on the
   real free-tier models (Q3, Oct 6)" above. Covers item 4 here.
   gpt-oss-120b and gpt-oss-20b both show self-preference against llama as
   reference (+0.68 and +0.59, both p<.0001), stronger than the two-local-
@@ -1755,7 +1791,7 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
    against 0.2 for real email's 2,202 emails -- true for gpt-oss-20b and
    gpt-oss-120b still, now that Llama's own version of this question is
    answered above. DeepSeek is no longer a candidate here: NVIDIA retired
-   the model this project uses (see section 17), so its 240 cached replies
+   the model this project uses (see section 18), so its 240 cached replies
    are fixed in place and cannot be enlarged. gpt-oss-120b's Groq rate cap
    (200,000 tokens/day) makes this a multi-day job there, not an overnight
    one.
