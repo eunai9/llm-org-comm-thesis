@@ -1263,82 +1263,53 @@ is missing the real signal of hierarchy.
 given, hedging, self-reference). Only makes sense once Layer 1 finds a
 real signal. Not started yet.
 
-**Layer 1's result: no judge model is reliable enough to trust yet.**
+**Four judge models failed the reliability check before gpt-oss-120b passed it.**
 
 Before trusting a judge, it has to agree with itself: score the same
 replies three times, check agreement with kappa (0 = chance, 1 =
-perfect). The bar is 0.4. Three free local models were tested:
-
-| Judge model | Kappa (n=300) | Pass? |
-|---|---:|:---:|
-| qwen2.5:3b (project default) | 0.293 | No |
-| qwen2.5:7b (n=90) | 0.017 | No |
-| llama3.1:8b (n=90) | -0.013 | No |
-
-All three fail. The bigger two mostly answer "down" no matter what the
-email says, which is why they fail so badly. qwen2.5:3b varies its
-answers more, but still disagrees with itself pass to pass.
-
-(The check should score 300 replies. A bug made it score 90 instead,
-now fixed. qwen2.5:3b was rerun at the correct 300 and the result did
-not change. The other two were not rerun -- they fail by too wide a
-margin for 300 to change the answer.)
-
-There is no bigger free-tier judge model left to try.
-
-**Decision (Oct 4): the judge model idea is dropped.** Reason: every judge
-model tested fails the self-consistency check, and the project has no
-access to a bigger model to try next, since it uses free-tier models only.
-A judge that disagrees with itself cannot be trusted to compare real email
-against generated email, so Layer 1 as designed cannot run.
-
-**Correction (Oct 11): "no bigger free-tier model to try" was not quite
-right, and it has now actually been checked.** gpt-oss-20b and
-gpt-oss-120b -- bigger than all three models tested above -- were already
-available as free-tier models by Oct 4 (generating Q1 replies since Sep 14
-and Sep 17). What did not exist yet was the code to call them *as a judge*:
-this script hardcoded a local Ollama client, and the dispatch that lets a
-judge call reach NVIDIA or Groq (`client_for_model`) was not built until
-Oct 5, for Q3's judge-swap work, one day after this decision. So the
-decision's reasoning was off, even though the decision itself turned out
-right -- see below.
-
-Tested now: gpt-oss-20b's self-consistency kappa, same 300-reply sample,
-same method.
+perfect). The bar is 0.4.
 
 | Judge model | Kappa (n) | Pass? |
 |---|---:|:---:|
+| qwen2.5:3b (project default) | 0.293 (n=300) | No |
+| qwen2.5:7b | 0.017 (n=90) | No |
+| llama3.1:8b | -0.013 (n=90) | No |
 | gpt-oss-20b | -0.016 (n=297) | No |
 
-(297, not 300 -- 3 of the 300 items failed to parse on at least one of the
-three passes and were dropped, a real gap `judge_self_consistency` had no
-handling for until this session; see the code note below.)
+(qwen2.5:7b and llama3.1:8b were scored on 90 replies due to a bug, not
+the intended 300 -- fixed since, but not worth rerunning: both fail by
+too wide a margin for 300 to change the answer. gpt-oss-20b's n is 297,
+not 300: 3 of 300 items failed to parse on at least one pass and were
+dropped.)
 
-**gpt-oss-20b fails as badly as the three smaller models did.** Agreement
-across the three passes was 13.8% -- worse than the chance level this task
-would hit by guessing. Being a bigger, newer free-tier model did not fix
-the reliability problem; if anything, it is squarely in the same failure
-pattern as qwen2.5:7b and llama3.1:8b (kappa near zero or negative), not
-qwen2.5:3b's somewhat-less-bad 0.293. **This strengthens the Oct 4
-decision rather than reopening it** -- the reasoning given at the time was
-incomplete, but testing the model that reasoning skipped confirms the same
-conclusion.
+All four fail. The bigger three mostly answer "down" no matter what the
+email says -- gpt-oss-20b, bigger and newer than the local models, fails
+just as badly (13.8% agreement across three passes, worse than chance),
+so being a bigger model does not fix this on its own. qwen2.5:3b varies
+its answers more, but still disagrees with itself pass to pass.
 
-Two things fixed to make this test possible at all, both regression-tested
-and committed:
+The project initially judged the search over at this point, reasoning
+there was no bigger free-tier model left to try. That reasoning was
+wrong: gpt-oss-20b and gpt-oss-120b were both already available as
+free-tier models, generating Q1 replies since mid-September. What was
+actually missing was code to call them *as a judge* rather than a
+generator, which did not exist until a day after the project paused this
+search (built for Q3's judge-swap work instead). Testing gpt-oss-20b
+above closes that gap; testing gpt-oss-120b below reopens the search with
+the model that reasoning had skipped.
 
-- `role_inference.py` hardcoded `OllamaClient`; swapped for
+Two code gaps this testing found and fixed, both regression-tested:
+
+- `role_inference.py` hardcoded a local Ollama client; swapped for
   `judge_swap.client_for_model` so an NVIDIA or Groq model can judge here
-  too. Its own billable check also only named `is_local_model`, missing
-  `is_nim_model`/`is_groq_model` -- the same billing gap Q3 hit on Oct 5,
-  waiting here too, since no earlier caller had ever judged with a
-  free-tier API model from inside this script.
-- `judge_self_consistency` assumed every item gets a result on every one of
-  the three passes, and built each pass's comparison series with a plain
-  dict lookup -- a `KeyError` the moment one doesn't. Caught running this
-  live: one item came back as non-JSON output on one pass. Fixed to drop
-  any item missing a result on any pass from the whole comparison, with the
-  dropped count logged.
+  too. Its billable check also only named `is_local_model`, missing
+  `is_nim_model`/`is_groq_model` -- the same billing gap Q3 hit for the
+  same reason.
+- `judge_self_consistency` assumed every item gets a result on every one
+  of three passes, and crashed with a `KeyError` the moment one didn't
+  (one item returned non-JSON output on one pass, out of 300). Fixed to
+  drop any item missing a result on any pass from the whole comparison,
+  with the dropped count logged.
 
 **gpt-oss-120b passes.** Same method, same 300-reply sample, via Groq.
 
@@ -1347,22 +1318,19 @@ and committed:
 | gpt-oss-120b | 0.542 (n=300) | Yes |
 
 Agreement across the three passes was 65.3% -- comfortably past the 0.4
-bar, and all 300 items parsed cleanly this time (no drops, unlike
-gpt-oss-20b above). The positive control also passed (accuracy 0.952,
-close to 1.0): the harness correctly detects a real signal when the
-direction-framing sentence is actually present in the text, so gpt-oss-120b
-passing the self-consistency gate is not an artifact of a broken check.
+bar. The positive control also passed (accuracy 0.952): the harness
+correctly detects a real signal when the direction-framing sentence is
+actually present in the text, so this pass is not an artifact of a broken
+check.
 
-**This changes the picture for Layer 1.** Four judge models have now been
-tested for self-consistency; three fail (qwen2.5:3b, qwen2.5:7b,
-llama3.1:8b), one is bad in the same way (gpt-oss-20b), and one passes
-cleanly. gpt-oss-120b is a real candidate judge for the absolute-form
-comparison Layer 1 was actually designed to answer -- does a generated
-reply give away hierarchy as well as real email does -- which has never
-been run for any model, because every earlier candidate judge failed this
-reliability gate first. Layer 1 is not dead; it was never actually tried
-with a judge able to pass its own check. The Oct 4 decision to drop it
-stands for every judge tried before gpt-oss-120b, not for the plan itself.
+**This changes the picture for Layer 1.** Five judge models have now been
+tested; four fail, one passes cleanly. gpt-oss-120b is a real candidate
+judge for the absolute-form comparison Layer 1 was actually designed to
+answer -- does a generated reply give away hierarchy as well as real
+email does -- which has never been run for any model, because every
+earlier candidate judge failed this reliability gate first. Layer 1 is
+not dead; it was never actually tried with a judge able to pass its own
+check.
 
 ---
 
