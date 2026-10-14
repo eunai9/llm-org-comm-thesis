@@ -1,0 +1,143 @@
+{
+  "sample": "strict",
+  "n_emails": 2202,
+  "means_by_direction": {
+    "i_rate": {
+      "down": 0.04037,
+      "lateral": 0.03944,
+      "up": 0.03963
+    },
+    "we_rate": {
+      "down": 0.01673,
+      "lateral": 0.01392,
+      "up": 0.01383
+    },
+    "you_rate": {
+      "down": 0.02717,
+      "lateral": 0.02285,
+      "up": 0.02378
+    }
+  },
+  "contrasts": [
+    {
+      "outcome": "i_rate",
+      "fit": "mixed",
+      "level": "down",
+      "coefficient": -0.00451,
+      "p_value": 0.05231,
+      "n_emails": 2202,
+      "n_senders": 107,
+      "p_holm": 0.26157
+    },
+    {
+      "outcome": "i_rate",
+      "fit": "mixed",
+      "level": "up",
+      "coefficient": -0.00297,
+      "p_value": 0.14361,
+      "n_emails": 2202,
+      "n_senders": 107,
+      "p_holm": 0.57445
+    },
+    {
+      "outcome": "i_rate",
+      "fit": "fixed_effects",
+      "level": "down",
+      "coefficient": -0.00607,
+      "p_value": 0.01099,
+      "n_emails": 2202,
+      "n_senders": 107,
+      "p_holm": 0.06594
+    },
+    {
+      "outcome": "i_rate",
+      "fit": "fixed_effects",
+      "level": "up",
+      "coefficient": -0.00425,
+      "p_value": 0.12955,
+      "n_emails": 2202,
+      "n_senders": 107,
+      "p_holm": 0.51818
+    },
+    {
+      "outcome": "we_rate",
+      "fit": "mixed",
+      "level": "down",
+      "coefficient": 0.00116,
+      "p_value": 0.42796,
+      "n_emails": 2202,
+      "n_senders": 107,
+      "p_holm": 1.0
+    },
+    {
+      "outcome": "we_rate",
+      "fit": "mixed",
+      "level": "up",
+      "coefficient": 0.00065,
+      "p_value": 0.60177,
+      "n_emails": 2202,
+      "n_senders": 107,
+      "p_holm": 1.0
+    },
+    {
+      "outcome": "we_rate",
+      "fit": "fixed_effects",
+      "level": "down",
+      "coefficient": 0.00113,
+      "p_value": 0.47831,
+      "n_emails": 2202,
+      "n_senders": 107,
+      "p_holm": 1.0
+    },
+    {
+      "outcome": "we_rate",
+      "fit": "fixed_effects",
+      "level": "up",
+      "coefficient": 0.00134,
+      "p_value": 0.45369,
+      "n_emails": 2202,
+      "n_senders": 107,
+      "p_holm": 1.0
+    },
+    {
+      "outcome": "you_rate",
+      "fit": "mixed",
+      "level": "down",
+      "coefficient": 0.0056,
+      "p_value": 0.00152,
+      "n_emails": 2202,
+      "n_senders": 107,
+      "p_holm": 0.0091
+    },
+    {
+      "outcome": "you_rate",
+      "fit": "mixed",
+      "level": "up",
+      "coefficient": -7e-05,
+      "p_value": 0.96585,
+      "n_emails": 2202,
+      "n_senders": 107,
+      "p_holm": 1.0
+    },
+    {
+      "outcome": "you_rate",
+      "fit": "fixed_effects",
+      "level": "down",
+      "coefficient": 0.00494,
+      "p_value": 0.03815,
+      "n_emails": 2202,
+      "n_senders": 107,
+      "p_holm": 0.19077
+    },
+    {
+      "outcome": "you_rate",
+      "fit": "fixed_effects",
+      "level": "up",
+      "coefficient": -0.00139,
+      "p_value": 0.40102,
+      "n_emails": 2202,
+      "n_senders": 107,
+      "p_holm": 1.0
+    }
+  ]
+}
