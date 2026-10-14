@@ -1762,7 +1762,7 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   `mirroring_act.json`) are left as they are, historical artifacts of the
   code at the time, not regenerated.
 - **The real-email fit now has a robust-standard-error cross-check, and
-  See "15. A robust standard-error
+  the model-vs-real comparisons use it.** See "15. A robust standard-error
   check for the real-email fit (Q1, Oct 5)" above. Covers item 1 here.
   gpt-oss-120b's "significantly bigger than real email" claim (old
   p=.009) is not significant under the robust fit (p=.084) -- combined
