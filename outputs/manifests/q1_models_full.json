@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-05T12:19:28+00:00",
+  "generated_at": "2026-10-15T14:38:17+00:00",
   "models": {
     "Llama 3.2 3B (3 draws)": {
       "levels_by_direction": {
@@ -17,7 +17,7 @@
         "coefficient_vb": 0.1567,
         "contrast": "is_imperative:down",
         "p": 0.0006,
-        "p_vb": 0.002,
+        "p_vb": 0.0021,
         "se": 0.0371
       },
       "prompt_text_hash": "d4c18550ed56f2de",
@@ -92,20 +92,20 @@
         "max_sentences": 1,
         "vb": {
           "is_imperative:down": {
-            "difference": -0.0653,
-            "difference_p": 0.6349,
+            "difference": -0.0655,
+            "difference_p": 0.6346,
             "grid": 0.1567,
-            "grid_p": 0.001979,
-            "real": 0.2219,
-            "real_p": 0.08238
+            "grid_p": 0.002061,
+            "real": 0.2221,
+            "real_p": 0.0827
           },
           "is_imperative:up": {
-            "difference": 0.0664,
+            "difference": 0.0666,
             "difference_p": 0.5841,
-            "grid": -0.0292,
-            "grid_p": 0.5822,
-            "real": -0.0956,
-            "real_p": 0.3813
+            "grid": -0.0291,
+            "grid_p": 0.5838,
+            "real": -0.0957,
+            "real_p": 0.3816
           }
         }
       },
@@ -144,17 +144,17 @@
         },
         "is_imperative:down": {
           "difference": -0.0966,
-          "difference_p": 0.1824,
+          "difference_p": 0.1833,
           "grid": 0.1567,
-          "grid_p": 0.001979,
+          "grid_p": 0.002061,
           "real": 0.2533,
           "real_p": 1.032e-06
         },
         "is_imperative:up": {
-          "difference": -0.0997,
-          "difference_p": 0.1417,
-          "grid": -0.0292,
-          "grid_p": 0.5822,
+          "difference": -0.0996,
+          "difference_p": 0.1426,
+          "grid": -0.0291,
+          "grid_p": 0.5838,
           "real": 0.0705,
           "real_p": 0.09575
         }
@@ -251,12 +251,12 @@
         "max_sentences": 2,
         "vb": {
           "is_imperative:down": {
-            "difference": 0.0442,
-            "difference_p": 0.6805,
+            "difference": 0.0441,
+            "difference_p": 0.6808,
             "grid": 0.481,
             "grid_p": 4.205e-12,
             "real": 0.4368,
-            "real_p": 9.208e-08
+            "real_p": 9.139e-08
           },
           "is_imperative:up": {
             "difference": -0.0514,
@@ -264,7 +264,7 @@
             "grid": 0.1026,
             "grid_p": 0.1602,
             "real": 0.154,
-            "real_p": 0.02817
+            "real_p": 0.02809
           }
         }
       },
@@ -410,20 +410,20 @@
         "max_sentences": 3,
         "vb": {
           "is_imperative:down": {
-            "difference": -0.127,
-            "difference_p": 0.1513,
+            "difference": -0.1263,
+            "difference_p": 0.1528,
             "grid": 0.2548,
             "grid_p": 5.795e-06,
-            "real": 0.3818,
-            "real_p": 2.317e-08
+            "real": 0.3811,
+            "real_p": 2.226e-08
           },
           "is_imperative:up": {
-            "difference": -0.086,
-            "difference_p": 0.3005,
+            "difference": -0.0859,
+            "difference_p": 0.3012,
             "grid": 0.0034,
             "grid_p": 0.9534,
-            "real": 0.0895,
-            "real_p": 0.1265
+            "real": 0.0894,
+            "real_p": 0.127
           }
         }
       },
@@ -473,6 +473,165 @@
           "difference_p": 0.3555,
           "grid": 0.0034,
           "grid_p": 0.9534,
+          "real": 0.0705,
+          "real_p": 0.09575
+        }
+      }
+    },
+    "qwen3.8-27b": {
+      "levels_by_direction": {
+        "down": 0.5197228144989339,
+        "lateral": 0.3941176470588235,
+        "up": 0.3518111964873765
+      },
+      "model": "qwen/qwen3.8-27b",
+      "n_replies": 1440,
+      "n_sentences": 5568,
+      "primary": {
+        "ci_high": 0.5817,
+        "ci_low": 0.4394,
+        "coefficient": 0.5105,
+        "coefficient_vb": 0.5097,
+        "contrast": "is_imperative:down",
+        "p": 0.0,
+        "p_vb": 0.0,
+        "se": 0.0363
+      },
+      "prompt_text_hash": "d4c18550ed56f2de",
+      "sentences_per_reply": 3.87,
+      "vs_real": {
+        "hedge_rate:down": {
+          "difference": 0.0015,
+          "difference_p": 0.8434,
+          "grid": -0.0031,
+          "grid_p": 0.1992,
+          "real": -0.0046,
+          "real_p": 0.5261
+        },
+        "hedge_rate:up": {
+          "difference": 0.0094,
+          "difference_p": 0.166,
+          "grid": 0.0044,
+          "grid_p": 0.06912,
+          "real": -0.005,
+          "real_p": 0.4293
+        },
+        "imperative_ratio:down": {
+          "difference": 0.0798,
+          "difference_p": 0.0001,
+          "grid": 0.1225,
+          "grid_p": 5.591e-16,
+          "real": 0.0427,
+          "real_p": 0.001794
+        },
+        "imperative_ratio:up": {
+          "difference": -0.0666,
+          "difference_p": 0.0005,
+          "grid": -0.0489,
+          "grid_p": 0.001239,
+          "real": 0.0177,
+          "real_p": 0.1327
+        },
+        "is_imperative:down": {
+          "difference": 0.2614,
+          "difference_p": 0.0337,
+          "grid": 0.5105,
+          "grid_p": 6.056e-45,
+          "real": 0.2491,
+          "real_p": 0.03421
+        },
+        "is_imperative:up": {
+          "difference": -0.2528,
+          "difference_p": 0.0134,
+          "grid": -0.1811,
+          "grid_p": 0.001102,
+          "real": 0.0717,
+          "real_p": 0.4038
+        }
+      },
+      "vs_real_length_matched": {
+        "is_imperative:down": {
+          "difference": 0.0975,
+          "difference_p": 0.3944,
+          "grid": 0.5105,
+          "grid_p": 6.056e-45,
+          "real": 0.4131,
+          "real_p": 0.0001407
+        },
+        "is_imperative:up": {
+          "difference": -0.325,
+          "difference_p": 0.0053,
+          "grid": -0.1811,
+          "grid_p": 0.001102,
+          "real": 0.1439,
+          "real_p": 0.1602
+        },
+        "max_sentences": 4,
+        "vb": {
+          "is_imperative:down": {
+            "difference": 0.0908,
+            "difference_p": 0.1384,
+            "grid": 0.5097,
+            "grid_p": 0.0,
+            "real": 0.4189,
+            "real_p": 8.057e-12
+          },
+          "is_imperative:up": {
+            "difference": -0.3273,
+            "difference_p": 0.0,
+            "grid": -0.182,
+            "grid_p": 0.0001935,
+            "real": 0.1453,
+            "real_p": 0.00562
+          }
+        }
+      },
+      "vs_real_vb": {
+        "hedge_rate:down": {
+          "difference": 0.0015,
+          "difference_p": 0.8434,
+          "grid": -0.0031,
+          "grid_p": 0.1992,
+          "real": -0.0046,
+          "real_p": 0.5261
+        },
+        "hedge_rate:up": {
+          "difference": 0.0094,
+          "difference_p": 0.166,
+          "grid": 0.0044,
+          "grid_p": 0.06912,
+          "real": -0.005,
+          "real_p": 0.4293
+        },
+        "imperative_ratio:down": {
+          "difference": 0.0798,
+          "difference_p": 0.0001,
+          "grid": 0.1225,
+          "grid_p": 5.591e-16,
+          "real": 0.0427,
+          "real_p": 0.001794
+        },
+        "imperative_ratio:up": {
+          "difference": -0.0666,
+          "difference_p": 0.0005,
+          "grid": -0.0489,
+          "grid_p": 0.001239,
+          "real": 0.0177,
+          "real_p": 0.1327
+        },
+        "is_imperative:down": {
+          "difference": 0.2564,
+          "difference_p": 0.0,
+          "grid": 0.5097,
+          "grid_p": 0.0,
+          "real": 0.2533,
+          "real_p": 1.032e-06
+        },
+        "is_imperative:up": {
+          "difference": -0.2525,
+          "difference_p": 0.0001,
+          "grid": -0.182,
+          "grid_p": 0.0001935,
           "real": 0.0705,
           "real_p": 0.09575
         }

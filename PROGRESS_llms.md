@@ -1,6 +1,6 @@
 # LLM Comparison Progress Log
 
-This file compares the four models used in the free-tier simulator work, one
+This file compares the five models used in the free-tier simulator work, one
 topic at a time: mirroring, separability from real writing, and the Q1
 hierarchy effect. Each section holds every model's numbers together, so they
 can be read at once.
@@ -8,8 +8,8 @@ can be read at once.
 `PROGRESS_nvidia.md` still holds the day-by-day build log: what was tried,
 what broke, and the exact commit history. This file only reorganizes its
 numbers by topic. Most numbers here are not new. The exceptions are the
-gpt-oss-20b Q1 grid (Sep 21) and the gpt-oss-120b Q1 grid (Sep 22), both first
-reported in the Q1 section. This work is still a trial. Nothing
+gpt-oss-20b Q1 grid (Sep 21), the gpt-oss-120b Q1 grid (Sep 22) and the
+qwen3.8-27b full Q1 grid, all first reported in the Q1 sections. This work is still a trial. Nothing
 here replaces a result in `PROGRESS.md` yet, except where a section says so
 directly (the Q1 real-email comparison).
 
@@ -17,14 +17,15 @@ directly (the Q1 real-email comparison).
 
 ## 1. Status at a glance
 
-| | Llama 3.2 3B | DeepSeek V4 Flash | gpt-oss-20b | gpt-oss-120b |
-|---|---|---|---|---|
-| 183 real-email pairs generated | Yes (see `PROGRESS.md`) | Yes | Yes | Yes |
-| Mirroring measured | Yes | Yes | Yes | Yes |
-| Told apart from real writing (AUC) measured | Yes | Yes | Yes | Yes |
-| Q1 grid (240 replies) generated | Yes | Yes | Yes | Yes |
-| Q1 checked against the real-email benchmark | Yes | Yes | Yes | Yes |
-| Hand-coded by a person | No | No | No | No |
+| | Llama 3.2 3B | DeepSeek V4 Flash | gpt-oss-20b | gpt-oss-120b | qwen3.8-27b |
+|---|---|---|---|---|---|
+| 183 real-email pairs generated | Yes (see `PROGRESS.md`) | Yes | Yes | Yes | No |
+| Mirroring measured | Yes | Yes | Yes | Yes | No |
+| Told apart from real writing (AUC) measured | Yes | Yes | Yes | Yes | No |
+| Q1 grid (240 replies) generated | Yes | Yes | Yes | Yes | Yes (inside the full grid) |
+| Q1 full grid (1,440 cells) generated | Yes | No | Yes | Yes | Yes |
+| Q1 checked against the real-email benchmark | Yes | Yes | Yes | Yes | Yes |
+| Hand-coded by a person | No | No | No | No | No |
 
 Other open items: a run without the "act" instruction, an embedding map and
 review pack for the newer models, and committing the blind-coding module.
@@ -40,12 +41,14 @@ See "21. Next steps" at the end.
 | DeepSeek V4 Flash | DeepSeek | NVIDIA free tier | none | |
 | gpt-oss-20b | OpenAI | NVIDIA free tier | `@low` reasoning effort | Without it, some replies run past the JSON until the token limit. |
 | gpt-oss-120b | OpenAI | Groq free tier | `@low` reasoning effort | NVIDIA does not serve this model. This laptop cannot run it: it needs about 60 GB of memory, and the laptop has 16 GB plus 1 GB of graphics memory. |
+| qwen3.8-27b | Alibaba (Qwen) | Groq free tier | none | Takes DeepSeek's place in the full Q1 grid, since NVIDIA retired DeepSeek (section 18). Used for the Q1 grid only. |
 
-All four answer the same 183 real email threads with the same prompt,
+The first four answer the same 183 real email threads with the same prompt,
 including the "act" instruction from `PROGRESS.md` section 43 (the persona
 must act on a request, not hand it back). The two exceptions, kept for the
 historical record, are noted where they appear: a Llama run made before that
 instruction existed, and the original Q1 pilot from `PROGRESS.md` section 39.
+qwen3.8-27b answers only the Q1 grid, with the same prompt.
 
 ---
 
@@ -737,12 +740,12 @@ took three full-design draws, 4,320 replies, to clear that bar (section
 | Llama 3.2 3B | 3 | 4,320 |
 | gpt-oss-20b | 1 | 1,428 |
 | gpt-oss-120b | 1 | 1,440 |
-| qwen3.8-27b | 1 (in progress) | up to 1,440 |
+| qwen3.8-27b | 1 | 1,440 |
 | DeepSeek V4 Flash | 0 -- pilot only | 240 |
 
 DeepSeek never ran the full design: NVIDIA retired the model this
 project uses (section 18) before one was attempted, so its 240 pilot
-replies are fixed in place.
+replies are fixed in place. qwen3.8-27b takes its place at full scale.
 
 ---
 
@@ -884,9 +887,9 @@ Fleiss' kappa=0.367.
 
 The "10. Does hierarchy change how directive a reply is" section above
 compared four models on the pilot grid (section 11 explains the full
-design used from here on). gpt-oss-20b (Sep 29) and gpt-oss-120b (Oct 2)
-finished the full design; Llama's own full-design run is section 12,
-directly above. This section puts all three side by side at full scale,
+design used from here on). gpt-oss-20b, gpt-oss-120b and qwen3.8-27b
+each finished one full-design draw; Llama's own full-design run is
+section 12, directly above. This section puts all four side by side at full scale,
 measured the same way the pilot ones were: reply level (share of a
 reply's sentences that are imperative, a linear mixed model) and sentence
 level (each sentence an order or not, a logistic model), each compared
@@ -902,12 +905,15 @@ multi-draw grid too (see the correction above the Sep-23 entry):
 | Llama 3.2 3B (3 draws) | 4,320 | 6,117 | +0.127 | .001 | [+0.05, +0.20] | .183 |
 | gpt-oss-20b | 1,428 | 3,886 | +0.258 | <.001 | [+0.18, +0.34] | .984 |
 | gpt-oss-120b | 1,440 | 2,571 | +0.483 | <.001 | [+0.35, +0.61] | .009 |
+| qwen3.8-27b | 1,440 | 5,568 | +0.510 | <.001 | [+0.44, +0.58] | <.001 |
 
 Command: `python -m thesis.analysis.q1_models --grid "..." --figure-prefix
 q1_models_full_ --manifest outputs/manifests/q1_models_full.json`, reading
 each model's already-generated grid file, no API call. Manifest:
 `outputs/manifests/q1_models_full.json`. Figure:
-`docs/figures/q1_models_full_writing_down.png`.
+`docs/figures/q1_models_full_writing_down.png`. qwen3.8-27b's decision,
+hedging and persona-variance numbers below come from its own grid
+manifest, `outputs/manifests/q1_full_grid_qwen_qwen3.8-27b.json`.
 
 **The same measure, for writing up.** `direction` is a three-level factor
 (down, lateral, up); the persona-clustered fit above already estimates both
@@ -920,6 +926,7 @@ now. Same grids, same fit, the other coefficient:
 | Llama 3.2 3B (3 draws) | -0.009 | .820 | [-0.09, +0.07] | .142 |
 | gpt-oss-20b | +0.005 | .951 | [-0.14, +0.15] | .356 |
 | gpt-oss-120b | +0.106 | .046 | [+0.00, +0.21] | .704 |
+| qwen3.8-27b | -0.181 | .001 | [-0.29, -0.07] | <.001 |
 
 Replies and sentences per model are the same as the writing-down table
 above (same grid, same fit, the other contrast).
@@ -929,14 +936,17 @@ above (same grid, same fit, the other contrast).
 - **Real email itself shows no writing-up effect** (p=.404). Hierarchy's
   effect on directiveness in this corpus is asymmetric: strong going down,
   essentially absent going up.
-- **gpt-oss-120b is the only model with a significant writing-up effect by
-  this fit** (p=.046); Llama and gpt-oss-20b show none (p=.820, p=.951),
-  matching real email.
+- **Two models show a significant writing-up effect by this fit, in
+  opposite directions.** gpt-oss-120b gives more orders when writing up
+  (+0.106, p=.046). qwen3.8-27b gives fewer (-0.181, p=.001). Llama and
+  gpt-oss-20b show none (p=.820, p=.951), matching real email.
 - **gpt-oss-120b's effect is not significantly different from real email's
   own non-effect** (p=.704) -- the same "sits inside real email's own
   uncertainty" read the closing bullet above gives every other contrast.
   Being significant on its own and being different from real email are two
   different questions; this clears the first but not the second.
+- **qwen3.8-27b's writing-up effect does differ from real email**
+  (p<.001). It is the only model that clears both questions.
 - **This disagrees with the VB-based fit further down** ("Both measures,
   both directions"): that fit gives gpt-oss-120b's writing-up coefficient
   as +0.103, p=.160 (not significant); this persona-clustered fit gives
@@ -947,15 +957,16 @@ above (same grid, same fit, the other contrast).
   model -- not yet checked with the same robust-SE tooling those sections
   built for down.
 
-Source: re-fit directly from the same three grids
+Source: re-fit directly from the same four grids
 (`data/interim/q1_direction_grid_full_3draws.parquet`,
-`..._gpt_oss_20b_full.parquet`, `..._gpt_oss_120b_full.parquet`),
+`..._gpt_oss_20b_full.parquet`, `..._gpt_oss_120b_full.parquet`,
+`..._qwen_full.parquet`),
 `persona_fe.contrast("up")` instead of `"down"` on the same fitted object
 the headline table already built. No new API calls, no new model fit.
 
 **Both measures, both directions**, using each grid's own code-path fit
 (the pooled clustered fit for Llama's 3 draws, the same thing as draw 1 for
-the other two single-draw grids -- this is the variational-Bayes-based fit,
+the other single-draw grids -- this is the variational-Bayes-based fit,
 not the persona-clustered one in the headline table above):
 
 | Grid | Reply level, down | Reply level, up | Sentence level, down | Sentence level, up |
@@ -963,6 +974,7 @@ not the persona-clustered one in the headline table above):
 | Llama 3.2 3B (3 draws) | +0.021 (p=.294) | -0.011 (p=.596) | +0.157 (p=.002) | -0.029 (p=.584) |
 | gpt-oss-20b | +0.059 (p=.002) | +0.003 (p=.893) | +0.255 (p<.001) | +0.003 (p=.953) |
 | gpt-oss-120b | +0.102 (p<.001) | +0.014 (p=.499) | +0.481 (p<.001) | +0.103 (p=.160) |
+| qwen3.8-27b | +0.123 (p<.001) | -0.049 (p=.001) | +0.510 (p<.001) | -0.182 (p<.001) |
 
 Chance that a sentence gives an order, by direction:
 
@@ -972,6 +984,7 @@ Chance that a sentence gives an order, by direction:
 | Llama 3.2 3B (3 draws) | 34.9% | 32.1% | 31.9% |
 | gpt-oss-20b | 42.0% | 36.0% | 36.1% |
 | gpt-oss-120b | 41.1% | 30.1% | 32.3% |
+| qwen3.8-27b | 52.0% | 39.4% | 35.2% |
 
 - **gpt-oss-20b did not show the effect at pilot scale (240 replies,
   +0.136, p=.296) but shows it clearly at full scale (1,428 replies,
@@ -1001,12 +1014,19 @@ Chance that a sentence gives an order, by direction:
   inflates the "orders per sentence" share for the same underlying
   behavior -- the same caveat the pilot section raised. No length-matched
   version of this comparison exists yet (see "21. Next steps").
+- **qwen3.8-27b shows the biggest writing-down effect of the four:
+  +0.510, about twice real email's +0.253.** Its replies are 3.87
+  sentences long, the closest to real email's 4.75, so the short-reply
+  caveat above applies to it least. It is also the only model that gets
+  clearly less directive when writing up (-0.182, p<.001), which real
+  email does not show.
 - **Llama still shows no significant difference from real email in either
   direction** (down p=.183, up p=.143, headline-style z-test), matching the
   Sep-23 conclusion above.
-- **The decision field depends on direction for Llama and gpt-oss-120b, not
-  for gpt-oss-20b.** Chi-square test: Llama chi2=20.2, p=.0096; gpt-oss-20b
-  chi2=8.7, p=.368; gpt-oss-120b chi2=40.7, p=2.3e-6. As in the pilot
+- **The decision field depends on direction for Llama, gpt-oss-120b and
+  qwen3.8-27b, not for gpt-oss-20b.** Chi-square test: Llama chi2=20.2,
+  p=.0096; gpt-oss-20b chi2=8.7, p=.368; gpt-oss-120b chi2=40.7,
+  p=2.3e-6; qwen3.8-27b chi2=18.0, p=.021. As in the pilot
   section, this is only a hint: the manifest's own caveat is that "the
   model repeats its own decision only 60% of the time, so this runs on an
   unstable outcome" (`PROGRESS.md` section 50).
@@ -1014,9 +1034,11 @@ Chance that a sentence gives an order, by direction:
   significant with the bigger sample** (down -0.058, p<.001; up -0.028,
   p=.040 -- pilot's down was -0.046, p=.159, not significant). gpt-oss-20b
   and gpt-oss-120b barely hedge at all in any direction (at most -0.001),
-  same as at pilot scale.
-- **The reply-level persona variance collapses to near zero for all three
-  grids** (Llama 0.0, gpt-oss-20b 0.0004, gpt-oss-120b 0.0006), the same
+  same as at pilot scale. qwen3.8-27b's hedging barely moves either
+  (down -0.003, p=.199; up +0.004, p=.069).
+- **The reply-level persona variance collapses to near zero for all four
+  grids** (Llama 0.0, gpt-oss-20b 0.0004, gpt-oss-120b 0.0006,
+  qwen3.8-27b 0.0), the same
   pattern the pilot section found. This does not threaten the contrast,
   since every persona answers all three directions.
 
@@ -1054,13 +1076,25 @@ the pilot section flagged for its own "vs real email" tables.
 | Hedges per email, down | -0.001 (p=.221) | -0.005 (p=.526) | +0.004 | .592 |
 | Hedges per email, up | -0.001 (p=.221) | -0.005 (p=.429) | +0.004 | .498 |
 
+| Contrast | qwen3.8-27b | Real email | Difference | p |
+|---|---:|---:|---:|---:|
+| Orders per email, down | +0.123 (p<.001) | +0.043 (p=.002) | +0.080 | <.001 |
+| Orders per email, up | -0.049 (p=.001) | +0.018 (p=.133) | -0.067 | <.001 |
+| Orders per sentence, down | +0.510 (p<.001) | +0.253 (p<.001) | +0.256 | <.001 |
+| Orders per sentence, up | -0.182 (p<.001) | +0.071 (p=.096) | -0.253 | <.001 |
+| Hedges per email, down | -0.003 (p=.199) | -0.005 (p=.526) | +0.002 | .843 |
+| Hedges per email, up | +0.004 (p=.069) | -0.005 (p=.429) | +0.009 | .166 |
+
 - **Llama's hedging is now significantly below real email's when writing
-  down** (p<.001), the only contrast in these three tables that crosses
-  .05 cleanly on both sides.
+  down** (p<.001).
 - **gpt-oss-120b's "orders per email, down" also crosses .05** (p=.020),
   on top of its "orders per sentence, down" gap (p=.009) -- both read the
   same short-reply caveat above applies to the per-sentence version, not
   the per-email one.
+- **qwen3.8-27b differs from real email on all four order contrasts**
+  (all p<.001). It gives more orders than real email when writing down
+  and fewer when writing up. Its hedging is not distinguishable from real
+  email's.
 - **Every other contrast, for every model, is not distinguishable from
   real email.** Most of this project's own effect sizes sit inside real
   email's own uncertainty once the standard errors are accounted for.
@@ -1090,7 +1124,7 @@ the pilot section flagged for its own "vs real email" tables.
 give an order. A short reply inflates this share for the same underlying
 behavior: one order out of two sentences is 50%, the same order out of
 five is 20%. The simulator's replies are much shorter than real email's
-(1.4 to 2.7 sentences against real email's 4.75), so every comparison
+(1.4 to 3.9 sentences against real email's 4.75), so every comparison
 above confounds "does this model get more directive when writing down"
 with "this model just writes short replies." No comparison in this log
 has controlled for that until now.
@@ -1112,6 +1146,7 @@ now writes this comparison automatically alongside the full-length one.
 | Llama 3.2 3B (3 draws) | 1 | +0.157 | +0.253 | +0.223 | .185 | .631 |
 | gpt-oss-20b | 3 | +0.255 | +0.253 | +0.381 | .984 | .153 |
 | gpt-oss-120b | 2 | +0.481 | +0.253 | +0.437 | .009 | .681 |
+| qwen3.8-27b | 4 | +0.510 | +0.253 | +0.419 | <.001 | .138 |
 
 - **gpt-oss-120b's overshoot is no longer detectable once both sides are
   measured over the same reply length.** Full-length said gpt-oss-120b was
@@ -1124,6 +1159,12 @@ now writes this comparison automatically alongside the full-length one.
   a different kind of test (equivalence testing with a pre-set bound, not
   done here), and the 95% interval above still contains the original
   full-length gap of +0.228.
+- **qwen3.8-27b's writing-down gap also stops being detectable once
+  both sides are cut to 4 sentences.** At full length its effect is
+  about twice real email's (p<.001). Cut to 4 sentences, real email's
+  own effect rises to +0.419 and the gap is not significant (p=.138).
+  Writing up, the gap stays: qwen3.8-27b drops (-0.182) while cut real
+  email rises (+0.145), p<.001.
 - **Real email's own effect gets bigger, not smaller, when cut short.**
   This looks backwards at first, so it is worth explaining. Checked
   position by position: real email's first sentence carries almost no
@@ -1135,8 +1176,8 @@ now writes this comparison automatically alongside the full-length one.
   drops the diluting tail; cutting to exactly 1 sentence (Llama's case)
   keeps only the position that carries the least signal, which is why
   Llama's own cut version (+0.223) is close to its full-length number
-  (+0.253) while gpt-oss-120b's and gpt-oss-20b's cuts (2 and 3 sentences)
-  are both bigger.
+  (+0.253) while the cuts for gpt-oss-120b, gpt-oss-20b and qwen3.8-27b
+  (2, 3 and 4 sentences) are all bigger.
 - **gpt-oss-20b no longer looks like a near-exact match.** The full-length
   comparison (p=.984) made it look like gpt-oss-20b's effect was almost
   identical to real email's. Cut to match gpt-oss-20b's own 2.7-sentence
@@ -1220,7 +1261,8 @@ kept under a `"vb"` key. Tests added in `tests/test_q1_real.py` and
 `outputs/manifests/q1_models_full.json` was regenerated with the same
 command, same three grids, same prompt hash `d4c18550ed56f2de` as the
 "13. Q1 across models, at full design scale" section above -- this is a refit
-of the same data under corrected code, not a new generation run.
+of the same data under corrected code, not a new generation run. The
+qwen3.8-27b grid is fitted with the same code.
 `outputs/manifests/q1_real.json` was not touched; it already held the
 robust fit, just unused until now.
 
@@ -1233,6 +1275,7 @@ project's primary contrast):
 | Llama 3.2 3B (3 draws) vs real, p | .182 | .322 |
 | gpt-oss-20b vs real, p | .984 | .943 |
 | gpt-oss-120b vs real, p | .009 | .084 |
+| qwen3.8-27b vs real, p | <.001 | .034 |
 
 Length-matched comparison (real email cut to each model's own mean reply
 length, from the Oct 4 section above) was already not significant under
@@ -1244,6 +1287,7 @@ changes here, the p-values just move:
 | Llama 3.2 3B (3 draws) | .635 | .650 |
 | gpt-oss-20b | .151 | .291 |
 | gpt-oss-120b | .681 | .841 |
+| qwen3.8-27b | .138 | .394 |
 
 - **gpt-oss-120b's "overshoot" story is now unsupported under either
   check.** The full-length claim was the one surviving piece of evidence
@@ -1255,6 +1299,10 @@ changes here, the p-values just move:
   as "no detectable difference from real email." The exact p-values move
   (Llama .182 to .322, gpt-oss-20b .984 to .943), but neither crosses .05
   either way.
+- **qwen3.8-27b is the one model whose full-length gap survives the
+  robust fit** (p=.034). It gives more orders than real email when
+  writing down. The gap does not survive length-matching (p=.394), so
+  it may come from reply length rather than hierarchy.
 - **Real email's own effect is no longer p<.001.** Under the robust fit it
   is p=.034, still significant, but noticeably weaker. From here on, say
   plainly which fit a quoted real-email number comes from -- VB and
@@ -1273,8 +1321,9 @@ changes here, the p-values just move:
   VB's 0.051), the opposite direction from real email's side (102
   senders, robust bigger than VB). Even doubling the model-side standard
   error as a conservative correction, gpt-oss-120b vs real stays not
-  significant (p rises to roughly .19), and the other two conclusions do
-  not move. This is an open limitation of the model-side fit, not a fixed
+  significant (p rises to roughly .19), and the Llama and gpt-oss-20b
+  conclusions do not move. For qwen3.8-27b the same doubling moves its p
+  from .034 to about .06, so its full-length gap is borderline. This is an open limitation of the model-side fit, not a fixed
   problem. A firmer fix (CR2 or a wild-cluster bootstrap standard error)
   is future work.
 - **The length-matched robust fit drops more senders than the
