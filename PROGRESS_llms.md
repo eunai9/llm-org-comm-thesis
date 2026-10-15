@@ -1685,30 +1685,10 @@ difference there is dropped before it is used on simulator output.
 | Politeness strategies (gratitude, apology, please, greeting) | Politeness drops as status rises | Danescu-Niculescu-Mizil et al. 2013, ACL, pp. 250-259 | Not tested yet |
 | Style matching to the incoming email | Lower-status writers match the other person's function-word style more | Danescu-Niculescu-Mizil et al. 2012, WWW, pp. 699-708; Ireland & Pennebaker 2010, *JPSP* 99(3):549-571 | Not tested yet |
 
-Two other candidates, sentiment and formality, were dropped before
-testing. Business email is mostly neutral and formal, so they are
-unlikely to vary with hierarchy.
-
-**Limits of the candidates.**
-
-- Kacewicz et al.: the "we" and "you" direction is confirmed only from
-  secondary sources so far. The journal page could not be read.
-- Gilbert's list separates "up" from "not up" only. Peer and down are
-  merged. It was also built from Enron, so a test on our Enron sample is
-  partly in-sample.
-- Politeness: hedges and deference already exist as measures. Only the
-  strategies not yet covered are candidates. The published tool (ConvoKit)
-  did not install in this project before, so these would be simple word
-  matches.
-- Style matching: the 2012 measure needs many exchanges between the same
-  two people. It cannot score one email. The per-email version (Language
-  Style Matching) needs function-word lists. The standard lists (LIWC) are
-  licensed, and no validated open list was found.
-
-**First result: pronoun rates on real email.** Strict benchmark sample,
-2,202 emails from 107 senders. Linear mixed model, random intercept per
-sender, sender rank as a control. Each effect is measured against writing
-to a peer. Holm correction across the six tests.
+**Pronoun rates: result.** Strict benchmark sample, 2,202 emails from 107
+senders. Linear mixed model, random intercept per sender, sender rank as a
+control. Each effect is measured against writing to a peer. Holm
+correction across the six tests.
 
 | Pronoun | Writing down | p | Holm p | Writing up | p |
 |---|---:|---:|---:|---:|---:|
@@ -1722,9 +1702,32 @@ weaker in the within-sender check (fixed effects, p=.038, Holm p=.191), so
 treat it as real but modest. "I" goes the expected way but does not
 survive the correction. "We" shows no difference and is dropped.
 
+Limit: the "we" and "you" direction in Kacewicz et al. is confirmed only
+from secondary sources so far. The journal page could not be read.
+
 Code: `src/thesis/analysis/q1_measures.py`, run with
 `python -m thesis.analysis.q1_measures`. Manifest:
 `outputs/manifests/q1_measures_real.json`. No API calls.
+
+**Hierarchy phrases: result.** Not tested yet.
+
+Limit: Gilbert's list separates "up" from "not up" only. Peer and down
+are merged. It was also built from Enron, so a test on our Enron sample is
+partly in-sample.
+
+**Politeness strategies: result.** Not tested yet.
+
+Limit: hedges and deference already exist as measures, so only gratitude,
+apology, please and greeting are new. The published tool (ConvoKit) did
+not install in this project before, so these would be simple word
+matches, not the published implementation.
+
+**Style matching: result.** Not tested yet.
+
+Limit: the 2012 measure needs many exchanges between the same two people.
+It cannot score one email. The per-email version (Language Style Matching)
+needs function-word lists. The standard lists (LIWC) are licensed, and no
+validated open list was found.
 
 ---
 
