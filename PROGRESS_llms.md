@@ -28,7 +28,7 @@ directly (the Q1 real-email comparison).
 
 Other open items: a run without the "act" instruction, an embedding map and
 review pack for the newer models, and committing the blind-coding module.
-See "20. Next steps" at the end.
+See "21. Next steps" at the end.
 
 ---
 
@@ -697,13 +697,13 @@ tables -- same effect, two different standard errors.
   standard deviation (`hierarchy.py`). gpt-oss-120b's case (reported p=5e-08,
   honest p≈.001) is what exposed it. Fixed: the code now also fits a
   persona-clustered cross-check on its own (`Q1Result.sentence_model_persona_fe`,
-  commit `85e833a`) -- see the "20. Next steps" done-block below for what still
+  commit `85e833a`) -- see the "21. Next steps" done-block below for what still
   needs it substituted in.
 - **Two small bugs found while checking this result, since fixed.** The Q1
   grid generator now writes `prompt_text_hash()` onto the saved grid instead
   of only computing it in memory (commit `5ee4b46`), and `q1_models.py`'s
   grid loader now counts real cache/generation numbers instead of
-  hard-coding every row as "from cache" (commit `36fbc3e`). See "20. Next
+  hard-coding every row as "from cache" (commit `36fbc3e`). See "21. Next
   steps" for the one small gap that remains.
 
 ---
@@ -1000,7 +1000,7 @@ Chance that a sentence gives an order, by direction:
   scale** (1.98 at pilot scale, 4.75 for real email). A short reply
   inflates the "orders per sentence" share for the same underlying
   behavior -- the same caveat the pilot section raised. No length-matched
-  version of this comparison exists yet (see "20. Next steps").
+  version of this comparison exists yet (see "21. Next steps").
 - **Llama still shows no significant difference from real email in either
   direction** (down p=.183, up p=.143, headline-style z-test), matching the
   Sep-23 conclusion above.
@@ -1647,7 +1647,88 @@ Manifest: `outputs/manifests/judge_swap_free_tier.json`. Prompt hash
 
 ---
 
-## 19. Where the code lives
+## 19. A parallel Q1 experiment: persona variants and new measures (Q1, Oct 15)
+
+This is a second Q1 experiment. It runs next to the existing one and does
+not replace it. The two will be compared later.
+
+**Why it is needed.**
+
+- **One persona per role.** The existing design has 10 personas, one per
+  role cell (5 ranks x 2 departments, Trading and Legal). A difference
+  between ranks could come from that one persona's prompt, not from rank.
+- **Too few clusters.** 10 personas means 10 clusters. Cluster-robust
+  standard errors need many clusters to be trustworthy (Cameron & Miller
+  2015). With 10, they tend to be too small, so p-values look better than
+  they are. The persona-clustered p-value in section 12 already jumps
+  between draws (p=.248 on draw 1, p=.018 on draw 3).
+- **More replies do not fix this.** Extra draws add replies from the same
+  10 personas. The number of clusters stays at 10. Only more personas
+  fixes it.
+- **Narrow measures.** The current Q1 measures are directives, hedges,
+  deference, questions and the decision field. Research on power and
+  language points to other markers too.
+
+**The new design.** Keep each role cell. Add 3 to 5 persona variants per
+cell that differ in traits (for example directness), at the same rank.
+This gives 30 to 50 personas. Each reply has a named sender role and a
+named receiver role. One reply per email, as before. Each new measure is
+first tested on real Enron email. A measure that shows no hierarchy
+difference there is dropped before it is used on simulator output.
+
+**Candidate measures.**
+
+| Measure | What it captures | Research | Status |
+|---|---|---|---|
+| Pronoun rates (I, we, you) | Higher-status writers use less "I" and more "we" and "you" | Kacewicz et al. 2014, *J. Language and Social Psychology* 33(2):125-143 | Tested on real email (below) |
+| Hierarchy phrases | 974 weighted phrases that mark email sent up vs. not up the hierarchy | Gilbert 2012, CSCW, pp. 1037-1046 (built on Enron) | Not tested yet |
+| Politeness strategies (gratitude, apology, please, greeting) | Politeness drops as status rises | Danescu-Niculescu-Mizil et al. 2013, ACL, pp. 250-259 | Not tested yet |
+| Style matching to the incoming email | Lower-status writers match the other person's function-word style more | Danescu-Niculescu-Mizil et al. 2012, WWW, pp. 699-708; Ireland & Pennebaker 2010, *JPSP* 99(3):549-571 | Not tested yet |
+
+Two other candidates, sentiment and formality, were dropped before
+testing. Business email is mostly neutral and formal, so they are
+unlikely to vary with hierarchy.
+
+**Limits of the candidates.**
+
+- Kacewicz et al.: the "we" and "you" direction is confirmed only from
+  secondary sources so far. The journal page could not be read.
+- Gilbert's list separates "up" from "not up" only. Peer and down are
+  merged. It was also built from Enron, so a test on our Enron sample is
+  partly in-sample.
+- Politeness: hedges and deference already exist as measures. Only the
+  strategies not yet covered are candidates. The published tool (ConvoKit)
+  did not install in this project before, so these would be simple word
+  matches.
+- Style matching: the 2012 measure needs many exchanges between the same
+  two people. It cannot score one email. The per-email version (Language
+  Style Matching) needs function-word lists. The standard lists (LIWC) are
+  licensed, and no validated open list was found.
+
+**First result: pronoun rates on real email.** Strict benchmark sample,
+2,202 emails from 107 senders. Linear mixed model, random intercept per
+sender, sender rank as a control. Each effect is measured against writing
+to a peer. Holm correction across the six tests.
+
+| Pronoun | Writing down | p | Holm p | Writing up | p |
+|---|---:|---:|---:|---:|---:|
+| you | +0.0056 | .0015 | .009 | -0.0001 | .966 |
+| I | -0.0045 | .052 | .262 | -0.0030 | .144 |
+| we | +0.0012 | .428 | 1.000 | +0.0007 | .602 |
+
+Coefficients are the change in the share of words. People use more "you"
+when writing down. This survives the correction, so "you" is kept. It is
+weaker in the within-sender check (fixed effects, p=.038, Holm p=.191), so
+treat it as real but modest. "I" goes the expected way but does not
+survive the correction. "We" shows no difference and is dropped.
+
+Code: `src/thesis/analysis/q1_measures.py`, run with
+`python -m thesis.analysis.q1_measures`. Manifest:
+`outputs/manifests/q1_measures_real.json`. No API calls.
+
+---
+
+## 20. Where the code lives
 
 **The clients.** `src/thesis/llm/openai_compatible.py` holds the shared
 request and retry logic. `nvidia_client.py` and `groq_client.py` are thin
@@ -1696,7 +1777,7 @@ made along the way, are in `PROGRESS_nvidia.md`.
 
 ---
 
-## 20. Next steps
+## 21. Next steps
 
 Most valuable first.
 
