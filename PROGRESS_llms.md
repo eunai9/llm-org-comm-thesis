@@ -1681,9 +1681,9 @@ difference there is dropped before it is used on simulator output.
 | Measure | What it captures | Research | Status |
 |---|---|---|---|
 | Pronoun rates (I, we, you) | Higher-status writers use less "I" and more "we" and "you" | Kacewicz et al. 2014, *J. Language and Social Psychology* 33(2):125-143 | Tested on real email (below) |
-| Hierarchy phrases | 974 weighted phrases that mark email sent up vs. not up the hierarchy | Gilbert 2012, CSCW, pp. 1037-1046 (built on Enron) | Not tested yet |
-| Politeness strategies (gratitude, apology, please, greeting) | Politeness drops as status rises | Danescu-Niculescu-Mizil et al. 2013, ACL, pp. 250-259 | Not tested yet |
-| Style matching to the incoming email | Lower-status writers match the other person's function-word style more | Danescu-Niculescu-Mizil et al. 2012, WWW, pp. 699-708; Ireland & Pennebaker 2010, *JPSP* 99(3):549-571 | Not tested yet |
+| Hierarchy phrases | 974 weighted phrases that mark email sent up vs. not up the hierarchy | Gilbert 2012, CSCW, pp. 1037-1046 (built on Enron) | Tested on real email (below) |
+| Politeness strategies (gratitude, apology, please, greeting) | Politeness drops as status rises | Danescu-Niculescu-Mizil et al. 2013, ACL, pp. 250-259 | Tested on real email (below) |
+| Style matching to the incoming email | Lower-status writers match the other person's function-word style more | Danescu-Niculescu-Mizil et al. 2012, WWW, pp. 699-708; Ireland & Pennebaker 2010, *JPSP* 99(3):549-571 | Tested on real email (below) |
 
 **Pronoun rates: result.** Strict benchmark sample, 2,202 emails from 107
 senders. Linear mixed model, random intercept per sender, sender rank as a
@@ -1709,25 +1709,79 @@ Code: `src/thesis/analysis/q1_measures.py`, run with
 `python -m thesis.analysis.q1_measures`. Manifest:
 `outputs/manifests/q1_measures_real.json`. No API calls.
 
-**Hierarchy phrases: result.** Not tested yet.
+**Hierarchy phrases: result.** Same sample, models and correction as the pronoun result: strict sample,
+mixed model with sender rank as a control, within-sender fixed effects as
+the check, Holm correction within each measure. The score is the sum of the
+weights of every listed phrase in an email, per 100 words. 900 phrases with
+a nonzero weight were used.
+
+| Score | Writing down | p | Holm p | Writing up | p | Holm p |
+|---|---:|---:|---:|---:|---:|---:|
+| Mixed model | -0.27 | .571 | .571 | +1.63 | .0001 | .0001 |
+| Within-sender check | -0.34 | .634 | .634 | +1.54 | .021 | .041 |
+
+Email written up scores clearly higher. Email written down scores the same
+as email to a peer. This is the pattern the list is built for, since it
+only separates "up" from "not up". The result holds in both fits, so the
+measure is kept.
 
 Limit: Gilbert's list separates "up" from "not up" only. Peer and down
 are merged. It was also built from Enron, so a test on our Enron sample is
-partly in-sample.
+partly in-sample. The original host is gone, so the list comes from an
+archived copy (Wayback Machine) that was not checked against the
+original. No license is stated, so the list is not committed to the repo.
 
-**Politeness strategies: result.** Not tested yet.
+**Politeness strategies: result.** Same sample, models and correction as the pronoun result: strict sample,
+mixed model with sender rank as a control, within-sender fixed effects as
+the check, Holm correction within each measure. Each strategy is scored 1 if
+any sentence of the email uses it, else 0. Coefficients are the change in
+the share of emails.
+
+| Strategy | Writing down | p | Holm p | Writing up | p | Holm p |
+|---|---:|---:|---:|---:|---:|---:|
+| Gratitude | +0.111 | .0001 | .0005 | -0.033 | .181 | .723 |
+| Apology | -0.004 | .731 | 1.000 | -0.017 | .069 | .415 |
+| Please | +0.051 | .035 | .242 | -0.026 | .213 | .723 |
+| Greeting | -0.004 | .713 | 1.000 | -0.014 | .106 | .527 |
+
+Only gratitude passes. People thank more when writing down: 36% of such
+emails against 29% to a peer. This is the opposite of "politeness drops as
+status rises". A likely reason is that managers thank their staff for work
+done. It is weaker in the within-sender check (p=.027, Holm p=.189), so
+treat it as modest. Apology, please and greeting show no difference after
+the correction and are dropped.
 
 Limit: hedges and deference already exist as measures, so only gratitude,
 apology, please and greeting are new. The published tool (ConvoKit) did
 not install in this project before, so these would be simple word
 matches, not the published implementation.
 
-**Style matching: result.** Not tested yet.
+**Style matching: result.** Same sample, models and correction as the pronoun result: strict sample,
+mixed model with sender rank as a control, within-sender fixed effects as
+the check, Holm correction within each measure. Only replies can be scored, because
+the measure needs the email being answered: 664 replies from 93 senders.
+The answered email is the message just before the reply in its thread.
+The score runs from 0 (no match) to 1 (same function-word style).
+
+| Score | Writing down | p | Holm p | Writing up | p | Holm p |
+|---|---:|---:|---:|---:|---:|---:|
+| Mixed model | +0.064 | .013 | .027 | +0.043 | .054 | .054 |
+| Within-sender check | +0.066 | .038 | .076 | +0.071 | .057 | .076 |
+
+Replies up and down both match the incoming email a little more than
+replies to a peer. The 2012 theory predicts more matching up and less
+matching down. The "down" result goes against it. Only the "down" effect
+in the mixed model survives the correction, and nothing survives in the
+within-sender check. This measure is weak and does not follow the theory,
+so it is not kept.
 
 Limit: the 2012 measure needs many exchanges between the same two people.
 It cannot score one email. The per-email version (Language Style Matching)
 needs function-word lists. The standard lists (LIWC) are licensed, and no
-validated open list was found.
+validated open list was found. Here the categories come from spaCy
+part-of-speech tags plus short word lists, which is an approximation of
+LIWC. The message before a reply in a thread is not always from the
+person the reply is sent to.
 
 ---
 
