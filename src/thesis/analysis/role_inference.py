@@ -432,6 +432,8 @@ def build_absolute_items_from_grid(
     return items, true_directions
 
 
+REAL_SAMPLE_SEED = 20261015
+
 MANIFEST_PATH: Path = MANIFESTS_DIR / "role_inference.json"
 FIGURE_PATH: Path = DOCS_FIGURES_DIR / "role_inference_accuracy.png"
 
@@ -481,6 +483,22 @@ def sample_gate_frame(frame: pd.DataFrame, *, n: int, random_state: int) -> pd.D
     return frame[frame["replicate"] == 1].sample(n=n, random_state=random_state)
 
 
+def sample_real_directions(directions: pd.DataFrame, *, n: int | None, seed: int) -> pd.DataFrame:
+    """A fixed-seed sample of n real emails with the full set's direction mix.
+
+    n=None keeps every email. Each direction is sampled in proportion to
+    its share, so the sample keeps the same up/lateral/down balance.
+    """
+    if n is None:
+        return directions
+    share = n / len(directions)
+    parts = [
+        group.sample(n=round(len(group) * share), random_state=seed)
+        for _, group in directions.groupby("direction", sort=True)
+    ]
+    return pd.concat(parts).sort_values("message_uid").reset_index(drop=True)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--judge-model", default=DEFAULT_JUDGE_MODEL)
@@ -494,6 +512,12 @@ def main() -> None:
         "--ollama-host",
         default=None,
         help="Override the Ollama server URL (default: http://127.0.0.1:11434).",
+    )
+    parser.add_argument(
+        "--real-sample",
+        type=int,
+        default=None,
+        help="Score a fixed-seed sample of this many real emails instead of all of them.",
     )
     args = parser.parse_args()
 
@@ -578,8 +602,10 @@ def main() -> None:
     # (it dedupes internally), so merging against the undeduplicated
     # directions table would double every strict-sample message's item,
     # double-counting roughly 2,200 of the 3,000 real emails.
-    real_directions = real_emails[["message_uid", "direction"]].drop_duplicates(
-        subset="message_uid"
+    real_directions = sample_real_directions(
+        real_emails[["message_uid", "direction"]].drop_duplicates(subset="message_uid"),
+        n=args.real_sample,
+        seed=REAL_SAMPLE_SEED,
     )
     real_bodies = load_bodies(real_directions["message_uid"])
     real_items, real_truth = build_absolute_items_from_real_email(real_bodies, real_directions)

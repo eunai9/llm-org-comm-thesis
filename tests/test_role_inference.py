@@ -536,3 +536,26 @@ def test_main_guard_is_the_last_statement_in_the_file() -> None:
     ]
     assert guard_indices, "no __main__ guard found in role_inference.py"
     assert guard_indices[0] == len(body) - 1
+
+
+def test_sample_real_directions_keeps_size_mix_and_is_repeatable() -> None:
+    from thesis.analysis.role_inference import sample_real_directions
+
+    frame = pd.DataFrame(
+        {
+            "message_uid": [f"m{i}" for i in range(300)],
+            "direction": ["up"] * 150 + ["lateral"] * 100 + ["down"] * 50,
+        }
+    )
+    first = sample_real_directions(frame, n=60, seed=7)
+    again = sample_real_directions(frame, n=60, seed=7)
+    assert len(first) == 60
+    assert first["direction"].value_counts().to_dict() == {"up": 30, "lateral": 20, "down": 10}
+    assert first["message_uid"].tolist() == again["message_uid"].tolist()
+
+
+def test_sample_real_directions_returns_everything_when_n_is_none() -> None:
+    from thesis.analysis.role_inference import sample_real_directions
+
+    frame = pd.DataFrame({"message_uid": ["a", "b"], "direction": ["up", "down"]})
+    assert sample_real_directions(frame, n=None, seed=1).equals(frame)
