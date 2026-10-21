@@ -1432,9 +1432,12 @@ signal to start from with this judge.
 - **Real email's labels come from the sender's and receiver's rank**
   (`data/interim/q1_real_emails.parquet`, the real-email benchmark data).
   Wrong ranks would pull real email toward chance.
-- **Real email is a sample.** 1,000 emails, fixed seed, with the same
-  up/lateral/down mix as all 2,998. Rounding each direction's share gives
-  1,001.
+- **Real email is a sample of 1,000, not all 2,998.** Groq lets through
+  only about 250-480 judge calls a day. All 2,998 would have added about
+  a week. The sample is random, with a fixed seed and the same
+  up/lateral/down mix as the full set, so its accuracy is a fair estimate.
+  More emails would mostly narrow the interval. Rounding each
+  direction's share gives 1,001.
 - **qwen3.8-27b was not judged.** Its grid was not ready when this run
   started.
 - **The interval was fixed before this write-up.** The code first put a
