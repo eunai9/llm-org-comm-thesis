@@ -1,0 +1,122 @@
+{
+  "accuracy_by_label": {
+    "real email": {
+      "n": 1001,
+      "accuracy": 0.3572,
+      "ci_low": 0.3279,
+      "ci_high": 0.3873,
+      "kappa": 0.0286,
+      "confusion": {
+        "up": {
+          "up": 120,
+          "lateral": 232,
+          "down": 44
+        },
+        "lateral": {
+          "up": 96,
+          "lateral": 179,
+          "down": 79
+        },
+        "down": {
+          "up": 63,
+          "lateral": 122,
+          "down": 66
+        }
+      }
+    },
+    "llama3.2:3b": {
+      "n": 1440,
+      "accuracy": 0.3556,
+      "ci_low": 0.3328,
+      "ci_high": 0.3778,
+      "kappa": 0.0333,
+      "confusion": {
+        "up": {
+          "up": 114,
+          "lateral": 291,
+          "down": 75
+        },
+        "lateral": {
+          "up": 114,
+          "lateral": 293,
+          "down": 73
+        },
+        "down": {
+          "up": 120,
+          "lateral": 255,
+          "down": 105
+        }
+      }
+    },
+    "gpt-oss-20b": {
+      "n": 1428,
+      "accuracy": 0.4072,
+      "ci_low": 0.3852,
+      "ci_high": 0.4293,
+      "kappa": 0.1108,
+      "confusion": {
+        "up": {
+          "up": 89,
+          "lateral": 324,
+          "down": 64
+        },
+        "lateral": {
+          "up": 66,
+          "lateral": 342,
+          "down": 67
+        },
+        "down": {
+          "up": 52,
+          "lateral": 274,
+          "down": 150
+        }
+      }
+    },
+    "gpt-oss-120b": {
+      "n": 1440,
+      "accuracy": 0.4354,
+      "ci_low": 0.4108,
+      "ci_high": 0.4595,
+      "kappa": 0.1531,
+      "confusion": {
+        "up": {
+          "up": 150,
+          "lateral": 276,
+          "down": 54
+        },
+        "lateral": {
+          "up": 107,
+          "lateral": 311,
+          "down": 62
+        },
+        "down": {
+          "up": 85,
+          "lateral": 229,
+          "down": 166
+        }
+      }
+    }
+  },
+  "vs_real": {
+    "llama3.2:3b": {
+      "difference": -0.0016,
+      "ci_low": -0.0384,
+      "ci_high": 0.0352,
+      "p": 0.944
+    },
+    "gpt-oss-20b": {
+      "difference": 0.05,
+      "ci_low": 0.0126,
+      "ci_high": 0.0871,
+      "p": 0.006
+    },
+    "gpt-oss-120b": {
+      "difference": 0.0782,
+      "ci_low": 0.0393,
+      "ci_high": 0.1155,
+      "p": 0.0
+    }
+  },
+  "self_consistency_kappa": 0.542,
+  "positive_control_accuracy": 0.9522
+}

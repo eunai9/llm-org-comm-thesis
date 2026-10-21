@@ -431,8 +431,13 @@ def plot_effect_intervals(
     subtitle: str = "",
     x_label: str = "",
     second_series: Sequence[int] | None = None,
+    reference: float = 0.0,
 ) -> Path:
-    """One estimate with a 95% interval per row, and a line at zero.
+    """One estimate with a 95% interval per row, and a line at ``reference``.
+
+    With the default reference of zero the rows are effects and their
+    labels carry a sign. Any other reference (e.g. chance accuracy) marks
+    a level, so the labels are plain numbers.
 
     ``second_series`` is the set of row indices (0-based, in ``labels``
     order) drawn in the second series color instead of the first. Defaults
@@ -454,14 +459,15 @@ def plot_effect_intervals(
     _style_axes(ax)
     ax.xaxis.grid(True, color=GRIDLINE, linewidth=1)
     ax.set_axisbelow(True)
-    ax.axvline(0.0, color=BASELINE, linewidth=1.5, zorder=3)
+    ax.axvline(reference, color=BASELINE, linewidth=1.5, zorder=3)
+    label_format = "{:+.2f}" if reference == 0.0 else "{:.2f}"
 
     for i, (yi, est, lo, hi) in enumerate(zip(y, estimates, lower, upper, strict=True)):
         color = SERIES_2 if i in highlighted else SERIES_1
         ax.plot([lo, hi], [yi, yi], color=color, linewidth=2.2, zorder=2)
         ax.plot([est], [yi], marker="o", markersize=7, color=color, zorder=4)
         ax.annotate(
-            f"{est:+.2f}",
+            label_format.format(est),
             (hi, yi),
             textcoords="offset points",
             xytext=(8, 0),

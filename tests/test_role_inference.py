@@ -22,6 +22,7 @@ from thesis.analysis.role_inference import (
     build_manifest,
     build_paired_items_from_grid,
     build_positive_control_items,
+    difference_from_real,
     judge_self_consistency,
     render_paired_block,
     run_role_inference_absolute,
@@ -559,3 +560,43 @@ def test_sample_real_directions_returns_everything_when_n_is_none() -> None:
 
     frame = pd.DataFrame({"message_uid": ["a", "b"], "direction": ["up", "down"]})
     assert sample_real_directions(frame, n=None, seed=1).equals(frame)
+
+
+def test_summarize_absolute_interval_brackets_balanced_accuracy_on_unbalanced_labels() -> None:
+    # 80 "up" items all right, 20 "down" items all called "up": plain accuracy
+    # is 0.80, balanced accuracy is 0.50. The interval must belong to 0.50.
+    results = [_metrics_result("up", "up") for _ in range(80)] + [
+        _metrics_result("down", "up") for _ in range(20)
+    ]
+    metrics = summarize_absolute(results)
+    assert metrics.accuracy == 0.5
+    assert metrics.ci_low <= 0.5 <= metrics.ci_high
+
+
+def _confusion(right: int, wrong: int) -> dict[str, dict[str, int]]:
+    """Each true direction gets ``right`` correct calls and ``wrong`` calls of the next label."""
+    labels = ["up", "lateral", "down"]
+    return {
+        true: {
+            pred: right if pred == true else (wrong if pred == labels[(i + 1) % 3] else 0)
+            for pred in labels
+        }
+        for i, true in enumerate(labels)
+    }
+
+
+def test_difference_from_real_is_clear_when_the_model_is_much_easier_to_read() -> None:
+    real = AbsoluteMetrics(300, 0.5, 0.0, 0.0, 0.0, _confusion(50, 50))
+    model = AbsoluteMetrics(300, 0.9, 0.0, 0.0, 0.0, _confusion(90, 10))
+    result = difference_from_real(model, real)
+    assert result["difference"] == 0.4
+    assert result["ci_low"] > 0
+    assert result["p"] < 0.01
+
+
+def test_difference_from_real_is_zero_for_identical_confusions() -> None:
+    real = AbsoluteMetrics(300, 0.5, 0.0, 0.0, 0.0, _confusion(50, 50))
+    result = difference_from_real(real, real)
+    assert result["difference"] == 0.0
+    assert result["ci_low"] < 0 < result["ci_high"]
+    assert result["p"] > 0.5

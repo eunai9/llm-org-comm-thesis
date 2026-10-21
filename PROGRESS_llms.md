@@ -1334,7 +1334,7 @@ changes here, the p-values just move:
 
 ---
 
-## 16. The new Q1 judge plan, and where Layer 1 failed (Q1, Oct 3)
+## 16. The new Q1 judge plan and the Layer 1 result (Q1, Oct 21)
 
 The new Q1 plan has two layers.
 
@@ -1371,9 +1371,83 @@ passed decisively (65.3% agreement across three passes, positive-control
 accuracy 0.952), reopening Layer 1 with a judge finally able to pass its
 own reliability check.
 
-The actual comparison Layer 1 was designed to answer -- does a generated
-reply give away hierarchy as well as real email does -- is now running
-with gpt-oss-120b as judge. Results go here once it finishes.
+**Result.** The judge cannot read hierarchy from a real email. It reads
+it better from generated replies, not worse.
+
+The judge (gpt-oss-120b) saw one email at a time, with names removed, and
+guessed up, lateral or down. The score is balanced accuracy: the hit rate
+for each true direction, averaged over the three. This keeps the large
+"lateral" group from dominating. Chance is 33%. Kappa is agreement above
+chance (0 = guessing).
+
+| Emails judged | n | Balanced accuracy | 95% interval | Kappa | Minus real email | 95% interval | p |
+|---|---:|---:|---|---:|---:|---|---:|
+| Real email | 1,001 | 35.7% | [32.8%, 38.7%] | 0.03 | | | |
+| Llama 3.2 3B | 1,440 | 35.6% | [33.3%, 37.8%] | 0.03 | -0.2 pts | [-3.8, +3.5] | .94 |
+| gpt-oss-20b | 1,428 | 40.7% | [38.5%, 42.9%] | 0.11 | +5.0 pts | [+1.3, +8.7] | .006 |
+| gpt-oss-120b | 1,440 | 43.5% | [41.1%, 46.0%] | 0.15 | +7.8 pts | [+3.9, +11.6] | <.001 |
+
+Hit rate for each true direction:
+
+| Emails judged | Up | Lateral | Down |
+|---|---:|---:|---:|
+| Real email | 30.3% | 50.6% | 26.3% |
+| Llama 3.2 3B | 23.8% | 61.0% | 21.9% |
+| gpt-oss-20b | 18.7% | 72.0% | 31.5% |
+| gpt-oss-120b | 31.2% | 64.8% | 34.6% |
+
+![Layer 1 accuracy](docs/figures/role_inference_accuracy.png)
+
+- **Real email sits at chance.** Its interval includes 33%. From one
+  real email alone, the judge cannot tell if the writer was senior,
+  peer or junior.
+- **Llama's replies match real email.** Both are near chance, and the
+  difference is about zero (p=.94).
+- **gpt-oss replies are easier to read than real email.** gpt-oss-20b is
+  5.0 points above real email, gpt-oss-120b 7.8 points. The gain comes
+  from lateral and down. Up is no easier than in real email. Down
+  replies are easier to spot (31.5% and 34.6%, against 26.3%). This fits
+  section 13, where both gpt-oss models give clearly more orders when
+  writing down.
+- **The judge leans toward "lateral" on every source.** That is the
+  highest hit rate in every row. A judge that says "lateral" when
+  unsure scores well on lateral and badly on up and down.
+
+**What this means for the plan.** Layer 1 was built to catch generated
+email that *lacks* the hierarchy signal real email has. With this judge,
+real email shows no signal above chance, so that test cannot fail in
+the expected way. What it shows instead: generated replies, when they
+differ from real email, carry *more* visible hierarchy, not less. Layer 2
+(find the words that carry the signal in real email) has no real-email
+signal to start from with this judge.
+
+**Caveats.**
+
+- **gpt-oss-120b judges its own replies.** Its top score may partly come
+  from reading its own style. gpt-oss-20b, a different model of the same
+  family, also beats real email, so the pattern is not only self-judging.
+  It is not tested with an outside judge.
+- **The two sides are not the same kind of text.** Real items are whole
+  Enron emails. Generated items are replies to a fixed scenario.
+- **Real email's labels come from the sender's and receiver's rank**
+  (`data/interim/q1_real_emails.parquet`, the real-email benchmark data).
+  Wrong ranks would pull real email toward chance.
+- **Real email is a sample.** 1,000 emails, fixed seed, with the same
+  up/lateral/down mix as all 2,998. Rounding each direction's share gives
+  1,001.
+- **qwen3.8-27b was not judged.** Its grid was not ready when this run
+  started.
+- **The interval was fixed before this write-up.** The code first put a
+  Wilson interval for plain accuracy next to balanced accuracy. These
+  differ on real email, whose directions are not balanced. The interval
+  and the difference test are now a bootstrap of balanced accuracy (2,000
+  resamples, fixed seed).
+
+Source: `python -m thesis.analysis.role_inference --judge-model
+openai/gpt-oss-120b@low --real-sample 1000`. Every judge call is cached,
+so a rerun makes no API call. Manifest:
+`outputs/manifests/role_inference.json`. Figure:
+`docs/figures/role_inference_accuracy.png`.
 
 ---
 

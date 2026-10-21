@@ -40,7 +40,6 @@ from typing import Any, Final, Protocol
 import numpy as np
 import pandas as pd
 from sklearn.metrics import balanced_accuracy_score, cohen_kappa_score, confusion_matrix
-from statsmodels.stats.proportion import proportion_confint
 
 from thesis.analysis.blinding import strip_identity
 from thesis.analysis.draw_stability import DecisionStability, decision_stability_n
@@ -449,6 +448,7 @@ def build_manifest(
     *,
     self_consistency_kappa: float,
     positive_control_accuracy: float,
+    vs_real: dict[str, dict[str, float]] | None = None,
 ) -> dict[str, Any]:
     """Real email first, so a caller drawing the figure from this manifest
     gets :func:`plot_accuracy_vs_real`'s reference-row convention for free.
@@ -468,6 +468,7 @@ def build_manifest(
             }
             for label, m in ordered.items()
         },
+        "vs_real": vs_real or {},
         "self_consistency_kappa": self_consistency_kappa,
         "positive_control_accuracy": positive_control_accuracy,
     }
@@ -626,10 +627,16 @@ def main() -> None:
     )
     metrics_by_label["real email"] = summarize_absolute(real_results)
 
+    real_metrics = metrics_by_label["real email"]
     manifest = build_manifest(
         metrics_by_label,
         self_consistency_kappa=consistency.kappa,
         positive_control_accuracy=control_metrics.accuracy,
+        vs_real={
+            label: difference_from_real(metrics, real_metrics)
+            for label, metrics in metrics_by_label.items()
+            if label != "real email"
+        },
     )
     MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
     MANIFEST_PATH.write_text(json.dumps(manifest, indent=2, sort_keys=False), encoding="utf-8")
@@ -772,7 +779,7 @@ def build_paired_items_from_grid(
 
 @dataclass(frozen=True, slots=True)
 class AbsoluteMetrics:
-    """Accuracy, its 95% Wilson interval, Cohen's kappa against chance, and
+    """Balanced accuracy, its 95% bootstrap interval, Cohen's kappa against chance, and
     the full 3x3 confusion matrix -- the matrix matters on its own: a model
     that separates 'down' cleanly while confusing 'up' with 'lateral' is a
     different finding than uniform chance-level guessing, and a bare
@@ -786,11 +793,68 @@ class AbsoluteMetrics:
     confusion: dict[str, dict[str, int]]
 
 
+def _bootstrap_balanced_accuracy(
+    true: list[str], predicted: list[str], rng: np.random.Generator, n_boot: int
+) -> np.ndarray:
+    classes, class_index = np.unique(np.asarray(true), return_inverse=True)
+    correct = np.asarray(true) == np.asarray(predicted)
+    draws = rng.integers(0, len(true), size=(n_boot, len(true)))
+    scores = np.empty(n_boot)
+    for b, idx in enumerate(draws):
+        totals = np.bincount(class_index[idx], minlength=len(classes))
+        hits = np.bincount(class_index[idx], weights=correct[idx], minlength=len(classes))
+        present = totals > 0
+        scores[b] = np.mean(hits[present] / totals[present])
+    return scores
+
+
+def balanced_accuracy_interval(
+    true: list[str], predicted: list[str], *, n_boot: int = 2000, seed: int = 0
+) -> tuple[float, float]:
+    """95% percentile bootstrap interval for balanced accuracy, resampling items."""
+    scores = _bootstrap_balanced_accuracy(true, predicted, np.random.default_rng(seed), n_boot)
+    low, high = np.percentile(scores, [2.5, 97.5])
+    return float(low), float(high)
+
+
+def _items_from_confusion(confusion: dict[str, dict[str, int]]) -> tuple[list[str], list[str]]:
+    true: list[str] = []
+    predicted: list[str] = []
+    for actual, row in confusion.items():
+        for guess, count in row.items():
+            true += [actual] * count
+            predicted += [guess] * count
+    return true, predicted
+
+
+def difference_from_real(
+    model: AbsoluteMetrics, real: AbsoluteMetrics, *, n_boot: int = 2000, seed: int = 0
+) -> dict[str, float]:
+    """Model minus real balanced accuracy, with a 95% bootstrap interval and two-sided p.
+
+    Both samples are resampled independently. The items are rebuilt from
+    each confusion matrix, which holds every (true, guessed) pair.
+    """
+    rng = np.random.default_rng(seed)
+    model_scores = _bootstrap_balanced_accuracy(
+        *_items_from_confusion(model.confusion), rng, n_boot
+    )
+    real_scores = _bootstrap_balanced_accuracy(*_items_from_confusion(real.confusion), rng, n_boot)
+    diffs = model_scores - real_scores
+    low, high = np.percentile(diffs, [2.5, 97.5])
+    p = min(1.0, 2 * min(float(np.mean(diffs <= 0)), float(np.mean(diffs >= 0))))
+    return {
+        "difference": round(model.accuracy - real.accuracy, 4),
+        "ci_low": round(float(low), 4),
+        "ci_high": round(float(high), 4),
+        "p": round(p, 4),
+    }
+
+
 def summarize_absolute(results: list[RoleInferenceResult]) -> AbsoluteMetrics:
     true = [r.true_direction for r in results]
     predicted = [r.inferred_direction for r in results]
-    n_correct = sum(1 for t, p in zip(true, predicted, strict=True) if t == p)
-    ci_low, ci_high = proportion_confint(n_correct, len(results), method="wilson")
+    ci_low, ci_high = balanced_accuracy_interval(true, predicted)
     matrix = confusion_matrix(true, predicted, labels=list(DIRECTIONS))
     confusion: dict[str, dict[str, int]] = {
         str(actual): {
@@ -822,8 +886,9 @@ def plot_accuracy_vs_real(metrics_by_label: dict[str, AbsoluteMetrics], path: Pa
         [metrics_by_label[label].ci_high for label in labels],
         path,
         title="Can a blind judge tell who a reply was written to?",
-        subtitle="Balanced accuracy, 3-way choice, chance = 0.33 (dashed line to add manually if useful)",
+        subtitle="Balanced accuracy, 3-way choice. The line marks chance (1/3).",
         x_label="balanced accuracy",
+        reference=1 / 3,
     )
 
 
