@@ -440,6 +440,7 @@ GENERATING_GRIDS: Final[dict[str, Path]] = {
     "llama3.2:3b": INTERIM_DIR / "q1_direction_grid_full_3draws.parquet",
     "gpt-oss-20b": INTERIM_DIR / "q1_direction_grid_gpt_oss_20b_full.parquet",
     "gpt-oss-120b": INTERIM_DIR / "q1_direction_grid_gpt_oss_120b_full.parquet",
+    "qwen3.8-27b": INTERIM_DIR / "q1_direction_grid_qwen_full.parquet",
 }
 
 
