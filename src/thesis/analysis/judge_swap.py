@@ -199,6 +199,7 @@ _MODEL_PROVIDER: dict[str, str] = {
     "deepseek-ai/deepseek-v4-flash-0731": "nvidia",
     "openai/gpt-oss-20b@low": "nvidia",
     "openai/gpt-oss-120b@low": "groq",
+    "qwen/qwen3.8-27b": "groq",
 }
 
 

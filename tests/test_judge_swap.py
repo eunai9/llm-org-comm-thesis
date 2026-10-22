@@ -910,6 +910,7 @@ def test_client_for_model_dispatches_by_provider(monkeypatch: pytest.MonkeyPatch
     )
     assert isinstance(judge_swap.client_for_model("openai/gpt-oss-20b@low"), NvidiaClient)
     assert isinstance(judge_swap.client_for_model("openai/gpt-oss-120b@low"), GroqClient)
+    assert isinstance(judge_swap.client_for_model("qwen/qwen3.8-27b"), GroqClient)
     assert isinstance(judge_swap.client_for_model("llama3.2:3b"), OllamaClient)
     # An unrecognized model id falls back to local, preserving every
     # existing two-local-model caller's behavior unchanged.
