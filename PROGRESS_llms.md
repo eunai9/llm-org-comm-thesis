@@ -933,6 +933,13 @@ above (same grid, same fit, the other contrast).
 
 **What this means.**
 
+- **The expected pattern is more orders writing down and fewer writing
+  up.** qwen3.8-27b is the only model that shows both halves, and it
+  shows them most strongly (+0.510 down, -0.181 up, both significant).
+  Llama and gpt-oss-20b show only the first half. gpt-oss-120b shows the
+  first half, and its writing-up effect goes the other way (+0.106).
+  Real email itself shows only the first half, so qwen overstates the
+  pattern rather than matching real email.
 - **Real email itself shows no writing-up effect** (p=.404). Hierarchy's
   effect on directiveness in this corpus is asymmetric: strong going down,
   essentially absent going up.
