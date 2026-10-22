@@ -1,6 +1,7 @@
 from dataclasses import replace
 
 from thesis.sim.persona import Persona, PersonaStyle, render_persona_block
+from thesis.sim.scenario import build_scenarios, render_scenario_block
 
 _STYLE = PersonaStyle(
     mean_tokens=60.0,
@@ -53,3 +54,19 @@ def test_persona_block_puts_the_trait_after_the_role_line() -> None:
     assert block.replace(
         "You joined from another energy firm about 2 years ago.\n", ""
     ) == render_persona_block(_base())
+
+
+def test_scenario_block_without_receiver_is_unchanged() -> None:
+    scenario = next(s for s in build_scenarios() if s.direction == "up")
+    block = render_scenario_block(scenario)
+    assert block.splitlines()[3] == "You are writing to someone senior to you."
+
+
+def test_scenario_block_names_the_receiver() -> None:
+    scenario = replace(
+        next(s for s in build_scenarios() if s.direction == "up"),
+        receiver="a Vice President in Trading",
+    )
+    lines = render_scenario_block(scenario).splitlines()
+    assert lines[3] == "You are writing to a Vice President in Trading."
+    assert "senior to you" not in "\n".join(lines)
