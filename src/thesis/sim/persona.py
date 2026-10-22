@@ -107,6 +107,7 @@ class Persona:
     n_people: int
     n_messages: int
     derivation: Derivation
+    trait: str | None = None
 
     @property
     def is_pooled(self) -> bool:
@@ -325,23 +326,24 @@ def render_persona_block(persona: Persona) -> str:
     described habit far more reliably than a raw decimal it has to interpret.
     """
     style = persona.style
-    return "\n".join(
-        [
-            f"Your role: {persona.rank_label}, in the {persona.department} "
-            "function of a large US energy company in 2001.",
-            "",
-            "You are a composite role archetype, not any specific individual. "
-            "Write the way someone in this position would write, based on the "
-            "following observed tendencies of people at this level:",
-            "",
-            f"- Typical message length: about {style.mean_tokens:.0f} words.",
-            f"- Typical number of recipients: about {style.mean_recipients:.1f}.",
-            f"- Gives direct instructions in roughly {style.imperative_ratio:.0%} of sentences.",
-            f"- Uses hedging language ('maybe', 'I think') in about {style.hedge_rate:.0%}.",
-            f"- Uses deferential phrasing in about {style.deference_rate:.0%}.",
-            f"- Asks questions in about {style.question_ratio:.0%} of sentences.",
-        ]
-    )
+    lines = [
+        f"Your role: {persona.rank_label}, in the {persona.department} "
+        "function of a large US energy company in 2001.",
+        "",
+        "You are a composite role archetype, not any specific individual. "
+        "Write the way someone in this position would write, based on the "
+        "following observed tendencies of people at this level:",
+        "",
+        f"- Typical message length: about {style.mean_tokens:.0f} words.",
+        f"- Typical number of recipients: about {style.mean_recipients:.1f}.",
+        f"- Gives direct instructions in roughly {style.imperative_ratio:.0%} of sentences.",
+        f"- Uses hedging language ('maybe', 'I think') in about {style.hedge_rate:.0%}.",
+        f"- Uses deferential phrasing in about {style.deference_rate:.0%}.",
+        f"- Asks questions in about {style.question_ratio:.0%} of sentences.",
+    ]
+    if persona.trait is not None:
+        lines.insert(1, persona.trait)
+    return "\n".join(lines)
 
 
 def collapsed_ranks(personas: Sequence[Persona]) -> list[int]:
