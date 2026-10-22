@@ -95,6 +95,30 @@
           "down": 166
         }
       }
+    },
+    "qwen3.8-27b": {
+      "n": 1440,
+      "accuracy": 0.4792,
+      "ci_low": 0.4567,
+      "ci_high": 0.5017,
+      "kappa": 0.2188,
+      "confusion": {
+        "up": {
+          "up": 85,
+          "lateral": 235,
+          "down": 160
+        },
+        "lateral": {
+          "up": 37,
+          "lateral": 238,
+          "down": 205
+        },
+        "down": {
+          "up": 18,
+          "lateral": 95,
+          "down": 367
+        }
+      }
     }
   },
   "vs_real": {
@@ -114,6 +138,12 @@
       "difference": 0.0782,
       "ci_low": 0.0393,
       "ci_high": 0.1155,
+      "p": 0.0
+    },
+    "qwen3.8-27b": {
+      "difference": 0.122,
+      "ci_low": 0.0847,
+      "ci_high": 0.1576,
       "p": 0.0
     }
   },

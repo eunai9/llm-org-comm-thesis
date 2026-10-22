@@ -1386,6 +1386,7 @@ chance (0 = guessing).
 | Llama 3.2 3B | 1,440 | 35.6% | [33.3%, 37.8%] | 0.03 | -0.2 pts | [-3.8, +3.5] | .94 |
 | gpt-oss-20b | 1,428 | 40.7% | [38.5%, 42.9%] | 0.11 | +5.0 pts | [+1.3, +8.7] | .006 |
 | gpt-oss-120b | 1,440 | 43.5% | [41.1%, 46.0%] | 0.15 | +7.8 pts | [+3.9, +11.6] | <.001 |
+| qwen3.8-27b | 1,440 | 47.9% | [45.7%, 50.2%] | 0.22 | +12.2 pts | [+8.5, +15.8] | <.001 |
 
 Hit rate for each true direction:
 
@@ -1395,6 +1396,7 @@ Hit rate for each true direction:
 | Llama 3.2 3B | 23.8% | 61.0% | 21.9% |
 | gpt-oss-20b | 18.7% | 72.0% | 31.5% |
 | gpt-oss-120b | 31.2% | 64.8% | 34.6% |
+| qwen3.8-27b | 17.7% | 49.6% | 76.5% |
 
 ![Layer 1 accuracy](docs/figures/role_inference_accuracy.png)
 
@@ -1409,9 +1411,15 @@ Hit rate for each true direction:
   replies are easier to spot (31.5% and 34.6%, against 26.3%). This fits
   section 13, where both gpt-oss models give clearly more orders when
   writing down.
-- **The judge leans toward "lateral" on every source.** That is the
-  highest hit rate in every row. A judge that says "lateral" when
-  unsure scores well on lateral and badly on up and down.
+- **qwen's replies are the easiest to read: 12.2 points above real
+  email.** Almost all of the gain is in "down": the judge spots 76.5%
+  of qwen's replies written down, against 26.3% for real email. This
+  fits section 13, where qwen has the strongest writing-down effect of
+  all models. qwen is not the judge, so self-judging cannot explain it.
+- **The judge leans toward "lateral" on every source but qwen.**
+  Lateral is the highest hit rate in every other row. A judge that
+  says "lateral" when unsure scores well on lateral and badly on up
+  and down. For qwen, down is the highest.
 
 **What this means for the plan.** Layer 1 was built to catch generated
 email that *lacks* the hierarchy signal real email has. With this judge,
@@ -1425,8 +1433,8 @@ signal to start from with this judge.
 
 - **gpt-oss-120b judges its own replies.** Its top score may partly come
   from reading its own style. gpt-oss-20b, a different model of the same
-  family, also beats real email, so the pattern is not only self-judging.
-  It is not tested with an outside judge.
+  family, also beats real email, and so does qwen3.8-27b, a different
+  family. So the pattern is not only self-judging.
 - **The two sides are not the same kind of text.** Real items are whole
   Enron emails. Generated items are replies to a fixed scenario.
 - **Real email's labels come from the sender's and receiver's rank**
@@ -1438,8 +1446,6 @@ signal to start from with this judge.
   up/lateral/down mix as the full set, so its accuracy is a fair estimate.
   More emails would mostly narrow the interval. Rounding each
   direction's share gives 1,001.
-- **qwen3.8-27b was not judged.** Its grid was not ready when this run
-  started.
 - **The interval was fixed before this write-up.** The code first put a
   Wilson interval for plain accuracy next to balanced accuracy. These
   differ on real email, whose directions are not balanced. The interval
