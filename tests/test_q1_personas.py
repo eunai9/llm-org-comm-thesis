@@ -1,7 +1,9 @@
 from collections.abc import Sequence
 from pathlib import Path
 
-from thesis.analysis.q1_personas import generate_persona_grid
+import pandas as pd
+
+from thesis.analysis.q1_personas import REPLY_OUTCOMES, analyse_persona_grid, generate_persona_grid
 from thesis.llm.base import Capabilities, CompletionRequest, CompletionResponse, Provider, Usage
 from thesis.llm.cache import ResponseCache
 from thesis.llm.cost import CostLedger
@@ -68,3 +70,50 @@ def test_generate_persona_grid_adds_variant_columns(tmp_path: Path) -> None:
     prompt = repr(client.calls[0])
     assert "You are writing to a" in prompt or "You are writing to an" in prompt
     assert "years" in prompt
+
+
+_BODIES = {
+    "down": ["Send the report today. Call me after.", "Could you send the report?"],
+    "lateral": ["Let's talk about it this week.", "I will send it when it is ready."],
+    "up": ["Could you look at this when you have time?", "I think we might need more time."],
+}
+
+
+def _synthetic_grid(drop: int = 0) -> pd.DataFrame:
+    rows = []
+    for p in range(8):
+        tenure, origin = (2, 12)[p % 2], ("internal", "external")[(p // 2) % 2]
+        pid = f"r3_trading_t{tenure}_{origin}_{p}"
+        for direction, bodies in _BODIES.items():
+            for i, body in enumerate(bodies * 3):
+                rows.append(
+                    {
+                        "cell_id": f"{pid}__{direction}__{i}",
+                        "persona_id": pid,
+                        "base_persona_id": "r3_trading",
+                        "tenure": tenure,
+                        "origin": origin,
+                        "direction": direction,
+                        "scenario_id": f"approve_or_decline__{direction}__high__neutral",
+                        "stakes": "high",
+                        "task_type": "approve_or_decline",
+                        "replicate": 1,
+                        "body": body,
+                    }
+                )
+    frame = pd.DataFrame(rows)
+    return frame.iloc[drop:].reset_index(drop=True)
+
+
+def test_analysis_finds_more_orders_writing_down() -> None:
+    result = analyse_persona_grid(_synthetic_grid(), {("could", "you"): 1.0})
+    assert result["n_personas"] == 8
+    assert result["primary"]["down"]["coefficient"] > 0
+    # No synthetic body thanks anyone, so gratitude never varies and is skipped.
+    assert set(result["reply_level"]) == set(REPLY_OUTCOMES) - {"gratitude"}
+    assert {"tenure", "origin"} <= set(result["traits"])
+
+
+def test_analysis_runs_with_missing_rows() -> None:
+    result = analyse_persona_grid(_synthetic_grid(drop=5), {})
+    assert result["n_replies"] == len(_synthetic_grid()) - 5
