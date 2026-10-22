@@ -1352,8 +1352,8 @@ guesses real email well but generated email poorly, the generated email
 is missing the real signal of hierarchy.
 
 **Layer 2.** Find what part of the text carries that signal (orders
-given, hedging, self-reference). Only makes sense once Layer 1 finds a
-real signal. Not started yet.
+given, hedging, self-reference). Done on the judged replies of every
+source; see the end of this section.
 
 Before trusting a judge, it has to agree with itself: score the same
 replies three times and check agreement with kappa (0 = chance, 1 =
@@ -1433,8 +1433,8 @@ email that *lacks* the hierarchy signal real email has. With this judge,
 real email shows no signal above chance, so that test cannot fail in
 the expected way. What it shows instead: generated replies, when they
 differ from real email, carry *more* visible hierarchy, not less. Layer 2
-(find the words that carry the signal in real email) has no real-email
-signal to start from with this judge.
+(below) is therefore run on the generated replies too, to see what makes
+their hierarchy visible.
 
 **Caveats.**
 
@@ -1464,6 +1464,65 @@ openai/gpt-oss-120b@low --real-sample 1000`. Every judge call is cached,
 so a rerun makes no API call. Manifest:
 `outputs/manifests/role_inference.json`. Figure:
 `docs/figures/role_inference_accuracy.png`.
+
+**Layer 2: which cues the judge reads (Oct 22).** Layer 1 says how often
+the judge guesses right. Layer 2 asks what in the text makes it guess
+"down" or "up". It runs on every source, generated and real, since the
+judge reads hierarchy from generated replies even where real email is at
+chance.
+
+How: for every email Layer 1 judged, take the judge's guess and measure
+six cues on the exact text the judge saw. Then fit one logistic
+regression per source: "the judge says down" (and separately "says up")
+on the cues. Each cue is standardized within the source, so a number is
+the change in log-odds per one standard deviation of that cue.
+
+![Which cues make the judge say down](docs/figures/role_cues_down.png)
+![Which cues make the judge say up](docs/figures/role_cues_up.png)
+
+"Judge says down", change in log-odds per 1 SD (* p<.05, ** p<.01,
+*** p<.001):
+
+| Cue | Real email | Llama 3.2 3B | gpt-oss-20b | gpt-oss-120b | qwen3.8-27b |
+|---|---:|---:|---:|---:|---:|
+| Orders (share of sentences) | +0.43*** | +1.03*** | +0.52*** | +0.62*** | +0.71*** |
+| Hedges | -0.40*** | -0.60*** | +0.04 | -0.69 | -0.18* |
+| "you" rate | +0.26** | -0.03 | -0.58*** | -0.27** | -0.30*** |
+| Gratitude | +0.15 | n/a | -0.13 | +0.01 | -0.11 |
+| Hierarchy phrases | -0.15 | +0.04 | -0.15 | -0.02 | +0.00 |
+| Length (log words) | +0.09 | -0.12 | +0.29*** | -0.02 | -0.13* |
+
+- **Orders are the judge's main cue, on every source.** More orders
+  make it say "down" (+0.43 to +1.03), and fewer orders make it say "up"
+  (-0.16 to -0.84). This holds for real email too.
+- **This explains why qwen is the easiest to read.** The judge's rule is
+  "orders mean writing down", and qwen adds the most orders when writing
+  down (section 13). So qwen's visible hierarchy is mostly orders.
+- **Hedges point to "not down"** in real email and Llama. The gpt-oss
+  models almost never hedge, so this cue cannot help there.
+- **"you" works in opposite directions.** In real email more "you" goes
+  with "down" (+0.26). In gpt-oss and qwen replies more "you" goes with
+  "not down" and with "up". So the same word signals different things in
+  real and generated writing.
+- **Longer emails make the judge say "up"** in real email (+0.25), qwen
+  (+0.47) and gpt-oss-20b (+0.20).
+- **Gratitude and hierarchy phrases barely move the judge.** No
+  significant effect on "down" anywhere.
+
+Caveats.
+
+- These are associations with the judge's guess, not proof of what it
+  reasons. The cues are fitted together, so each number is the effect
+  with the other cues held fixed.
+- One judge (gpt-oss-120b). A different judge may use other cues.
+- Standard errors are robust (HC1) but not clustered by persona. Twelve
+  tests per source, no multiple-testing correction.
+- gpt-oss-120b's hedge number (-0.69) is large but not significant:
+  hedges appear in almost none of its replies. Llama never thanks, so
+  gratitude is left out for Llama.
+
+Source: `python -m thesis.analysis.role_cues`. It reads every guess from
+the cache and calls no model. Manifest: `outputs/manifests/role_cues.json`.
 
 ---
 

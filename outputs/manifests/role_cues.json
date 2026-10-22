@@ -1,0 +1,579 @@
+{
+  "judge": "openai/gpt-oss-120b@low",
+  "cues": [
+    "imperative_ratio",
+    "hedge_rate",
+    "you_rate",
+    "gratitude",
+    "gilbert_score",
+    "log_words"
+  ],
+  "sources": {
+    "real email": {
+      "n": 1001,
+      "guess_shares": {
+        "lateral": 0.5325,
+        "up": 0.2787,
+        "down": 0.1888
+      },
+      "cue_means": {
+        "imperative_ratio": 0.1816,
+        "hedge_rate": 0.0393,
+        "you_rate": 0.0237,
+        "gratitude": 0.1738,
+        "gilbert_score": 2.0052,
+        "log_words": 3.9242
+      },
+      "judge_says_down": [
+        {
+          "cue": "imperative_ratio",
+          "coefficient": 0.4286,
+          "se": 0.0794,
+          "p": 0.0,
+          "ci_low": 0.273,
+          "ci_high": 0.5842
+        },
+        {
+          "cue": "hedge_rate",
+          "coefficient": -0.3971,
+          "se": 0.1172,
+          "p": 0.0007,
+          "ci_low": -0.6267,
+          "ci_high": -0.1674
+        },
+        {
+          "cue": "you_rate",
+          "coefficient": 0.2563,
+          "se": 0.0869,
+          "p": 0.0032,
+          "ci_low": 0.0861,
+          "ci_high": 0.4266
+        },
+        {
+          "cue": "gratitude",
+          "coefficient": 0.1494,
+          "se": 0.0814,
+          "p": 0.0665,
+          "ci_low": -0.0102,
+          "ci_high": 0.3091
+        },
+        {
+          "cue": "gilbert_score",
+          "coefficient": -0.1544,
+          "se": 0.0834,
+          "p": 0.0643,
+          "ci_low": -0.318,
+          "ci_high": 0.0091
+        },
+        {
+          "cue": "log_words",
+          "coefficient": 0.09,
+          "se": 0.0863,
+          "p": 0.2969,
+          "ci_low": -0.0791,
+          "ci_high": 0.2591
+        }
+      ],
+      "judge_says_up": [
+        {
+          "cue": "imperative_ratio",
+          "coefficient": -0.159,
+          "se": 0.0786,
+          "p": 0.0431,
+          "ci_low": -0.3131,
+          "ci_high": -0.005
+        },
+        {
+          "cue": "hedge_rate",
+          "coefficient": -0.085,
+          "se": 0.0828,
+          "p": 0.3047,
+          "ci_low": -0.2472,
+          "ci_high": 0.0773
+        },
+        {
+          "cue": "you_rate",
+          "coefficient": 0.0616,
+          "se": 0.0723,
+          "p": 0.3943,
+          "ci_low": -0.0802,
+          "ci_high": 0.2034
+        },
+        {
+          "cue": "gratitude",
+          "coefficient": 0.0948,
+          "se": 0.0688,
+          "p": 0.1684,
+          "ci_low": -0.0401,
+          "ci_high": 0.2297
+        },
+        {
+          "cue": "gilbert_score",
+          "coefficient": 0.0594,
+          "se": 0.0738,
+          "p": 0.4209,
+          "ci_low": -0.0852,
+          "ci_high": 0.204
+        },
+        {
+          "cue": "log_words",
+          "coefficient": 0.251,
+          "se": 0.0757,
+          "p": 0.0009,
+          "ci_low": 0.1026,
+          "ci_high": 0.3993
+        }
+      ]
+    },
+    "llama3.2:3b": {
+      "n": 1440,
+      "guess_shares": {
+        "lateral": 0.5826,
+        "up": 0.2417,
+        "down": 0.1757
+      },
+      "cue_means": {
+        "imperative_ratio": 0.3366,
+        "hedge_rate": 0.1259,
+        "you_rate": 0.0144,
+        "gratitude": 0.0,
+        "gilbert_score": 1.3507,
+        "log_words": 2.6814
+      },
+      "judge_says_down": [
+        {
+          "cue": "imperative_ratio",
+          "coefficient": 1.035,
+          "se": 0.0757,
+          "p": 0.0,
+          "ci_low": 0.8866,
+          "ci_high": 1.1834
+        },
+        {
+          "cue": "hedge_rate",
+          "coefficient": -0.5974,
+          "se": 0.1056,
+          "p": 0.0,
+          "ci_low": -0.8043,
+          "ci_high": -0.3904
+        },
+        {
+          "cue": "you_rate",
+          "coefficient": -0.0338,
+          "se": 0.0848,
+          "p": 0.6902,
+          "ci_low": -0.2,
+          "ci_high": 0.1324
+        },
+        {
+          "cue": "gilbert_score",
+          "coefficient": 0.036,
+          "se": 0.0972,
+          "p": 0.7112,
+          "ci_low": -0.1545,
+          "ci_high": 0.2265
+        },
+        {
+          "cue": "log_words",
+          "coefficient": -0.1186,
+          "se": 0.0803,
+          "p": 0.14,
+          "ci_low": -0.2761,
+          "ci_high": 0.0389
+        }
+      ],
+      "judge_says_up": [
+        {
+          "cue": "imperative_ratio",
+          "coefficient": -0.7488,
+          "se": 0.0884,
+          "p": 0.0,
+          "ci_low": -0.922,
+          "ci_high": -0.5756
+        },
+        {
+          "cue": "hedge_rate",
+          "coefficient": -0.3023,
+          "se": 0.0932,
+          "p": 0.0012,
+          "ci_low": -0.4849,
+          "ci_high": -0.1197
+        },
+        {
+          "cue": "you_rate",
+          "coefficient": -0.1795,
+          "se": 0.0793,
+          "p": 0.0235,
+          "ci_low": -0.3349,
+          "ci_high": -0.0242
+        },
+        {
+          "cue": "gilbert_score",
+          "coefficient": -0.1417,
+          "se": 0.0699,
+          "p": 0.0425,
+          "ci_low": -0.2787,
+          "ci_high": -0.0048
+        },
+        {
+          "cue": "log_words",
+          "coefficient": -0.0481,
+          "se": 0.0651,
+          "p": 0.4592,
+          "ci_low": -0.1757,
+          "ci_high": 0.0794
+        }
+      ]
+    },
+    "gpt-oss-20b": {
+      "n": 1428,
+      "guess_shares": {
+        "lateral": 0.6583,
+        "down": 0.1968,
+        "up": 0.145
+      },
+      "cue_means": {
+        "imperative_ratio": 0.407,
+        "hedge_rate": 0.0008,
+        "you_rate": 0.0195,
+        "gratitude": 0.0896,
+        "gilbert_score": 4.2329,
+        "log_words": 3.4692
+      },
+      "judge_says_down": [
+        {
+          "cue": "imperative_ratio",
+          "coefficient": 0.5204,
+          "se": 0.0744,
+          "p": 0.0,
+          "ci_low": 0.3746,
+          "ci_high": 0.6661
+        },
+        {
+          "cue": "hedge_rate",
+          "coefficient": 0.0371,
+          "se": 0.0417,
+          "p": 0.3736,
+          "ci_low": -0.0446,
+          "ci_high": 0.1188
+        },
+        {
+          "cue": "you_rate",
+          "coefficient": -0.5809,
+          "se": 0.0964,
+          "p": 0.0,
+          "ci_low": -0.7699,
+          "ci_high": -0.392
+        },
+        {
+          "cue": "gratitude",
+          "coefficient": -0.1277,
+          "se": 0.0786,
+          "p": 0.1044,
+          "ci_low": -0.2818,
+          "ci_high": 0.0264
+        },
+        {
+          "cue": "gilbert_score",
+          "coefficient": -0.1491,
+          "se": 0.0889,
+          "p": 0.0935,
+          "ci_low": -0.3232,
+          "ci_high": 0.0251
+        },
+        {
+          "cue": "log_words",
+          "coefficient": 0.2905,
+          "se": 0.0755,
+          "p": 0.0001,
+          "ci_low": 0.1425,
+          "ci_high": 0.4385
+        }
+      ],
+      "judge_says_up": [
+        {
+          "cue": "imperative_ratio",
+          "coefficient": -0.3334,
+          "se": 0.0917,
+          "p": 0.0003,
+          "ci_low": -0.5131,
+          "ci_high": -0.1537
+        },
+        {
+          "cue": "hedge_rate",
+          "coefficient": 0.0213,
+          "se": 0.0516,
+          "p": 0.6802,
+          "ci_low": -0.0799,
+          "ci_high": 0.1224
+        },
+        {
+          "cue": "you_rate",
+          "coefficient": 0.376,
+          "se": 0.0692,
+          "p": 0.0,
+          "ci_low": 0.2403,
+          "ci_high": 0.5117
+        },
+        {
+          "cue": "gratitude",
+          "coefficient": -0.1311,
+          "se": 0.0822,
+          "p": 0.1108,
+          "ci_low": -0.2922,
+          "ci_high": 0.03
+        },
+        {
+          "cue": "gilbert_score",
+          "coefficient": 0.0514,
+          "se": 0.0769,
+          "p": 0.5036,
+          "ci_low": -0.0993,
+          "ci_high": 0.2021
+        },
+        {
+          "cue": "log_words",
+          "coefficient": 0.2012,
+          "se": 0.0886,
+          "p": 0.0231,
+          "ci_low": 0.0276,
+          "ci_high": 0.3748
+        }
+      ]
+    },
+    "gpt-oss-120b": {
+      "n": 1440,
+      "guess_shares": {
+        "lateral": 0.5667,
+        "up": 0.2375,
+        "down": 0.1958
+      },
+      "cue_means": {
+        "imperative_ratio": 0.329,
+        "hedge_rate": 0.0002,
+        "you_rate": 0.0177,
+        "gratitude": 0.0049,
+        "gilbert_score": 5.2087,
+        "log_words": 3.1917
+      },
+      "judge_says_down": [
+        {
+          "cue": "imperative_ratio",
+          "coefficient": 0.6192,
+          "se": 0.0724,
+          "p": 0.0,
+          "ci_low": 0.4773,
+          "ci_high": 0.7612
+        },
+        {
+          "cue": "hedge_rate",
+          "coefficient": -0.6912,
+          "se": NaN,
+          "p": NaN,
+          "ci_low": NaN,
+          "ci_high": NaN
+        },
+        {
+          "cue": "you_rate",
+          "coefficient": -0.2715,
+          "se": 0.0856,
+          "p": 0.0015,
+          "ci_low": -0.4392,
+          "ci_high": -0.1037
+        },
+        {
+          "cue": "gratitude",
+          "coefficient": 0.0059,
+          "se": 0.0673,
+          "p": 0.9299,
+          "ci_low": -0.1259,
+          "ci_high": 0.1378
+        },
+        {
+          "cue": "gilbert_score",
+          "coefficient": -0.0172,
+          "se": 0.0777,
+          "p": 0.8252,
+          "ci_low": -0.1695,
+          "ci_high": 0.1352
+        },
+        {
+          "cue": "log_words",
+          "coefficient": -0.0226,
+          "se": 0.0814,
+          "p": 0.7812,
+          "ci_low": -0.1822,
+          "ci_high": 0.137
+        }
+      ],
+      "judge_says_up": [
+        {
+          "cue": "imperative_ratio",
+          "coefficient": -0.5012,
+          "se": 0.0844,
+          "p": 0.0,
+          "ci_low": -0.6665,
+          "ci_high": -0.3359
+        },
+        {
+          "cue": "hedge_rate",
+          "coefficient": -0.684,
+          "se": 6.1498,
+          "p": 0.9114,
+          "ci_low": -12.7373,
+          "ci_high": 11.3693
+        },
+        {
+          "cue": "you_rate",
+          "coefficient": 0.3677,
+          "se": 0.0611,
+          "p": 0.0,
+          "ci_low": 0.2479,
+          "ci_high": 0.4875
+        },
+        {
+          "cue": "gratitude",
+          "coefficient": 0.1291,
+          "se": 0.0655,
+          "p": 0.0488,
+          "ci_low": 0.0007,
+          "ci_high": 0.2575
+        },
+        {
+          "cue": "gilbert_score",
+          "coefficient": -0.0334,
+          "se": 0.0694,
+          "p": 0.6304,
+          "ci_low": -0.1694,
+          "ci_high": 0.1026
+        },
+        {
+          "cue": "log_words",
+          "coefficient": 0.0895,
+          "se": 0.0682,
+          "p": 0.1891,
+          "ci_low": -0.0441,
+          "ci_high": 0.2231
+        }
+      ]
+    },
+    "qwen3.8-27b": {
+      "n": 1440,
+      "guess_shares": {
+        "down": 0.5083,
+        "lateral": 0.3944,
+        "up": 0.0972
+      },
+      "cue_means": {
+        "imperative_ratio": 0.4263,
+        "hedge_rate": 0.005,
+        "you_rate": 0.0142,
+        "gratitude": 0.0424,
+        "gilbert_score": 5.0135,
+        "log_words": 3.7032
+      },
+      "judge_says_down": [
+        {
+          "cue": "imperative_ratio",
+          "coefficient": 0.7125,
+          "se": 0.0628,
+          "p": 0.0,
+          "ci_low": 0.5894,
+          "ci_high": 0.8355
+        },
+        {
+          "cue": "hedge_rate",
+          "coefficient": -0.1776,
+          "se": 0.0714,
+          "p": 0.0129,
+          "ci_low": -0.3176,
+          "ci_high": -0.0376
+        },
+        {
+          "cue": "you_rate",
+          "coefficient": -0.3039,
+          "se": 0.0713,
+          "p": 0.0,
+          "ci_low": -0.4435,
+          "ci_high": -0.1642
+        },
+        {
+          "cue": "gratitude",
+          "coefficient": -0.1083,
+          "se": 0.0581,
+          "p": 0.0624,
+          "ci_low": -0.2223,
+          "ci_high": 0.0056
+        },
+        {
+          "cue": "gilbert_score",
+          "coefficient": 0.0042,
+          "se": 0.0639,
+          "p": 0.9473,
+          "ci_low": -0.1211,
+          "ci_high": 0.1295
+        },
+        {
+          "cue": "log_words",
+          "coefficient": -0.1323,
+          "se": 0.0621,
+          "p": 0.0331,
+          "ci_low": -0.2539,
+          "ci_high": -0.0106
+        }
+      ],
+      "judge_says_up": [
+        {
+          "cue": "imperative_ratio",
+          "coefficient": -0.838,
+          "se": 0.1108,
+          "p": 0.0,
+          "ci_low": -1.0551,
+          "ci_high": -0.6208
+        },
+        {
+          "cue": "hedge_rate",
+          "coefficient": -0.0023,
+          "se": 0.0946,
+          "p": 0.9807,
+          "ci_low": -0.1877,
+          "ci_high": 0.1831
+        },
+        {
+          "cue": "you_rate",
+          "coefficient": 0.1921,
+          "se": 0.1016,
+          "p": 0.0586,
+          "ci_low": -0.007,
+          "ci_high": 0.3912
+        },
+        {
+          "cue": "gratitude",
+          "coefficient": -0.0937,
+          "se": 0.1035,
+          "p": 0.3654,
+          "ci_low": -0.2966,
+          "ci_high": 0.1092
+        },
+        {
+          "cue": "gilbert_score",
+          "coefficient": 0.0881,
+          "se": 0.1121,
+          "p": 0.4319,
+          "ci_low": -0.1316,
+          "ci_high": 0.3077
+        },
+        {
+          "cue": "log_words",
+          "coefficient": 0.4656,
+          "se": 0.0931,
+          "p": 0.0,
+          "ci_low": 0.2831,
+          "ci_high": 0.6481
+        }
+      ]
+    }
+  },
+  "figure_down": "/home/eunai9/projects/thesis/docs/figures/role_cues_down.png",
+  "figure_up": "/home/eunai9/projects/thesis/docs/figures/role_cues_up.png"
+}

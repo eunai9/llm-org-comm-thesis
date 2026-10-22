@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from thesis.analysis.plots import (
@@ -150,3 +151,27 @@ def test_interaction_plot_accepts_a_log_axis_with_explicit_ticks(tmp_path: Path)
     )
     assert out.exists()
     assert out.stat().st_size > 0
+
+
+def test_plot_coefficient_heatmap_writes_a_png(tmp_path: Path) -> None:
+    from thesis.analysis.plots import plot_coefficient_heatmap
+
+    values = np.array([[0.5, np.nan], [-1.2, 0.1]])
+    out = plot_coefficient_heatmap(
+        ["a", "b"],
+        ["x", "y"],
+        values,
+        np.array([[0.01, np.nan], [0.0001, 0.6]]),
+        tmp_path / "h.png",
+        title="t",
+    )
+    assert out.exists()
+
+
+def test_plot_coefficient_heatmap_rejects_mismatched_shapes(tmp_path: Path) -> None:
+    from thesis.analysis.plots import plot_coefficient_heatmap
+
+    with pytest.raises(ValueError):
+        plot_coefficient_heatmap(
+            ["a"], ["x", "y"], np.zeros((2, 2)), np.zeros((2, 2)), tmp_path / "h.png", title="t"
+        )

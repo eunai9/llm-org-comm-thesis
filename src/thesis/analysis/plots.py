@@ -482,6 +482,54 @@ def plot_effect_intervals(
     return _finish(fig, ax, title, subtitle, path)
 
 
+def plot_coefficient_heatmap(
+    row_labels: Sequence[str],
+    col_labels: Sequence[str],
+    values: np.ndarray,
+    pvalues: np.ndarray,
+    path: Path,
+    *,
+    title: str,
+    subtitle: str = "",
+) -> Path:
+    """A grid of signed coefficients, one cell per (row, column), with stars.
+
+    Positive cells shade toward the first series color, negative toward the
+    second, both scaled to the largest absolute value. A NaN cell is left blank.
+    """
+    if values.shape != (len(row_labels), len(col_labels)) or pvalues.shape != values.shape:
+        msg = "values and pvalues must be rows x columns"
+        raise ValueError(msg)
+    limit = float(np.nanmax(np.abs(values))) or 1.0
+    cmap = matplotlib.colors.LinearSegmentedColormap.from_list(
+        "signed", [SERIES_2, SURFACE, SERIES_1]
+    )
+
+    fig, ax = plt.subplots(figsize=(1.35 * len(col_labels) + 2.6, 0.55 * len(row_labels) + 1.6))
+    _style_axes(ax)
+    ax.imshow(np.ma.masked_invalid(values), cmap=cmap, vmin=-limit, vmax=limit, aspect="auto")
+    for i in range(values.shape[0]):
+        for j in range(values.shape[1]):
+            if np.isnan(values[i, j]):
+                continue
+            p = pvalues[i, j]
+            stars = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else ""
+            ax.text(
+                j,
+                i,
+                f"{values[i, j]:+.2f}{stars}",
+                ha="center",
+                va="center",
+                color=INK_PRIMARY,
+                fontsize=9,
+            )
+    ax.set_xticks(range(len(col_labels)), list(col_labels))
+    ax.set_yticks(range(len(row_labels)), list(row_labels))
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    return _finish(fig, ax, title, subtitle, path)
+
+
 def plot_value_spread(
     groups: dict[str, Sequence[float]],
     path: Path,
