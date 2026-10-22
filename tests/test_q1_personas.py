@@ -1,7 +1,9 @@
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from thesis.analysis.q1_personas import REPLY_OUTCOMES, analyse_persona_grid, generate_persona_grid
 from thesis.llm.base import Capabilities, CompletionRequest, CompletionResponse, Provider, Usage
@@ -117,3 +119,32 @@ def test_analysis_finds_more_orders_writing_down() -> None:
 def test_analysis_runs_with_missing_rows() -> None:
     result = analyse_persona_grid(_synthetic_grid(drop=5), {})
     assert result["n_replies"] == len(_synthetic_grid()) - 5
+
+
+class InvalidReplyClient(FakeClient):
+    """Returns replies that run_grid rejects, so no cell yields a row."""
+
+    def complete(self, request: CompletionRequest) -> CompletionResponse:
+        response = super().complete(request)
+        return replace(response, parsed={"subject": "Re: update"})
+
+
+def test_generate_persona_grid_raises_when_no_cell_is_valid(tmp_path: Path) -> None:
+    with pytest.raises(RuntimeError, match=r"llama3.2:3b: 0 of 6 cells returned a valid reply"):
+        generate_persona_grid(
+            InvalidReplyClient(),
+            model="llama3.2:3b",
+            design="pilot",
+            stores={},
+            cache=ResponseCache(tmp_path / "cache"),
+            ledger=CostLedger(tmp_path / "ledger.csv"),
+            limit=6,
+        )
+
+
+def test_analysis_reports_only_directions_present() -> None:
+    grid = _synthetic_grid()
+    result = analyse_persona_grid(grid[grid["direction"] != "down"], {})
+    assert result["directions"] == ["up"]
+    assert "up" in result["primary"]
+    assert "down" not in result["primary"]

@@ -112,6 +112,9 @@ def generate_persona_grid(
         manifest=manifest,
         progress_every=progress_every,
     )
+    if not rows:
+        msg = f"{model}: 0 of {len(cells)} cells returned a valid reply"
+        raise RuntimeError(msg)
     frame = pd.DataFrame.from_records(rows)
     traits = frame["persona_id"].map(variant_traits)
     frame["base_persona_id"] = traits.str[0]
@@ -126,6 +129,8 @@ def generate_persona_grid(
 def _contrasts(fit: FixedEffectsResult) -> dict[str, dict[str, float]]:
     out = {}
     for level in ("down", "up"):
+        if f"direction[T.{level}]" not in fit.coefficients:
+            continue
         coefficient, p = fit.contrast(level)
         se = next(v for k, v in fit.std_errors.items() if k.endswith(f"[T.{level}]"))
         out[level] = {"coefficient": round(coefficient, 4), "se": round(se, 4), "p": round(p, 6)}
@@ -182,6 +187,7 @@ def analyse_persona_grid(
     return {
         "n_replies": len(frame),
         "n_personas": int(frame["persona_id"].nunique()),
+        "directions": sorted(set(frame["direction"]) - {"lateral"}),
         "primary": _contrasts(primary),
         "reply_level": reply_level,
         "traits": traits,
