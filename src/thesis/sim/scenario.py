@@ -84,6 +84,7 @@ class Scenario:
     tone: Tone
     situation: str
     incoming_message: str
+    receiver: str | None = None
 
 
 # Situation templates per task type. Each is deliberately generic business
@@ -264,7 +265,11 @@ def render_scenario_block(scenario: Scenario) -> str:
             "## Situation",
             "",
             scenario.situation,
-            _DIRECTION_FRAMING[scenario.direction],
+            (
+                f"You are writing to {scenario.receiver}."
+                if scenario.receiver is not None
+                else _DIRECTION_FRAMING[scenario.direction]
+            ),
             _STAKES_FRAMING[scenario.stakes],
             "",
             "## The message you received",
