@@ -29,7 +29,7 @@ directly (the Q1 real-email comparison).
 
 Other open items: a run without the "act" instruction, an embedding map and
 review pack for the newer models, and committing the blind-coding module.
-See "21. Next steps" at the end.
+See "22. Next steps" at the end.
 
 ---
 
@@ -700,13 +700,13 @@ tables -- same effect, two different standard errors.
   standard deviation (`hierarchy.py`). gpt-oss-120b's case (reported p=5e-08,
   honest p≈.001) is what exposed it. Fixed: the code now also fits a
   persona-clustered cross-check on its own (`Q1Result.sentence_model_persona_fe`,
-  commit `85e833a`) -- see the "21. Next steps" done-block below for what still
+  commit `85e833a`) -- see the "22. Next steps" done-block below for what still
   needs it substituted in.
 - **Two small bugs found while checking this result, since fixed.** The Q1
   grid generator now writes `prompt_text_hash()` onto the saved grid instead
   of only computing it in memory (commit `5ee4b46`), and `q1_models.py`'s
   grid loader now counts real cache/generation numbers instead of
-  hard-coding every row as "from cache" (commit `36fbc3e`). See "21. Next
+  hard-coding every row as "from cache" (commit `36fbc3e`). See "22. Next
   steps" for the one small gap that remains.
 
 ---
@@ -1020,7 +1020,7 @@ Chance that a sentence gives an order, by direction:
   scale** (1.98 at pilot scale, 4.75 for real email). A short reply
   inflates the "orders per sentence" share for the same underlying
   behavior -- the same caveat the pilot section raised. No length-matched
-  version of this comparison exists yet (see "21. Next steps").
+  version of this comparison exists yet (see "22. Next steps").
 - **qwen3.8-27b shows the biggest writing-down effect of the four:
   +0.510, about twice real email's +0.253.** Its replies are 3.87
   sentences long, the closest to real email's 4.75, so the short-reply
@@ -1845,7 +1845,70 @@ Manifest: `outputs/manifests/judge_swap_free_tier.json`. Prompt hash
 
 ---
 
-## 19. A parallel Q1 experiment: persona variants and new measures (Q1, Oct 15)
+## 19. Does showing the judge the incoming message help? A planned rerun (Q3, Oct 23)
+
+Status: planned, not run yet.
+
+**The problem.** Two rubric items ask about things the judge never sees.
+
+- `contextual_fit` asks if the reply fits the message it answers. The judge
+  does not get that message.
+- `role_consistency` asks if the reply fits the writer's role. The judge
+  does not get the role.
+
+So for these two items the judge scores the reply alone. Its scores may
+not mean what the item names say. Section 18 already found that these two
+items carry most of the judge disagreement.
+
+**The question.** If the judge also sees the incoming message, does
+`contextual_fit` get better at finding bad replies?
+
+**Which replies are bad.** In 100 Llama replies, 25 were coded as
+"mirrored": they repeat the request back instead of answering it
+(`PROGRESS.md` section 35). A good `contextual_fit` judge should score
+these 25 lower than the other 75.
+
+**The test.** Each judge scores the same 100 replies twice:
+
+1. Reply only (the current setup).
+2. Reply plus the incoming message.
+
+Then compare the gap between mirrored and sound replies in the two
+versions. The gap is tested with a rank-sum test. The shift in every
+item's score between the two versions is tested with a signed-rank test,
+paired by reply.
+
+**Why run it again.** It was run once in August with qwen2.5:3b as judge
+(`PROGRESS.md` section 35). The message raised every score by 0.4 to 0.7,
+but the gap did not grow (p=.32 without the message, p=.38 with it). That
+judge later failed the self-agreement check (section 16, kappa 0.293), so
+the result is weak. This rerun uses the current judges.
+
+**Judges.** gpt-oss-20b (NVIDIA) and gpt-oss-120b (Groq). 200 calls each.
+
+**What we learn.**
+
+- If the gap grows: the fix works. Future judging should include the
+  incoming message.
+- If the gap does not grow: even strong judges cannot catch mirroring.
+  `contextual_fit` scores should be reported with this limit, and only a
+  human check can close it.
+
+**Code change needed.** `src/thesis/analysis/judge_blindness.py` only
+talks to a local Ollama model. It will reuse `client_for_model` from
+`judge_swap.py` to reach NVIDIA and Groq. Output files will carry the
+judge's name, so the August result is not overwritten.
+
+**Limits.**
+
+- The 25 "mirrored" codes are Claude's first pass, not a person's.
+- Only Llama replies are tested, and only 25 of them are mirrored.
+- The role is still not shown to the judge. This test covers
+  `contextual_fit` only.
+
+---
+
+## 20. A parallel Q1 experiment: persona variants and new measures (Q1, Oct 15)
 
 This is a second Q1 experiment. It runs next to the existing one and does
 not replace it. The two will be compared later.
@@ -1983,7 +2046,7 @@ person the reply is sent to.
 
 ---
 
-## 20. Where the code lives
+## 21. Where the code lives
 
 **The clients.** `src/thesis/llm/openai_compatible.py` holds the shared
 request and retry logic. `nvidia_client.py` and `groq_client.py` are thin
@@ -2032,7 +2095,7 @@ made along the way, are in `PROGRESS_nvidia.md`.
 
 ---
 
-## 21. Next steps
+## 22. Next steps
 
 Most valuable first.
 
