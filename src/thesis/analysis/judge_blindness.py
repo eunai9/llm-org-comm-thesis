@@ -30,13 +30,16 @@ from __future__ import annotations
 
 import argparse
 import json
-from collections.abc import Sequence
+import re
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from scipy import stats
 
+from thesis.analysis.judge_swap import client_for_model
 from thesis.analysis.plots import plot_factor_interaction
 from thesis.judge.prompt import JudgeItem
 from thesis.judge.run import JudgeResult, score_items
@@ -60,6 +63,24 @@ CODED_PATH: Path = TABLES_DIR / "manual_review_coded_first_pass.csv"
 # The dimension the argument is about: it is the one that explicitly asks
 # about the message being replied to.
 FOCUS_DIMENSION = "contextual_fit"
+
+
+def output_suffix(model: str) -> str:
+    """File-name suffix for a judge; empty for the default judge, so its files keep their names."""
+    if model == DEFAULT_JUDGE_MODEL:
+        return ""
+    name = model.split("/")[-1].split("@")[0]
+    return "_" + re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+
+
+def plot_subtitle(summary: Mapping[str, Any], *, judge: str) -> str:
+    """The figure subtitle: the judge, both gap p-values, and n."""
+    reply_only = summary["reply only"]
+    with_context = summary["with context"]
+    return (
+        f"Judge {judge}. Sound vs. mirrored gap: p={reply_only['p_value']} (reply only), "
+        f"p={with_context['p_value']} (with context). n={reply_only['n']}, scored twice."
+    )
 
 
 def build_items(frame: pd.DataFrame, *, with_context: bool) -> list[JudgeItem]:
@@ -151,7 +172,7 @@ def _context_effect(scored: pd.DataFrame) -> dict[str, object]:
     return effects
 
 
-def plot(scored: pd.DataFrame) -> Path:
+def plot(scored: pd.DataFrame, summary: Mapping[str, Any], *, model: str) -> Path:
     """The interaction the result lives in: two lines, one per manual code."""
     means = scored.groupby(["arm", "mirrored"])[f"score_{FOCUS_DIMENSION}"].mean()
     arms = ("reply only", "with context")
@@ -161,12 +182,9 @@ def plot(scored: pd.DataFrame) -> Path:
             "coded sound by a reader": tuple(float(means[(arm, False)]) for arm in arms),
             "coded as mirroring the request": tuple(float(means[(arm, True)]) for arm in arms),
         },
-        path=DOCS_FIGURES_DIR / "judge_context_contextual_fit.png",
-        title="Showing the judge the incoming message: more generous, no better",
-        subtitle=(
-            "Both lines rise (p<.001); neither gap between them is distinguishable from "
-            "noise (p=.32, p=.38). n=100, scored twice."
-        ),
+        path=DOCS_FIGURES_DIR / f"judge_context_contextual_fit{output_suffix(model)}.png",
+        title="Showing the judge the incoming message",
+        subtitle=plot_subtitle(summary, judge=model),
         x_label="what the judge was shown",
         y_label="mean contextual-fit score (1-5)",
         legend_loc="upper left",
@@ -209,7 +227,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--coded", default=str(CODED_PATH))
     parser.add_argument("--model", default=DEFAULT_JUDGE_MODEL)
-    parser.add_argument("--out", default=str(TABLES_DIR / "judge_context_scores.csv"))
+    parser.add_argument("--out", default=None)
     args = parser.parse_args()
 
     configure_logging()
@@ -217,16 +235,18 @@ def main() -> None:
 
     from thesis.llm.ollama_client import OllamaClient, OllamaUnavailableError
 
-    client = OllamaClient(args.model)
-    if not client.is_available():
+    suffix = output_suffix(args.model)
+    out = Path(args.out) if args.out else TABLES_DIR / f"judge_context_scores{suffix}.csv"
+    client = client_for_model(args.model)
+    if isinstance(client, OllamaClient) and not client.is_available():
         msg = "no Ollama server reachable; start it with 'ollama serve'."
         raise OllamaUnavailableError(msg)
 
     frame = pd.read_csv(args.coded)
     scored, summary = run(frame, client, model=args.model)
-    scored.to_csv(args.out, index=False)
-    log.info("wrote %s", plot(scored))
-    (MANIFESTS_DIR / "judge_blindness.json").write_text(
+    scored.to_csv(out, index=False)
+    log.info("wrote %s", plot(scored, summary, model=args.model))
+    (MANIFESTS_DIR / f"judge_blindness{suffix}.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8"
     )
     log.info("judge blindness summary: %s", json.dumps(summary))
