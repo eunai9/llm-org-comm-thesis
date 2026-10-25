@@ -334,9 +334,9 @@ only), 0.903 (full text), 0.841 (same length).
   comes from a rebuild of it, made from its description in
   `PROGRESS_nvidia.md`. On the other four models the rebuild matches the
   logged text AUCs within 0.002 and the length-only AUCs within 0.009.
-  The rebuild is now 
-  (). Manifest:
-  . qwen is not in the word table below.
+  The rebuild is now `src/thesis/analysis/word_auc.py`
+  (`python -m thesis.analysis.word_auc --pairs PATH --out PATH`). Manifest:
+  `outputs/manifests/word_auc_qwen.json`. qwen is not in the word table below.
 
 **Which words give each model away.** Share of replies containing the word,
 model against real replies (real percentages vary slightly by row, because
