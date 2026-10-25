@@ -19,9 +19,9 @@ directly (the Q1 real-email comparison).
 
 | | Llama 3.2 3B | DeepSeek V4 Flash | gpt-oss-20b | gpt-oss-120b | qwen3.8-27b |
 |---|---|---|---|---|---|
-| 183 real-email pairs generated | Yes (see `PROGRESS.md`) | Yes | Yes | Yes | No |
-| Mirroring measured | Yes | Yes | Yes | Yes | No |
-| Told apart from real writing (AUC) measured | Yes | Yes | Yes | Yes | No |
+| 183 real-email pairs generated | Yes (see `PROGRESS.md`) | Yes | Yes | Yes | Yes (182 valid) |
+| Mirroring measured | Yes | Yes | Yes | Yes | Yes |
+| Told apart from real writing (AUC) measured | Yes | Yes | Yes | Yes | Yes |
 | Q1 grid (240 replies) generated | Yes | Yes | Yes | Yes | Yes (inside the full grid) |
 | Q1 full grid (1,440 cells) generated | Yes | No | Yes | Yes | Yes |
 | Q1 checked against the real-email benchmark | Yes | Yes | Yes | Yes | Yes |
@@ -41,7 +41,7 @@ See "22. Next steps" at the end.
 | DeepSeek V4 Flash | DeepSeek | NVIDIA free tier | none | |
 | gpt-oss-20b | OpenAI | NVIDIA free tier | `@low` reasoning effort | Without it, some replies run past the JSON until the token limit. |
 | gpt-oss-120b | OpenAI | Groq free tier | `@low` reasoning effort | NVIDIA does not serve this model. This laptop cannot run it: it needs about 60 GB of memory, and the laptop has 16 GB plus 1 GB of graphics memory. |
-| qwen3.8-27b | Alibaba (Qwen) | Groq free tier | none | Takes DeepSeek's place in the full Q1 grid, since NVIDIA retired DeepSeek (section 18). Used for the Q1 grid only. |
+| qwen3.8-27b | Alibaba (Qwen) | Groq free tier | none | Takes DeepSeek's place in the full Q1 grid, since NVIDIA retired DeepSeek (section 18). Used for the Q1 grid and the Q2 pairs. A writer only in the judge swap: as a judge it fails Groq's JSON check too often. |
 
 The first four answer the same 183 real email threads with the same prompt,
 including the "act" instruction from `PROGRESS.md` section 43 (the persona
@@ -224,6 +224,7 @@ question here is whether larger models do it too.
 | DeepSeek V4 Flash | 0.413 | 1.1% | 40.1 words |
 | gpt-oss-20b | 0.322 | 1.1% | 32.8 words |
 | gpt-oss-120b | 0.405 | 2.2% | 28.6 words |
+| qwen3.8-27b | 0.235 | 0.0% | 48.3 words |
 | Real replies | 0.301 | | 65.0 words |
 
 At full length, gpt-oss-20b sits closest to real replies. But this ranking
@@ -239,6 +240,7 @@ Llama and shorter than real people, so length alone moves this table.
 | DeepSeek V4 Flash | 0.469 | 8.2% |
 | gpt-oss-20b | 0.373 | 4.9% |
 | gpt-oss-120b | 0.435 | 4.4% |
+| qwen3.8-27b | 0.298 | 1.6% |
 | Real replies | 0.294 | 9.8% |
 
 ![Mean borrowed words by model, every reply cut to the Llama length, next to the real replies.](docs/figures/nvidia_four_models_mirroring.png)
@@ -252,6 +254,7 @@ Llama and shorter than real people, so length alone moves this table.
 | DeepSeek V4 Flash | -0.095 | < 0.0001 | 12 | 32 | 0.004 |
 | gpt-oss-20b | -0.191 | < 0.0001 | 7 | 33 | < 0.0001 |
 | gpt-oss-120b | -0.129 | < 0.0001 | 3 | 30 | < 0.0001 |
+| qwen3.8-27b | -0.268 | < 0.0001 | 3 | 35 | < 0.0001 |
 
 The score test (Wilcoxon signed-rank) asks whether the borrowed-words scores
 moved. The flag test (McNemar) counts only the replies whose flagged status
@@ -263,6 +266,12 @@ slightly less often.
 **What this means.** Mirroring looks mainly like a weakness of the small
 local model, not something all LLMs do. All four models still borrow more
 than real writers, 0.294, so none of them fully matches human behavior.
+
+**qwen3.8-27b (added Oct 25).** 182 of 183 replies were valid. qwen
+mirrors the least of the five models. At the same length it borrows
+0.298 of its words from the sender, almost the same as real replies
+(0.294). At full length no qwen reply is flagged. Manifest:
+`outputs/manifests/mirroring_qwen.json`.
 
 **Caveats.**
 
@@ -302,6 +311,7 @@ with-instruction Llama grid).
 | DeepSeek V4 Flash | 0.571 | 0.978 | 0.977 |
 | gpt-oss-20b | 0.687 | 0.974 | 0.970 |
 | gpt-oss-120b | 0.748 | 0.969 | 0.962 |
+| qwen3.8-27b | 0.473 | 0.983 | 0.982 |
 
 For reference, the earlier, no-instruction Llama grid gave 0.879 (length
 only), 0.903 (full text), 0.841 (same length).
@@ -316,6 +326,15 @@ only), 0.903 (full text), 0.841 (same length).
 - **Every free-tier model is still easy to spot by its words**, at 0.96 to
   0.98 even at the same length. Being bigger did not make gpt-oss-120b
   harder to tell from a real person than gpt-oss-20b.
+- **qwen3.8-27b (added Oct 25): length does not give it away at all**
+  (0.473, about chance). Its replies are 48 words on average, close to
+  real ones. **But its words give it away the most of all five models**
+  (0.982 at the same length).
+- The one-off script behind this table was never saved. The qwen row
+  comes from a rebuild of it, made from its description in
+  `PROGRESS_nvidia.md`. On the other four models the rebuild matches the
+  logged text AUCs within 0.002 and the length-only AUCs within 0.009.
+  qwen is not in the word table below.
 
 **Which words give each model away.** Share of replies containing the word,
 model against real replies (real percentages vary slightly by row, because
@@ -389,6 +408,7 @@ generation was needed.
 | DeepSeek V4 Flash | 0.911 | 0.907 | 0.858 |
 | gpt-oss-20b | 0.932 | 0.924 | 0.814 |
 | gpt-oss-120b | 0.904 | 0.909 | 0.825 |
+| qwen3.8-27b | 0.934 | 0.936 | 0.819 |
 
 "Same length" cuts each real reply to its AI partner's word count first.
 "Tracks its own email" is how often a generated reply sits closer to the
@@ -419,7 +439,9 @@ since the word-choice check agrees by a completely different method.
 
 Source: `python -m thesis.analysis.embedding_map --pairs
 data/interim/pairs_<model>.parquet`, run once per model. Manifests:
-`outputs/manifests/embedding_map_{act,deepseek,gpt_oss,gpt_oss_120b}.json`.
+`outputs/manifests/embedding_map_{act,deepseek,gpt_oss,gpt_oss_120b,qwen}.json`.
+qwen (added Oct 25, 182 pairs) fits the free-tier pattern: easy to tell
+apart, and length explains none of it.
 
 ---
 
@@ -2043,6 +2065,58 @@ validated open list was found. Here the categories come from spaCy
 part-of-speech tags plus short word lists, which is an approximation of
 LIWC. The message before a reply in a thread is not always from the
 person the reply is sent to.
+
+**Pilot results (Oct 25).** 40 personas, 832 cells per model. Two of
+four models are done. gpt-oss-120b and qwen are still running.
+
+Orders: log-odds that a sentence gives an order, against writing to a
+peer. Persona fixed effects, standard errors clustered by persona. The
+10-persona rows are from section 13. Real email is the robust fit from
+section 15.
+
+| Model | Design | Valid replies | Writing down | p | Writing up | p |
+|---|---|---:|---:|---:|---:|---:|
+| Llama 3.2 3B | 40 personas | 832 of 832 | -0.148 | .22 | -0.100 | .46 |
+| Llama 3.2 3B | 10 personas | 4,320 | +0.127 | <.001 | -0.009 | .82 |
+| gpt-oss-20b | 40 personas | 823 of 832 | +0.009 | .90 | -0.064 | .37 |
+| gpt-oss-20b | 10 personas | 1,428 | +0.258 | <.001 | +0.005 | .95 |
+| Real email | | 2,202 | +0.253 | <.001 | +0.072 | .40 |
+
+New measures, against writing to a peer. Real email is from the tests
+above.
+
+| Measure | Real email | Llama 3.2 3B | gpt-oss-20b |
+|---|---|---|---|
+| "you" rate | More when writing down | No difference | More when writing down (p=.04) |
+| Hierarchy phrases | More when writing up | More when writing down (p=.004); up not significant (p=.07) | More when writing down (p=.04) |
+| Gratitude | More when writing down | Not testable: no reply thanks anyone | No difference |
+| Hedges | No difference | Fewer when writing down (p=.006) | No difference |
+
+Trait check, effect on the share of sentences that are orders:
+
+- Llama: internal-hire personas give fewer orders (-0.069, p<.001).
+  Tenure has no effect.
+- gpt-oss-20b: 2-year personas give slightly more orders than 12-year
+  personas (+0.030, p=.04). Origin has no effect.
+
+**Llama 3.2 3B.** The rank effect on orders is gone with 40 personas. The
+sign even flips, though it is not significant. Its replies are very short
+(median 20 words), so gratitude cannot be measured. None of the new
+measures matches real email.
+
+**gpt-oss-20b.** In the 10-persona design it matched real email exactly on
+orders writing down. With 40 personas that effect is about zero. "you" is
+the one new measure that matches real email. Hierarchy phrases go the
+wrong way: more when writing down, where real email has more when writing
+up.
+
+**What this means so far.** For both models, the 10-persona rank effect
+does not hold up with 40 personas. So it probably came from the few
+persona prompts, not from rank. This is the risk this design was built to
+check. Caveat: each pilot has 832 replies against 1,428 to 4,320 in the
+10-persona runs, so it has less power.
+
+Manifests: `outputs/manifests/q1_personas_{llama,gpt_oss_20b}_pilot.json`.
 
 ---
 

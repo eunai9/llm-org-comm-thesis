@@ -1,0 +1,83 @@
+{
+  "n_replies": 832,
+  "n_personas": 40,
+  "directions": [
+    "down",
+    "up"
+  ],
+  "primary": {
+    "down": {
+      "coefficient": -0.1478,
+      "se": 0.1204,
+      "p": 0.219744
+    },
+    "up": {
+      "coefficient": -0.0999,
+      "se": 0.1361,
+      "p": 0.46311
+    }
+  },
+  "reply_level": {
+    "imperative_ratio": {
+      "down": {
+        "coefficient": -0.0538,
+        "se": 0.0313,
+        "p": 0.085722
+      },
+      "up": {
+        "coefficient": -0.0177,
+        "se": 0.0373,
+        "p": 0.634947
+      }
+    },
+    "hedge_rate": {
+      "down": {
+        "coefficient": -0.0725,
+        "se": 0.0266,
+        "p": 0.006301
+      },
+      "up": {
+        "coefficient": -0.0186,
+        "se": 0.026,
+        "p": 0.474854
+      }
+    },
+    "you_rate": {
+      "down": {
+        "coefficient": -0.0007,
+        "se": 0.0012,
+        "p": 0.525027
+      },
+      "up": {
+        "coefficient": 0.0004,
+        "se": 0.0011,
+        "p": 0.694165
+      }
+    },
+    "gilbert_score": {
+      "down": {
+        "coefficient": 2.1938,
+        "se": 0.7547,
+        "p": 0.003651
+      },
+      "up": {
+        "coefficient": 1.6466,
+        "se": 0.9077,
+        "p": 0.069669
+      }
+    }
+  },
+  "traits": {
+    "tenure": {
+      "term": "C(tenure)[T.2]",
+      "coefficient": -0.0132,
+      "p": 0.516666
+    },
+    "origin": {
+      "term": "C(origin)[T.internal]",
+      "coefficient": -0.0685,
+      "p": 0.000778
+    }
+  },
+  "mean_sentences_per_reply": 1.48
+}
