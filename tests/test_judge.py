@@ -37,6 +37,7 @@ from thesis.judge.run import (
 from thesis.llm.base import CompletionRequest, CompletionResponse, Provider, Usage
 from thesis.llm.cache import ResponseCache
 from thesis.llm.cost import CostLedger
+from thesis.llm.openai_compatible import ModelGenerationError
 
 
 def _item(
@@ -54,13 +55,16 @@ def _full_payload(score: int = 3) -> dict[str, Any]:
 class _ScriptedClient:
     provider: Provider = "anthropic"
 
-    def __init__(self, responses: list[CompletionResponse]) -> None:
+    def __init__(self, responses: list[CompletionResponse | Exception]) -> None:
         self._responses = list(responses)
         self.calls: list[CompletionRequest] = []
 
     def complete(self, request: CompletionRequest) -> CompletionResponse:
         self.calls.append(request)
-        return self._responses.pop(0)
+        response = self._responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return response
 
 
 def _response(payload: dict[str, Any] | None, model: str = "claude-opus-5") -> CompletionResponse:
@@ -273,6 +277,27 @@ def test_score_items_records_invalid_without_dropping_the_rest(tmp_path: Path) -
     assert summary.n_invalid == 1
     assert summary.n_scored == 1
     assert len(results) == 1
+
+
+def test_score_items_skips_an_item_the_model_cannot_answer_in_json(tmp_path: Path) -> None:
+    """A provider-side JSON failure counts as invalid; it must not stop the batch."""
+    client = _ScriptedClient(
+        [ModelGenerationError("Groq API returned 400"), _response(_full_payload())]
+    )
+    items = [_item("i1", text="First message."), _item("i2", text="Second message.")]
+    cache = ResponseCache(tmp_path / "cache")
+    results, summary = score_items(
+        items,
+        client,
+        variant="neutral",
+        model="claude-opus-5",
+        cache=cache,
+        ledger=CostLedger(tmp_path / "ledger.csv"),
+        run_id="r1",
+    )
+    assert summary.n_invalid == 1
+    assert summary.n_scored == 1
+    assert [r.item_id for r in results] == ["i2"]
 
 
 def test_score_items_handles_missing_parsed_payload(tmp_path: Path) -> None:
