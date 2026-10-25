@@ -1,0 +1,11 @@
+{
+  "auc_full_text": 0.983,
+  "auc_length_only": 0.473,
+  "auc_same_length": 0.982,
+  "generated_replies_changed": 1,
+  "mean_generated_words": 48.3,
+  "mean_real_words": 58.7,
+  "n_pairs": 182,
+  "real_lines_removed": 281,
+  "real_replies_changed": 58
+}
