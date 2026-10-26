@@ -1617,6 +1617,24 @@ Judge = gpt-oss-120b:
 | politeness_appropriateness | 3.83 | 4.47 | 4.40 |
 | conflict_management | 3.50 | 4.14 | 4.08 |
 
+**qwen3.8-27b replies (added Oct 26).** The same 60 scenarios, written by
+qwen and scored by the same three judges. qwen does not judge (section 18).
+
+| Item | Judge llama3.2:3b | Judge gpt-oss-20b | Judge gpt-oss-120b |
+|---|---:|---:|---:|
+| overall rubric mean | 4.50 | 4.53 | 4.42 |
+| role_consistency | 4.57 | 4.28 | 3.83 |
+| contextual_fit | 4.65 | 4.75 | 4.78 |
+| corpus_plausibility | 4.63 | 4.72 | 4.68 |
+| clarity | 4.65 | 4.93 | 4.85 |
+| politeness_appropriateness | 4.43 | 4.20 | 4.25 |
+| conflict_management | 4.08 | 4.28 | 4.15 |
+
+qwen's replies stay in the high band under every judge, like the gpt-oss
+replies. Only role_consistency drops a little under gpt-oss-120b (3.83).
+So llama's replies are still the only ones the gpt-oss judges score much
+lower. Manifest: `outputs/manifests/judge_swap_free_tier_qwen.json`.
+
 **What this means.**
 
 - **The narrow band only holds under llama's own judging.** Under llama as
@@ -1837,6 +1855,37 @@ error -- `judge/run.py`'s cost check named the local-model case but not the
 free-tier API case. Fixed in the same commit, with a regression test per
 provider.
 
+**qwen added as a writer (Oct 26).** qwen writes replies to the same 60
+scenarios. It was meant to judge too, but it fails Groq's JSON check on
+about 40% of its judge answers, and Groq's rate limits made the retries
+take days. So qwen is a writer only, and its own self-preference is not
+tested.
+
+qwen is useful in another way. It does not judge, so like DeepSeek it is a
+neutral reference writer. Re-fitting the same model with qwen as the
+reference writer checks the correction above a second time.
+
+| Self-preference, overall rubric mean | Reference: llama | Reference: DeepSeek | Reference: qwen |
+|---|---:|---:|---:|
+| gpt-oss-120b | +0.681 (p<.0001) | -0.211 (p=.086) | -0.050 (p=.68) |
+| gpt-oss-20b | +0.587 (p<.0001) | -0.241 (p=.051) | -0.124 (p=.31) |
+
+With qwen as the reference, self-preference is again about zero. Two
+different neutral writers give the same answer. This supports the
+correction: the gpt-oss judges do not favor their own writing. They are
+harsh on llama's writing. On single items, only gpt-oss-20b's
+role_consistency is below zero (-0.462, p=.014). It does not survive a
+Holm correction across the 14 tests.
+
+qwen's writing quality, judged against llama's: +0.219 (p=.011). It sits
+between DeepSeek (+0.156, p=.071) and the two gpt-oss models (+0.33 and
++0.35).
+
+Manifests: `outputs/manifests/judge_swap_free_tier_qwen.json` (llama as
+reference) and `outputs/manifests/judge_swap_free_tier_qwen_ref.json`
+(qwen as reference, made with `--analyse-only` and qwen listed last in
+`--generators`).
+
 **Recommendation.** For future automated judging in this project, pair
 gpt-oss-20b as generator with llama3.2:3b as judge. Both gpt-oss models
 write better replies than llama by llama's own judgment (+0.35 and +0.33,
@@ -1871,7 +1920,7 @@ Manifest: `outputs/manifests/judge_swap_free_tier.json`. Prompt hash
 
 ## 19. Does showing the judge the incoming message help? A planned rerun (Q3, Oct 23)
 
-Status: planned, not run yet.
+Status: run on Oct 25. The result is at the end of this section.
 
 **The problem.** Two rubric items ask about things the judge never sees.
 
@@ -1929,6 +1978,47 @@ judge's name, so the August result is not overwritten.
 - Only Llama replies are tested, and only 25 of them are mirrored.
 - The role is still not shown to the judge. This test covers
   `contextual_fit` only.
+
+**Result (Oct 25).** It depends on the judge. With the incoming message,
+gpt-oss-120b tells mirrored replies apart. gpt-oss-20b does not.
+
+Mean `contextual_fit` (1-5), 75 sound and 25 mirrored replies. The gap is
+sound minus mirrored, tested with a rank-sum test.
+
+| Judge | Shown | Sound | Mirrored | Gap | p |
+|---|---|---:|---:|---:|---:|
+| gpt-oss-120b | Reply only | 3.52 | 3.28 | 0.24 | .59 |
+| gpt-oss-120b | Reply + message | 4.29 | 3.64 | **0.65** | **.001** |
+| gpt-oss-20b | Reply only | 3.41 | 3.04 | 0.37 | .20 |
+| gpt-oss-20b | Reply + message | 4.24 | 4.04 | 0.20 | .94 |
+| qwen2.5:3b (Aug) | Reply only | 3.05 | 2.72 | 0.33 | .32 |
+| qwen2.5:3b (Aug) | Reply + message | 3.56 | 3.72 | -0.16 | .38 |
+
+![gpt-oss-120b: with the incoming message, sound replies rise much more than mirrored ones.](docs/figures/judge_context_contextual_fit_gpt_oss_120b.png)
+
+- **gpt-oss-120b: the fix works.** Without the message it cannot tell
+  the two groups apart. With it, the gap almost triples and is
+  significant. Sound replies gain 0.77, mirrored replies only 0.36.
+- **gpt-oss-20b: the fix does not work.** Like the small August judge,
+  it scores everything higher with the message (+0.87 on
+  `contextual_fit`, p<.001), but the gap does not grow.
+- **The message changes other items too.** For gpt-oss-120b it raises
+  conflict_management (+0.45), role_consistency (+0.27) and clarity
+  (+0.16), all p<.05. For gpt-oss-20b it raises corpus_plausibility
+  (+0.22, p=.04). So adding the message moves the whole rubric, not only
+  `contextual_fit`.
+
+**What this means.** Future judging should show gpt-oss-120b the incoming
+message. A `contextual_fit` score from a judge that sees only the reply
+does not measure fit to the message. Scores from the two setups cannot be
+mixed, because the message raises every judge's scores.
+
+The same limits apply: one reader's codes from an LLM's first pass, Llama
+replies only, 25 mirrored replies.
+
+Code: the `--model` option of `src/thesis/analysis/judge_blindness.py`,
+on branch `judge-context-rerun` (not yet merged). Manifests:
+`outputs/manifests/judge_blindness_gpt_oss_{20b,120b}.json`.
 
 ---
 
