@@ -149,6 +149,16 @@ JUDGE_SWAP_FREE_TIER_GRID_PATH: Path = INTERIM_DIR / "judge_swap_grid_free_tier.
 JUDGE_SWAP_FREE_TIER_SCORES_PATH: Path = INTERIM_DIR / "judge_swap_scores_free_tier.parquet"
 JUDGE_SWAP_FREE_TIER_MANIFEST_PATH: Path = MANIFESTS_DIR / "judge_swap_free_tier.json"
 
+# The same free-tier replies scored again with the incoming message shown
+# to every judge (PROGRESS_llms.md section 19). Separate files, so the
+# reply-only scores stay as they are.
+JUDGE_SWAP_FREE_TIER_CONTEXT_SCORES_PATH: Path = (
+    INTERIM_DIR / "judge_swap_scores_free_tier_with_context.parquet"
+)
+JUDGE_SWAP_FREE_TIER_CONTEXT_MANIFEST_PATH: Path = (
+    MANIFESTS_DIR / "judge_swap_free_tier_with_context.json"
+)
+
 # Which scenarios a run uses. "pilot" is the 6 neutral-tone scenarios
 # sections 23 and 41 report. "two_tone" adds the assertive tone, so 12
 # scenarios and, with 10 personas, 120 cells per generator model. The 6 are
@@ -428,17 +438,25 @@ def combine_generator_grids(grids: Sequence[JudgeSwapGrid]) -> pd.DataFrame:
     return frame
 
 
-def build_judge_items(frame: pd.DataFrame) -> list[JudgeItem]:
-    """One judge item per generated reply, reply text only -- no incoming
-    message, matching section 23's "reused the existing judge machinery
-    unchanged" (the reply-only design, not the with-context variant
-    ``judge_blindness.py`` added later)."""
+def build_judge_items(frame: pd.DataFrame, *, with_context: bool = False) -> list[JudgeItem]:
+    """One judge item per generated reply.
+
+    By default the judge sees the reply text only, matching section 23's
+    "reused the existing judge machinery unchanged". ``with_context`` also
+    shows the incoming message the reply answers, looked up by
+    ``scenario_id``. PROGRESS_llms.md section 19 found the stronger judge
+    needs that message to score ``contextual_fit``.
+    """
+    incoming = (
+        {s.scenario_id: s.incoming_message for s in build_scenarios()} if with_context else {}
+    )
     return [
         JudgeItem(
             item_id=str(row.cell_id),
             text=str(row.body),
             is_generated=True,
             source_id=str(row.persona_id),
+            context=incoming[str(row.scenario_id)] if with_context else None,
         )
         for row in frame.itertuples()
     ]
@@ -466,6 +484,7 @@ def score_judge_swap_replies(
     ledger: CostLedger | None = None,
     run_id: str | None = None,
     progress_every: int = 20,
+    with_context: bool = False,
 ) -> JudgeSwapScores:
     """Blind-score every reply in ``replies`` with one judge model.
 
@@ -480,7 +499,7 @@ def score_judge_swap_replies(
     ledger = ledger if ledger is not None else CostLedger(COST_LEDGER)
     run_id = run_id if run_id is not None else datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
 
-    items = build_judge_items(replies)
+    items = build_judge_items(replies, with_context=with_context)
     results, summary = score_items(
         items,
         client,
@@ -1430,6 +1449,15 @@ def main() -> None:
             "level) without overwriting the primary run's manifest."
         ),
     )
+    parser.add_argument(
+        "--with-context",
+        action="store_true",
+        help=(
+            "Show every judge the incoming message too (free-tier design only). "
+            "Rescores the stored replies, so both conditions judge the same "
+            "replies, and writes to separate score and manifest files."
+        ),
+    )
     args = parser.parse_args()
     design: JudgeSwapDesign = args.design
     judges: list[str] = args.judges if args.judges is not None else list(args.generators)
@@ -1441,9 +1469,16 @@ def main() -> None:
     ensure_dirs()
 
     multi_model = len(args.generators) > 2 or len(judges) > 2
+    if args.with_context and not multi_model:
+        msg = "--with-context only supports the free-tier design (more than two models)"
+        raise ValueError(msg)
     if multi_model:
         default_grid = JUDGE_SWAP_FREE_TIER_GRID_PATH
-        default_scores = JUDGE_SWAP_FREE_TIER_SCORES_PATH
+        default_scores = (
+            JUDGE_SWAP_FREE_TIER_CONTEXT_SCORES_PATH
+            if args.with_context
+            else JUDGE_SWAP_FREE_TIER_SCORES_PATH
+        )
     else:
         default_grid = JUDGE_SWAP_GRID_PATH if design == "pilot" else JUDGE_SWAP_TWO_TONE_GRID_PATH
         default_scores = (
@@ -1452,7 +1487,12 @@ def main() -> None:
     out_path = Path(args.out) if args.out else default_grid
     scores_out = Path(args.scores_out) if args.scores_out else default_scores
 
-    manifest_out = Path(args.manifest_out) if args.manifest_out else None
+    if args.manifest_out:
+        manifest_out: Path | None = Path(args.manifest_out)
+    elif args.with_context:
+        manifest_out = JUDGE_SWAP_FREE_TIER_CONTEXT_MANIFEST_PATH
+    else:
+        manifest_out = None
 
     if args.analyse_only:
         _report(
@@ -1473,7 +1513,7 @@ def main() -> None:
         return client_for_model(model, ollama_host=args.ollama_host)
 
     grids: list[JudgeSwapGrid] = []
-    for model in args.generators:
+    for model in [] if args.with_context else args.generators:
         client = _client(model)
         if isinstance(client, OllamaClient) and not client.is_available() and not args.cache_only:
             msg = (
@@ -1498,9 +1538,12 @@ def main() -> None:
         )
         grids.append(grid)
 
-    replies = combine_generator_grids(grids)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    replies.to_parquet(out_path, compression="zstd", index=False)
+    if args.with_context:
+        replies = pd.read_parquet(out_path)
+    else:
+        replies = combine_generator_grids(grids)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        replies.to_parquet(out_path, compression="zstd", index=False)
 
     cache = ResponseCache(CACHE_DIR, cache_only=args.cache_only)
     ledger = CostLedger(COST_LEDGER)
@@ -1523,6 +1566,7 @@ def main() -> None:
             ledger=ledger,
             run_id=run_id,
             progress_every=args.progress_every,
+            with_context=args.with_context,
         )
         log.info(
             "judge %s: %d scored (%d cached, %d invalid)",

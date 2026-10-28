@@ -311,6 +311,24 @@ def test_build_judge_items_uses_cell_id_and_body() -> None:
     assert all(i.context is None for i in items)
 
 
+def test_build_judge_items_with_context_adds_the_incoming_message() -> None:
+    scenario = build_judge_swap_scenarios("pilot")[0]
+    frame = pd.DataFrame(
+        [
+            {
+                "cell_id": "c1",
+                "body": "hello there",
+                "persona_id": "p0",
+                "model": "llama3.2:3b",
+                "scenario_id": scenario.scenario_id,
+            }
+        ]
+    )
+    (item,) = build_judge_items(frame, with_context=True)
+    assert item.context == scenario.incoming_message
+    assert item.text == "hello there"
+
+
 class ScriptedJudgeClient:
     """Returns a fixed rubric score for every item -- enough to test the
     score-flattening glue, not the judging statistics themselves."""
