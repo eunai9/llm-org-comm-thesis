@@ -2159,7 +2159,11 @@ LIWC. The message before a reply in a thread is not always from the
 person the reply is sent to.
 
 **Pilot results (Oct 25, gpt-oss-120b added Oct 30).** 40 personas, 832
-cells per model. Three of four models are done. qwen is still running.
+cells per model. Three of four models are done. The qwen pilot was stopped
+on Oct 30 at about 100-200 of 832 cells, so Groq could serve the judge
+rescoring first. The full 40-persona design (4,992 cells per model) will
+not be run: at Groq's daily limit it would take weeks per model, and the
+pilot already answers the robustness question.
 
 Orders: log-odds that a sentence gives an order, against writing to a
 peer. Persona fixed effects, standard errors clustered by persona. The
