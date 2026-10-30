@@ -2158,8 +2158,8 @@ part-of-speech tags plus short word lists, which is an approximation of
 LIWC. The message before a reply in a thread is not always from the
 person the reply is sent to.
 
-**Pilot results (Oct 25).** 40 personas, 832 cells per model. Two of
-four models are done. gpt-oss-120b and qwen are still running.
+**Pilot results (Oct 25, gpt-oss-120b added Oct 30).** 40 personas, 832
+cells per model. Three of four models are done. qwen is still running.
 
 Orders: log-odds that a sentence gives an order, against writing to a
 peer. Persona fixed effects, standard errors clustered by persona. The
@@ -2172,17 +2172,19 @@ section 15.
 | Llama 3.2 3B | 10 personas | 4,320 | +0.127 | <.001 | -0.009 | .82 |
 | gpt-oss-20b | 40 personas | 823 of 832 | +0.009 | .90 | -0.064 | .37 |
 | gpt-oss-20b | 10 personas | 1,428 | +0.258 | <.001 | +0.005 | .95 |
+| gpt-oss-120b | 40 personas | 832 of 832 | -0.069 | .67 | -0.252 | .04 |
+| gpt-oss-120b | 10 personas | 1,440 | +0.483 | <.001 | +0.106 | .046 |
 | Real email | | 2,202 | +0.253 | <.001 | +0.072 | .40 |
 
 New measures, against writing to a peer. Real email is from the tests
 above.
 
-| Measure | Real email | Llama 3.2 3B | gpt-oss-20b |
-|---|---|---|---|
-| "you" rate | More when writing down | No difference | More when writing down (p=.04) |
-| Hierarchy phrases | More when writing up | More when writing down (p=.004); up not significant (p=.07) | More when writing down (p=.04) |
-| Gratitude | More when writing down | Not testable: no reply thanks anyone | No difference |
-| Hedges | No difference | Fewer when writing down (p=.006) | No difference |
+| Measure | Real email | Llama 3.2 3B | gpt-oss-20b | gpt-oss-120b |
+|---|---|---|---|---|
+| "you" rate | More when writing down | No difference | More when writing down (p=.04) | Less when writing down (p=.02) |
+| Hierarchy phrases | More when writing up | More when writing down (p=.004); up not significant (p=.07) | More when writing down (p=.04) | More when writing down (p=.04) |
+| Gratitude | More when writing down | Not testable: no reply thanks anyone | No difference | More when writing up (p=.01), but only 2% of replies thank anyone |
+| Hedges | No difference | Fewer when writing down (p=.006) | No difference | Not testable: no reply hedges |
 
 Trait check, effect on the share of sentences that are orders:
 
@@ -2190,6 +2192,8 @@ Trait check, effect on the share of sentences that are orders:
   Tenure has no effect.
 - gpt-oss-20b: 2-year personas give slightly more orders than 12-year
   personas (+0.030, p=.04). Origin has no effect.
+- gpt-oss-120b: neither trait has an effect (tenure +0.022, p=.22;
+  origin +0.017, p=.35).
 
 **Llama 3.2 3B.** The rank effect on orders is gone with 40 personas. The
 sign even flips, though it is not significant. Its replies are very short
@@ -2202,13 +2206,24 @@ the one new measure that matches real email. Hierarchy phrases go the
 wrong way: more when writing down, where real email has more when writing
 up.
 
-**What this means so far.** For both models, the 10-persona rank effect
-does not hold up with 40 personas. So it probably came from the few
+**gpt-oss-120b.** In the 10-persona design it gave the largest
+writing-down effect on orders (+0.483), almost twice real email's. With
+40 personas that effect is gone (-0.069, p=.67). Writing up now gives
+fewer orders (-0.252, p=.04), where the 10-persona design gave slightly
+more. Real email shows no writing-up effect. None of the new measures
+matches real email. "you" goes the opposite way, and hierarchy phrases go
+the same wrong way as gpt-oss-20b. Its replies are short (median 31 words,
+1.9 sentences). No reply hedges and only 2% thank anyone, so the
+gratitude result rests on very few replies.
+
+**What this means so far.** For all three models, the 10-persona rank
+effect does not hold up with 40 personas. So it probably came from the few
 persona prompts, not from rank. This is the risk this design was built to
 check. Caveat: each pilot has 832 replies against 1,428 to 4,320 in the
 10-persona runs, so it has less power.
 
-Manifests: `outputs/manifests/q1_personas_{llama,gpt_oss_20b}_pilot.json`.
+Manifests:
+`outputs/manifests/q1_personas_{llama,gpt_oss_20b,gpt_oss_120b}_pilot.json`.
 
 ---
 
