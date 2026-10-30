@@ -1,0 +1,112 @@
+{
+  "judges": [
+    "qwen2.5:3b",
+    "openai/gpt-oss-20b@low",
+    "openai/gpt-oss-120b@low"
+  ],
+  "gate (300 Llama replies)": {
+    "per_judge": {
+      "qwen2.5:3b": {
+        "n": 300,
+        "n_invalid": 0,
+        "balanced_accuracy": 0.3331,
+        "ci_low": 0.2823,
+        "ci_high": 0.3842,
+        "answer_shares": {
+          "up": 0.48,
+          "lateral": 0.19,
+          "down": 0.33
+        },
+        "self_kappa": 0.293
+      },
+      "openai/gpt-oss-20b@low": {
+        "n": 299,
+        "n_invalid": 1,
+        "balanced_accuracy": 0.3256,
+        "ci_low": 0.2737,
+        "ci_high": 0.3774,
+        "answer_shares": {
+          "up": 0.3779,
+          "lateral": 0.204,
+          "down": 0.4181
+        },
+        "self_kappa": -0.016
+      },
+      "openai/gpt-oss-120b@low": {
+        "n": 300,
+        "n_invalid": 0,
+        "balanced_accuracy": 0.3738,
+        "ci_low": 0.3258,
+        "ci_high": 0.4198,
+        "answer_shares": {
+          "up": 0.22,
+          "lateral": 0.64,
+          "down": 0.14
+        },
+        "self_kappa": 0.542
+      }
+    },
+    "consensus": {
+      "n_common": 299,
+      "share_all_agree": 0.08,
+      "share_expected": 0.113,
+      "kappa": -0.07
+    },
+    "pairwise_kappa": {
+      "qwen2.5:3b vs openai/gpt-oss-20b@low": -0.0576,
+      "qwen2.5:3b vs openai/gpt-oss-120b@low": 0.0045,
+      "openai/gpt-oss-20b@low vs openai/gpt-oss-120b@low": -0.0067
+    }
+  },
+  "real email": {
+    "per_judge": {
+      "qwen2.5:3b": {
+        "n": 1001,
+        "n_invalid": 0,
+        "balanced_accuracy": 0.3369,
+        "ci_low": 0.3073,
+        "ci_high": 0.3646,
+        "answer_shares": {
+          "up": 0.3367,
+          "lateral": 0.1568,
+          "down": 0.5065
+        }
+      },
+      "openai/gpt-oss-20b@low": {
+        "n": 988,
+        "n_invalid": 13,
+        "balanced_accuracy": 0.3315,
+        "ci_low": 0.3008,
+        "ci_high": 0.3627,
+        "answer_shares": {
+          "up": 0.4251,
+          "lateral": 0.1903,
+          "down": 0.3846
+        }
+      },
+      "openai/gpt-oss-120b@low": {
+        "n": 1001,
+        "n_invalid": 0,
+        "balanced_accuracy": 0.3572,
+        "ci_low": 0.3279,
+        "ci_high": 0.3873,
+        "answer_shares": {
+          "up": 0.2787,
+          "lateral": 0.5325,
+          "down": 0.1888
+        }
+      }
+    },
+    "consensus": {
+      "n_common": 988,
+      "share_all_agree": 0.088,
+      "share_expected": 0.114,
+      "kappa": -0.029
+    },
+    "pairwise_kappa": {
+      "qwen2.5:3b vs openai/gpt-oss-20b@low": 0.0491,
+      "qwen2.5:3b vs openai/gpt-oss-120b@low": 0.0161,
+      "openai/gpt-oss-20b@low vs openai/gpt-oss-120b@low": -0.0357
+    }
+  }
+}
