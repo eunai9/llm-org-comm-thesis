@@ -726,9 +726,9 @@ def test_full_grid_manifest_path_is_distinct_for_a_different_model() -> None:
     assert gptoss_path != llama_path
     assert "gpt" in gptoss_path.name
     # And two different non-primary models must not collide with each other.
-    deepseek_path = full_grid_manifest_path(1, "deepseek-ai/deepseek-v4.1-flash")
-    assert deepseek_path != gptoss_path
-    assert deepseek_path != llama_path
+    qwen_path = full_grid_manifest_path(1, "qwen/qwen3.8-27b")
+    assert qwen_path != gptoss_path
+    assert qwen_path != llama_path
 
 
 def test_full_grid_manifest_path_keys_model_and_draws_together() -> None:

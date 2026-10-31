@@ -189,14 +189,15 @@ SECTION_41_EFFECTS: dict[str, dict[str, float]] = {
 # the second model is the reference level both factors are measured against.
 DEFAULT_GENERATORS: tuple[str, str] = ("llama3.2:3b", "qwen2.5:3b")
 
-# The project's real four free-tier models across three families (see
-# PROGRESS_llms.md section 2), for next-steps item 4: a judge-swap study
-# that no longer uses two local models standing in for the plan's
-# cross-provider design. Llama is last -- the reference level every effect
-# below is measured against, the same role it plays throughout the rest of
-# this project's model comparisons.
+# The project's four models across three families (see PROGRESS_llms.md
+# section 2), for next-steps item 4: a judge-swap study that no longer uses
+# two local models standing in for the plan's cross-provider design. Llama
+# is last -- the reference level every effect below is measured against,
+# the same role it plays throughout the rest of this project's model
+# comparisons. qwen writes but does not judge (it fails Groq's JSON check
+# too often), so listing it last instead gives a neutral reference writer.
 FREE_TIER_GENERATORS: tuple[str, str, str, str] = (
-    "deepseek-ai/deepseek-v4-flash-0731",
+    "qwen/qwen3.8-27b",
     "openai/gpt-oss-20b@low",
     "openai/gpt-oss-120b@low",
     "llama3.2:3b",
@@ -206,7 +207,6 @@ FREE_TIER_GENERATORS: tuple[str, str, str, str] = (
 # not listed here is assumed local -- the default every two-local-model
 # caller of this module already relies on.
 _MODEL_PROVIDER: dict[str, str] = {
-    "deepseek-ai/deepseek-v4-flash-0731": "nvidia",
     "openai/gpt-oss-20b@low": "nvidia",
     "openai/gpt-oss-120b@low": "groq",
     "qwen/qwen3.8-27b": "groq",
@@ -1287,6 +1287,17 @@ def build_multi_model_manifest(
     }
 
 
+def keep_listed_generators(
+    replies: pd.DataFrame, scores: pd.DataFrame, generators: Sequence[str]
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Drop replies and scores from writers not in ``generators``, so a saved
+    grid can be refit on fewer writers than it holds."""
+    return (
+        replies[replies["model"].isin(generators)],
+        scores[scores["generator"].isin(generators)],
+    )
+
+
 def _report(
     replies: pd.DataFrame,
     scores: pd.DataFrame,
@@ -1315,6 +1326,7 @@ def _report(
     without clobbering the primary run's manifest.
     """
     if len(generators) > 2 or len(judges) > 2:
+        replies, scores = keep_listed_generators(replies, scores, generators)
         generator_ref = generators[-1]
         judge_ref = judges[-1]
         fit = fit_subset_multi(

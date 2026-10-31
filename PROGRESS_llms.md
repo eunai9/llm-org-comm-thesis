@@ -1,9 +1,16 @@
 # LLM Comparison Progress Log
 
-This file compares the five models used in the free-tier simulator work, one
+This file compares the four models used in the free-tier simulator work, one
 topic at a time: mirroring, separability from real writing, and the Q1
 hierarchy effect. Each section holds every model's numbers together, so they
 can be read at once.
+
+**DeepSeek V4 Flash was removed from the project on Oct 31.** NVIDIA retired
+the model in September, so its results cannot be rerun or extended. Its rows,
+figures and manifests were taken out of this log. They are still in the git
+history before that date. Where a fit pooled DeepSeek with other models (the
+judge swap, sections 18-19), it was refit without it. Every other model's
+numbers are fitted per model, so they did not change.
 
 `PROGRESS_nvidia.md` still holds the day-by-day build log: what was tried,
 what broke, and the exact commit history. This file only reorganizes its
@@ -17,15 +24,15 @@ directly (the Q1 real-email comparison).
 
 ## 1. Status at a glance
 
-| | Llama 3.2 3B | DeepSeek V4 Flash | gpt-oss-20b | gpt-oss-120b | qwen3.8-27b |
-|---|---|---|---|---|---|
-| 183 real-email pairs generated | Yes (see `PROGRESS.md`) | Yes | Yes | Yes | Yes (182 valid) |
-| Mirroring measured | Yes | Yes | Yes | Yes | Yes |
-| Told apart from real writing (AUC) measured | Yes | Yes | Yes | Yes | Yes |
-| Q1 grid (240 replies) generated | Yes | Yes | Yes | Yes | Yes (inside the full grid) |
-| Q1 full grid (1,440 cells) generated | Yes | No | Yes | Yes | Yes |
-| Q1 checked against the real-email benchmark | Yes | Yes | Yes | Yes | Yes |
-| Hand-coded by a person | No | No | No | No | No |
+| | Llama 3.2 3B | gpt-oss-20b | gpt-oss-120b | qwen3.8-27b |
+|---|---|---|---|---|
+| 183 real-email pairs generated | Yes (see `PROGRESS.md`) | Yes | Yes | Yes (182 valid) |
+| Mirroring measured | Yes | Yes | Yes | Yes |
+| Told apart from real writing (AUC) measured | Yes | Yes | Yes | Yes |
+| Q1 grid (240 replies) generated | Yes | Yes | Yes | Yes (inside the full grid) |
+| Q1 full grid (1,440 cells) generated | Yes | Yes | Yes | Yes |
+| Q1 checked against the real-email benchmark | Yes | Yes | Yes | Yes |
+| Hand-coded by a person | No | No | No | No |
 
 Other open items: a run without the "act" instruction, an embedding map and
 review pack for the newer models, and committing the blind-coding module.
@@ -38,17 +45,15 @@ See "22. Next steps" at the end.
 | Model | Family | Reached through | Setting | Notes |
 |---|---|---|---|---|
 | Llama 3.2 3B | Meta | Local, on this laptop (Ollama) | none | 3B parameters. Runs on 8 GB of memory. |
-| DeepSeek V4 Flash | DeepSeek | NVIDIA free tier | none | |
 | gpt-oss-20b | OpenAI | NVIDIA free tier | `@low` reasoning effort | Without it, some replies run past the JSON until the token limit. |
 | gpt-oss-120b | OpenAI | Groq free tier | `@low` reasoning effort | NVIDIA does not serve this model. This laptop cannot run it: it needs about 60 GB of memory, and the laptop has 16 GB plus 1 GB of graphics memory. |
-| qwen3.8-27b | Alibaba (Qwen) | Groq free tier | none | Takes DeepSeek's place in the full Q1 grid, since NVIDIA retired DeepSeek (section 18). Used for the Q1 grid and the Q2 pairs. A writer only in the judge swap: as a judge it fails Groq's JSON check too often. |
+| qwen3.8-27b | Alibaba (Qwen) | Groq free tier | none | Used for the Q1 grid and the Q2 pairs. A writer only in the judge swap: as a judge it fails Groq's JSON check too often. |
 
-The first four answer the same 183 real email threads with the same prompt,
+All four answer the same 183 real email threads with the same prompt,
 including the "act" instruction from `PROGRESS.md` section 43 (the persona
 must act on a request, not hand it back). The two exceptions, kept for the
 historical record, are noted where they appear: a Llama run made before that
 instruction existed, and the original Q1 pilot from `PROGRESS.md` section 39.
-qwen3.8-27b answers only the Q1 grid, with the same prompt.
 
 ---
 
@@ -108,16 +113,12 @@ candidate got one tiny request.
 | Model | Result |
 |---|---|
 | `nvidia/nemotron-3-super-120b-a12b` | Answers |
-| `deepseek-ai/deepseek-v4-flash-0731` | Answers |
 | `openai/gpt-oss-20b` | Answers |
 | `google/gemma-4-31b-it` | No answer within 120 s |
 | `mistralai/mistral-nemotron` | No answer within 120 s |
 | `meta/llama-3.2-90b-vision-instruct` | No answer within 120 s |
 | `mistralai/mistral-large-2-instruct` | Not served (error 404) |
 | `nvidia/llama-3.1-nemotron-70b-instruct` | Not served (error 404) |
-
-DeepSeek V4 Flash was picked as the main reply writer: fastest, shortest
-valid output, and a well-known model.
 
 **The reasoning-effort mechanism.** A model name may end in `@low`, `@medium`
 or `@high`, for example `openai/gpt-oss-20b@low`. The client sends the plain
@@ -173,20 +174,19 @@ unrelated to the code.
 ## 6. Generation results: speed, reliability, cost
 
 Llama's full 183-pair run predates this log; its numbers are in
-`PROGRESS.md`. For the three free-tier models:
+`PROGRESS.md`. For the two OpenAI models:
 
-| | DeepSeek V4 Flash | gpt-oss-20b | gpt-oss-120b |
-|---|---:|---:|---:|
-| Pairs written | 183 of 183 | 183 of 183 | 183 of 183 |
-| Time to generate | about 6.5 hours, 3 attempts (stalls forced 2 restarts) | 376 seconds | 34 minutes |
-| Empty replies | 0 | 0 | 0 |
-| Replies with a placeholder such as `[Name]` | not measured | 3 | 7 |
-| Decisions | 92 accept, 61 none, 30 defer | 136 accept, 33 defer, 9 decline, 5 none | 102 accept, 53 defer, 24 none, 4 decline |
-| Median length | 38 words | 30 words | 27 words |
-| Cost | $0 | $0 | $0 |
+| | gpt-oss-20b | gpt-oss-120b |
+|---|---:|---:|
+| Pairs written | 183 of 183 | 183 of 183 |
+| Time to generate | 376 seconds | 34 minutes |
+| Empty replies | 0 | 0 |
+| Replies with a placeholder such as `[Name]` | 3 | 7 |
+| Decisions | 136 accept, 33 defer, 9 decline, 5 none | 102 accept, 53 defer, 24 none, 4 decline |
+| Median length | 30 words | 27 words |
+| Cost | $0 | $0 |
 
-Real replies have a median length of 44 words. The three free-tier models
-are all shorter, and the OpenAI models are shorter still than DeepSeek.
+Real replies have a median length of 44 words. Both models are shorter.
 
 For gpt-oss-120b's run, the daily token cap never bit: 129 new replies at
 about 1,930 tokens each is roughly 249,000 tokens, above the stated 200,000
@@ -221,7 +221,6 @@ question here is whether larger models do it too.
 |---|---:|---:|---:|
 | Llama 3.2 3B, no instruction | 0.579 | 25.7% | 19.8 words |
 | Llama 3.2 3B, with instruction | 0.565 | 19.1% | 22.7 words |
-| DeepSeek V4 Flash | 0.413 | 1.1% | 40.1 words |
 | gpt-oss-20b | 0.322 | 1.1% | 32.8 words |
 | gpt-oss-120b | 0.405 | 2.2% | 28.6 words |
 | qwen3.8-27b | 0.235 | 0.0% | 48.3 words |
@@ -229,7 +228,7 @@ question here is whether larger models do it too.
 
 At full length, gpt-oss-20b sits closest to real replies. But this ranking
 mixes copying with length. All three free-tier models write longer than
-Llama and shorter than real people, so length alone moves this table.
+Llama, and all are shorter than real people, so length alone moves this table.
 
 **At the same length**, every reply cut to the length of its Llama
 (with-instruction) partner, which removes that length effect.
@@ -237,7 +236,6 @@ Llama and shorter than real people, so length alone moves this table.
 | | Mean borrowed words | Flagged |
 |---|---:|---:|
 | Llama 3.2 3B | 0.565 | 19.1% |
-| DeepSeek V4 Flash | 0.469 | 8.2% |
 | gpt-oss-20b | 0.373 | 4.9% |
 | gpt-oss-120b | 0.435 | 4.4% |
 | qwen3.8-27b | 0.298 | 1.6% |
@@ -245,13 +243,10 @@ Llama and shorter than real people, so length alone moves this table.
 
 ![Mean borrowed words by model, every reply cut to the Llama length, next to the real replies.](docs/figures/nvidia_four_models_mirroring.png)
 
-![How much of a reply is built from the sender's own words, DeepSeek against real replies.](docs/figures/mirroring_deepseek_generated_vs_real.png)
-
 **Paired tests, each free-tier model against Llama at the same length.**
 
 | Model | Score change | p-value | Newly flagged | No longer flagged | p-value (flag test) |
 |---|---:|---:|---:|---:|---:|
-| DeepSeek V4 Flash | -0.095 | < 0.0001 | 12 | 32 | 0.004 |
 | gpt-oss-20b | -0.191 | < 0.0001 | 7 | 33 | < 0.0001 |
 | gpt-oss-120b | -0.129 | < 0.0001 | 3 | 30 | < 0.0001 |
 | qwen3.8-27b | -0.268 | < 0.0001 | 3 | 35 | < 0.0001 |
@@ -268,7 +263,7 @@ local model, not something all LLMs do. All four models still borrow more
 than real writers, 0.294, so none of them fully matches human behavior.
 
 **qwen3.8-27b (added Oct 25).** 182 of 183 replies were valid. qwen
-mirrors the least of the five models. At the same length it borrows
+mirrors the least of the four models. At the same length it borrows
 0.298 of its words from the sender, almost the same as real replies
 (0.294). At full length no qwen reply is flagged. Manifest:
 `outputs/manifests/mirroring_qwen.json`.
@@ -277,10 +272,8 @@ mirrors the least of the five models. At the same length it borrows
 
 - The 0.80 cutoff and the AUC check behind it come from 100 Llama replies
   coded by Claude, not by a person. No person has coded any reply yet.
-  Claude read the 5 highest-scoring DeepSeek replies by hand; none of them
-  actually hands the request back, which suggests a high score may mean
-  "stays on topic" rather than "mirrors" for the larger models. This needs a
-  person's judgment to settle.
+  For the larger models, a high score may mean "stays on topic" rather than
+  "mirrors". This needs a person's judgment to settle.
 - The measure and its cutoff were built and validated on Llama only.
   Applying the same cutoff to a different model's writing style is an
   assumption, not something separately checked.
@@ -308,7 +301,6 @@ with-instruction Llama grid).
 | Model | Length only | Full text | Text, same length |
 |---|---:|---:|---:|
 | Llama 3.2 3B | 0.837 | 0.919 | 0.881 |
-| DeepSeek V4 Flash | 0.571 | 0.978 | 0.977 |
 | gpt-oss-20b | 0.687 | 0.974 | 0.970 |
 | gpt-oss-120b | 0.748 | 0.969 | 0.962 |
 | qwen3.8-27b | 0.473 | 0.983 | 0.982 |
@@ -316,11 +308,10 @@ with-instruction Llama grid).
 For reference, the earlier, no-instruction Llama grid gave 0.879 (length
 only), 0.903 (full text), 0.841 (same length).
 
-![Length only, full text and text at the same length, for the four models.](docs/figures/nvidia_four_models_auc.png)
+![Length only and text at the same length, for Llama and the two OpenAI models. qwen is not drawn: its length-only AUC is below 0.5.](docs/figures/nvidia_four_models_auc.png)
 
-- **Length alone barely gives DeepSeek away** (0.571), a little more for
-  gpt-oss-20b (0.687), and more again for gpt-oss-120b (0.748), because its
-  replies are the shortest of the three at a 27-word median.
+- **Length gives gpt-oss-120b away more than gpt-oss-20b** (0.748 against
+  0.687), because its replies are shorter, at a 27-word median.
 - **Length still gives Llama away** (0.837), because its replies are much
   shorter than real ones.
 - **Every free-tier model is still easy to spot by its words**, at 0.96 to
@@ -328,11 +319,11 @@ only), 0.903 (full text), 0.841 (same length).
   harder to tell from a real person than gpt-oss-20b.
 - **qwen3.8-27b (added Oct 25): length does not give it away at all**
   (0.473, about chance). Its replies are 48 words on average, close to
-  real ones. **But its words give it away the most of all five models**
+  real ones. **But its words give it away the most of all four models**
   (0.982 at the same length).
 - The one-off script behind this table was never saved. The qwen row
   comes from a rebuild of it, made from its description in
-  `PROGRESS_nvidia.md`. On the other four models the rebuild matches the
+  `PROGRESS_nvidia.md`. On the other models the rebuild matches the
   logged text AUCs within 0.002 and the length-only AUCs within 0.009.
   The rebuild is now `src/thesis/analysis/word_auc.py`
   (`python -m thesis.analysis.word_auc --pairs PATH --out PATH`). Manifest:
@@ -343,16 +334,16 @@ model against real replies (real percentages vary slightly by row, because
 real replies are cut to each model's own length for that comparison). "n/a"
 means the word was not among the top words reported for that model.
 
-| Word | Real | Llama | DeepSeek | gpt-oss-20b | gpt-oss-120b |
-|---|---:|---:|---:|---:|---:|
-| "I'll" | 5 to 6% | 29% | 74% | 59% | 61% |
-| "let" | 9 to 10% | n/a | 45% | 53% | 38% |
-| "know" | 12 to 13% | n/a | 42% | 50% | n/a |
-| "review" | 2 to 3% | n/a | 29% | n/a | 23% |
-| "confirm" | 0 to 1% | n/a | 19% | 13% | n/a |
-| "got" | 1 to 2% | n/a | 11% | 18% | 22% |
-| "team" | 0% | n/a | n/a | 14% | 12% |
-| "forward" | 3% | n/a | n/a | n/a | 19% |
+| Word | Real | Llama | gpt-oss-20b | gpt-oss-120b |
+|---|---:|---:|---:|---:|
+| "I'll" | 5 to 6% | 29% | 59% | 61% |
+| "let" | 9 to 10% | n/a | 53% | 38% |
+| "know" | 12 to 13% | n/a | 50% | n/a |
+| "review" | 2 to 3% | n/a | n/a | 23% |
+| "confirm" | 0 to 1% | n/a | 13% | n/a |
+| "got" | 1 to 2% | n/a | 18% | 22% |
+| "team" | 0% | n/a | 14% | 12% |
+| "forward" | 3% | n/a | n/a | 19% |
 
 These come from stock phrases such as "I'll review...", "Let me know..." and
 "I'll flag...". Real replies are instead marked by sign-off names and words
@@ -360,7 +351,7 @@ like "attached", "department" and "office". Real people sign with their own
 name and mention attachments; the models rarely do.
 
 **What this means.** For Llama, "real and AI replies are separable, mostly
-by length" was true. For all three free-tier models, it is not: they write
+by length" was true. For the free-tier models, it is not: they write
 closer to a realistic length, and are still easy to spot by word choice.
 Model size (20B against 120B) moved neither the mirroring result nor this
 one.
@@ -398,7 +389,7 @@ the small local model does. If anything, they look less like it.
 **How.** Each reply is embedded with a free local model (`nomic-embed-text`).
 A classifier tries to tell real and generated replies apart using only the
 embeddings, not the words (AUC: 0.5 = can't tell them apart, 1.0 = always
-can). This had only been run on Llama before. This session added the three
+can). This had only been run on Llama before. This session added the
 free-tier models, reusing pairs files that already existed, so no new
 generation was needed.
 
@@ -407,7 +398,6 @@ generation was needed.
 | Model | AUC, full length | AUC, same length | Tracks its own email |
 |---|---:|---:|---:|
 | Llama 3.2 3B | 0.890 | 0.817 | 0.863 |
-| DeepSeek V4 Flash | 0.911 | 0.907 | 0.858 |
 | gpt-oss-20b | 0.932 | 0.924 | 0.814 |
 | gpt-oss-120b | 0.904 | 0.909 | 0.825 |
 | qwen3.8-27b | 0.934 | 0.936 | 0.819 |
@@ -428,7 +418,7 @@ generic, context-blind writing.
   against Llama's 0.919).
 - **For Llama, length explains most of the gap. For the free-tier models
   it explains almost none.** Llama's AUC drops from 0.890 to 0.817 once
-  both sides are cut to the same length. The three free-tier models barely
+  both sides are cut to the same length. The free-tier models barely
   move. So something other than length -- the word-choice check points at
   stock phrases -- is what gives the free-tier models away.
 - **All four models stay reasonably tied to the email they are
@@ -441,7 +431,7 @@ since the word-choice check agrees by a completely different method.
 
 Source: `python -m thesis.analysis.embedding_map --pairs
 data/interim/pairs_<model>.parquet`, run once per model. Manifests:
-`outputs/manifests/embedding_map_{act,deepseek,gpt_oss,gpt_oss_120b,qwen}.json`.
+`outputs/manifests/embedding_map_{act,gpt_oss,gpt_oss_120b,qwen}.json`.
 qwen (added Oct 25, 182 pairs) fits the free-tier pattern: easy to tell
 apart, and length explains none of it.
 
@@ -454,10 +444,10 @@ replies are, that is, whether it gives more orders when writing down to a
 junior person than when writing to a peer or up to someone senior. Every
 Llama-only test before this found no clear effect (`PROGRESS.md` sections 33
 to 39), with one borderline exception. The open question is whether a larger
-model shows a pattern the small one does not. DeepSeek and gpt-oss-120b show
-it. gpt-oss-20b does not. Whether any of them shows it more strongly than
-real email does is a separate question, answered below, and the answer is no
-for all three once the numbers are checked properly.
+model shows a pattern the small one does not. gpt-oss-120b shows it.
+gpt-oss-20b does not. Whether gpt-oss-120b shows it more strongly than real
+email does is a separate question, answered below, and the answer is no once
+the numbers are checked properly.
 
 **How it is measured.** The Q1 grid is 10 personas times 3 directions times
 4 incoming tones times 2 task types, one reply each, 240 replies total. This
@@ -472,13 +462,12 @@ is the design fixed in `PROGRESS.md` section 39.
 - Every coefficient below is the difference from writing to a peer. Positive
   means more imperative.
 
-**Results**, all five grids using the same measurement code.
+**Results**, all four grids using the same measurement code.
 
 | Grid | Reply level, down | Reply level, up | Sentence level, down | Sentence level, up |
 |---|---:|---:|---:|---:|
 | Llama, no instruction (original pilot) | +0.027 (p=.672) | +0.083 (p=.192) | +0.163 (p=.401) | +0.395 (p=.046) |
 | Llama, with instruction | +0.056 (p=.412) | +0.029 (p=.670) | +0.197 (p=.298) | +0.151 (p=.437) |
-| DeepSeek V4 Flash | +0.099 (p=.003) | +0.015 (p=.647) | +0.438 (p<.001) | +0.059 (p=.654) |
 | gpt-oss-20b | +0.036 (p=.348) | +0.023 (p=.537) | +0.136 (p=.296) | +0.085 (p=.537) |
 | gpt-oss-120b | +0.195 (p=.001) | +0.052 (p=.361) | +0.896 (p≈.001)* | +0.297 (p=.088) |
 
@@ -494,65 +483,52 @@ by persona, a permutation test, a persona bootstrap), all landing between
 This was a one-off manual check. The code now computes the persona-clustered
 cross-check itself (`Q1Result.sentence_model_persona_fe`, commit `85e833a`),
 so a rerun would report it without another manual pass. The table above
-still shows this manual check for gpt-oss-120b only; the other three rows
-have not been rechecked against the clustered fit yet.
+still shows this manual check for gpt-oss-120b only; the other rows have
+not been rechecked against the clustered fit yet.
 
 Probability that a sentence is an order, from the sentence-level model. The
 gpt-oss-20b and gpt-oss-120b rows are the plain share of sentences that are
 orders. The design is balanced across directions, so this agrees closely with
-the model's fitted probability (for DeepSeek they differ by 0.2 points).
+the model's fitted probability.
 
 | Grid | Writing down | Writing to a peer | Writing up |
 |---|---:|---:|---:|
 | Llama, no instruction | 31.7% | 28.3% | 36.9% |
 | Llama, with instruction | 40.7% | 36.0% | 39.6% |
-| DeepSeek V4 Flash | 33.5% | 24.5% | 25.6% |
 | gpt-oss-20b | 41.0% | 37.8% | 39.8% |
 | gpt-oss-120b | 43.0% | 23.2% | 29.6% |
 
-![Predicted probability of an imperative sentence by direction, for Llama and DeepSeek with the same prompt.](docs/figures/nvidia_q1_direction.png)
-
-- **DeepSeek gives more orders when writing down.** Both measures agree, and
-  both stay significant after a Bonferroni correction for four tests
-  (needs p < 0.0125): 0.003 and 0.0004.
-- **DeepSeek's writing up looks like writing to a peer.** Both contrasts are
-  far from significant.
 - **Llama shows no reliable effect in either direction**, with either prompt.
 - **The one borderline Llama result did not hold.** With the act
   instruction, its "up" contrast fell from p=.046 to p=.437, which reads as
   noise rather than a real effect.
-- **DeepSeek's replies carry more sentences**: 882 across the grid against
-  343 for Llama with the same prompt, 3.71 sentences per reply against 1.43.
-  `PROGRESS.md` section 34 warned that one-sentence replies make the
-  reply-level measure crude. DeepSeek has none, so its estimate rests on
-  more data. gpt-oss-20b also writes several sentences per reply: 719
-  across the grid, 3.02 per reply.
+- **gpt-oss-20b's replies carry more sentences**: 719 across the grid
+  against 343 for Llama with the same prompt, 3.02 sentences per reply
+  against 1.43. `PROGRESS.md` section 34 warned that one-sentence replies
+  make the reply-level measure crude.
 - **gpt-oss-20b shows no writing-down effect.** Orders per sentence, down:
   +0.136 (p=.296). Orders per reply, down: +0.036 (p=.348). Writing up shows
-  nothing either (+0.085, p=.537). This looks like Llama and not like
-  DeepSeek.
+  nothing either (+0.085, p=.537). This looks like Llama.
 - **gpt-oss-20b gives orders in about 40% of its sentences in every
   direction.** Real email does it in 14% to 18%. The level is far too high,
   and it barely moves with direction (41.0%, 37.8%, 39.8%).
-- **Two side results.** The decision depends on direction for both DeepSeek
-  and Llama (Llama p=.023, DeepSeek p=.002), but not for gpt-oss-20b
-  (p=.308). This plain chi-square test ignores that replies from one persona
-  are alike, so it is only a hint. Hedging falls for Llama and DeepSeek when
-  writing down. gpt-oss-20b almost never hedges (0.000 writing down, 0.003
-  to a peer, 0.000 writing up), so it has nothing to fall. DeepSeek also
-  almost never hedges (at most 0.014 in any direction, against 0.08 to 0.19
-  for Llama).
-- **gpt-oss-120b is the only model of the four that clearly shows the
+- **Two side results.** The decision depends on direction for Llama
+  (p=.023), but not for gpt-oss-20b (p=.308). This plain chi-square test
+  ignores that replies from one persona are alike, so it is only a hint.
+  Hedging falls for Llama when writing down. gpt-oss-20b almost never hedges
+  (0.000 writing down, 0.003 to a peer, 0.000 writing up), so it has
+  nothing to fall.
+- **gpt-oss-120b is the only model of the three that clearly shows the
   writing-down effect.** Orders per sentence, down: +0.896 (p≈.001, corrected
   as above). Orders per reply, down: +0.195 (p=.001). Writing up shows
   nothing (+0.297, p=.088).
 - **The reply-level persona term collapses for gpt-oss-120b**, the same way
-  it does for the other three grids: the model reports a persona variance of
+  it does for the other grids: the model reports a persona variance of
   0.0008, which is a fit sitting at the edge of its range rather than a real
   estimate of zero. This does not threaten the contrast, because every
   persona answers all three directions, so persona cannot confound direction.
-- **gpt-oss-120b's replies are short: 1.98 sentences each**, the fewest of
-  the four models (Llama 1.43, gpt-oss-20b 3.02, DeepSeek 3.71). The effect
+- **gpt-oss-120b's replies are short: 1.98 sentences each** (Llama 1.43,
+  gpt-oss-20b 3.02). The effect
   holds inside every reply-length group checked (1-sentence, 2-sentence,
   3-sentence replies all show more orders when writing down), so the short
   replies do not manufacture the within-model effect. They do matter for the
@@ -569,20 +545,11 @@ the model's fitted probability (for DeepSeek they differ by 0.2 points).
 
 **Against the real-email benchmark.** `PROGRESS.md` section 48 measured the
 same three things in 2,202 real Enron emails, and compared them only with
-the Llama grid. This log adds the DeepSeek and gpt-oss-20b sides of that
+the Llama grid. This log adds the gpt-oss-20b and gpt-oss-120b sides of that
 comparison, using a rough z-test on the difference (rough because both
 sides' standard errors are backed out of a coefficient and a p-value).
 
-| Contrast | DeepSeek | Real email | Difference | p |
-|---|---:|---:|---:|---:|
-| Orders per email, down | +0.098 (p=.003) | +0.043 (p=.002) | +0.056 | .125 |
-| Orders per email, up | +0.016 (p=.640) | +0.018 (p=.133) | -0.002 | .955 |
-| Orders per sentence, down | +0.439 (p<.001) | +0.253 (p<.001) | +0.185 | .169 |
-| Orders per sentence, up | +0.059 (p=.654) | +0.070 (p=.096) | -0.011 | .936 |
-| Hedges per email, down | -0.013 (p=.040) | -0.005 (p=.526) | -0.009 | .362 |
-| Hedges per email, up | -0.007 (p=.274) | -0.005 (p=.429) | -0.002 | .809 |
-
-The same comparison for gpt-oss-20b:
+The comparison for gpt-oss-20b:
 
 | Contrast | gpt-oss-20b | Real email | Difference | p |
 |---|---:|---:|---:|---:|
@@ -610,7 +577,7 @@ than real email. The difference-of-p column here uses the code's flawed
 sentence-level standard error, the same one flagged above. With a
 persona-clustered standard error the difference is p≈.03, and that does not
 survive a Holm correction across the six contrasts in this table (adjusted
-p≈.16), let alone across all four models' contrasts together. The honest
+p≈.16), let alone across all three models' contrasts together. The honest
 statement is that gpt-oss-120b's point estimate is larger than real email's,
 and that this gap is not established as more than chance.
 
@@ -627,36 +594,22 @@ whatever its p-value says.
 | Chance a sentence is an order | Writing down | To a peer | Writing up |
 |---|---:|---:|---:|
 | Real email | 17.5% | 14.2% | 15.0% |
-| DeepSeek | 33.5% | 24.5% | 25.6% |
 | gpt-oss-20b | 41.0% | 37.8% | 39.8% |
 | gpt-oss-120b | 43.0% | 23.2% | 29.6% |
 
-![Chance that a sentence gives an order, by direction, for real email and DeepSeek.](docs/figures/nvidia_q1_deepseek_vs_real.png)
-
-- **DeepSeek gets the shape right.** Writing down is highest on both lines,
-  and writing up sits close to writing to a peer on both.
-- **DeepSeek's swing is bigger, but not provably so.** Down minus peer is
-  +9.0 points in DeepSeek against +3.3 points in real email. No contrast
-  between DeepSeek and real email is significant.
 - **Llama and gpt-oss-20b sit near the real effect size but detect
   nothing.** Llama's down effect is +0.198 (p=.298) and gpt-oss-20b's is
   +0.136 (p=.296), against the real +0.253. Neither is different from real
   email. Neither is different from zero.
-- **Sentence count does not explain the split.** The first version of this
-  section said DeepSeek finds the effect because its replies carry far more
-  sentences. gpt-oss-20b writes 719 sentences against DeepSeek's 882, and
-  finds nothing. Llama's 343 are fewer, but 20b shows that plenty of
-  sentences is not enough. gpt-oss-120b confirms this the other way: it
-  writes the fewest sentences of the four (474) and shows the clearest
-  effect of the four.
-- **DeepSeek and gpt-oss-20b are not provably different.** Their writing-down
-  effects differ by 0.303 (p=.092). So this section cannot say that 20b
-  lacks the effect and DeepSeek has it. It can say that 20b's data are also
-  consistent with the real effect.
+- **Sentence count does not explain the split.** gpt-oss-20b writes 719
+  sentences and finds nothing. gpt-oss-120b writes fewer (474) and shows
+  the clearest effect. So plenty of sentences is not enough.
+- **gpt-oss-20b's data are also consistent with the real effect.** Its
+  interval contains real email's +0.25 (see the figure below).
 - **gpt-oss-120b gets the shape right and overshoots it.** Writing down is
   highest, writing up sits above writing to a peer, both as in real email.
   The down-versus-peer swing is +19.5 points against real email's +3.3, and
-  unlike DeepSeek's swing this one is a real effect on its own (p≈.001). Read
+  this is a real effect on its own (p≈.001). Read
   the last two paragraphs above before treating the size of the overshoot as
   established: the standard comparison test does not survive correction, and
   gpt-oss-120b's short replies inflate the per-sentence share regardless.
@@ -669,29 +622,25 @@ means the grid cannot show the effect. This figure and its intervals are
 regenerated with the persona-clustered fit (commit `85e833a`), not the
 variational-Bayes fit the "vs real email" tables above still use, so
 numbers here differ slightly from the "orders per sentence" rows in those
-tables -- same effect, two different standard errors.
+tables -- same effect, two different standard errors. Real email uses its
+robust, sender-clustered fit (section 15).
 
 | | coefficient | p | 95% interval |
 |---|---:|---:|---:|
-| Real email | +0.253 | <.001 | [+0.15, +0.35] |
-| DeepSeek V4 Flash | +0.464 | .001 | [+0.19, +0.73] |
+| Real email | +0.249 | .034 | [+0.02, +0.48] |
 | gpt-oss-120b | +0.921 | .002 | [+0.35, +1.50] |
 | Llama 3.2 3B | +0.207 | .515 | [-0.42, +0.83] |
 | gpt-oss-20b | +0.155 | .239 | [-0.10, +0.41] |
 
-![Effect of writing down on the chance that a sentence gives an order, with a 95% interval, for real email and four models.](docs/figures/q1_models_all_writing_down.png)
+![Effect of writing down on the chance that a sentence gives an order, with a 95% interval, for real email and three models.](docs/figures/q1_models_all_writing_down.png)
 
-- **DeepSeek's and gpt-oss-120b's intervals stay clear of zero.** DeepSeek
-  runs from +0.19 to +0.73 and also contains the real +0.25. gpt-oss-120b
-  runs from +0.35 to +1.50 and also contains the real +0.25, but only just
-  at the bottom of its own interval, which is the top of real email's own
-  interval.
+- **Only gpt-oss-120b's interval stays clear of zero.** It runs from +0.35
+  to +1.50. Its lower end overlaps the top of real email's interval.
 - **Llama's and gpt-oss-20b's intervals cross zero.** The grids are too
   small to say either model shows an effect at all, let alone whether it
   differs from real email.
-- **gpt-oss-20b's interval runs from -0.10 to +0.41.** It has about as many
-  sentences as DeepSeek and an interval of nearly the same width (0.52
-  against 0.54). It sits lower, and it crosses zero.
+- **gpt-oss-20b's interval runs from -0.10 to +0.41.** It sits lower than
+  gpt-oss-120b's, and it crosses zero.
 
 **Caveats.**
 
@@ -704,9 +653,8 @@ tables -- same effect, two different standard errors.
   footnote earlier in this section. The persona-clustered fit table just
   above does not have this problem, but has not been substituted into
   those earlier tables yet.
-- The DeepSeek grid has 238 replies, not 240: 2 came back without valid
-  JSON, one writing up and one writing down. The gpt-oss-20b grid also has
-  238: one lateral and one writing up.
+- The gpt-oss-20b grid has 238 replies, not 240: 2 came back without
+  valid JSON, one lateral and one writing up.
 - gpt-oss-20b ran with `@low` reasoning effort, as in every other section of
   this log. The 20b grid took about 2.5 hours, mostly NVIDIA stalls and
   retries.
@@ -765,11 +713,6 @@ took three full-design draws, 4,320 replies, to clear that bar (section
 | gpt-oss-20b | 1 | 1,428 |
 | gpt-oss-120b | 1 | 1,440 |
 | qwen3.8-27b | 1 | 1,440 |
-| DeepSeek V4 Flash | 0 -- pilot only | 240 |
-
-DeepSeek never ran the full design: NVIDIA retired the model this
-project uses (section 18) before one was attempted, so its 240 pilot
-replies are fixed in place. qwen3.8-27b takes its place at full scale.
 
 ---
 
@@ -1553,14 +1496,9 @@ the cache and calls no model. Manifest: `outputs/manifests/role_cues.json`.
 ## 17. Rubric scores for the three models (Q2, Oct 10)
 
 **Finding.** Judged by one model (llama3.2:3b) on the same six-item rubric
-Q3 uses, Llama, gpt-oss-20b and gpt-oss-120b -- the same three models
-section 9's embedding classifier compares -- score in a narrow 4.0-4.9 band
-(1-5 scale) on every item. Llama scores lowest on every item; the two
+Q3 uses, Llama, gpt-oss-20b and gpt-oss-120b score in a narrow 4.0-4.9
+band (1-5 scale) on every item. Llama scores lowest on every item; the two
 gpt-oss models trade off which one is highest depending on the item.
-DeepSeek is not part of this table: it is excluded from every new result
-in this project, the same decision section 4 of the deck records (still
-usable where it was already cached before the cutoff, as in section 18,
-but not added to new comparisons).
 
 **How.** The same 60 replies per model from the judge-swap design (section
 18), scored by llama3.2:3b alone -- plain means, no model fit, no
@@ -1687,7 +1625,7 @@ lower. Manifest: `outputs/manifests/judge_swap_free_tier_qwen.json`.
   note on this for the same point from the other side.
 
 Source: the same `judge_swap_scores_free_tier.parquet` section 18
-produces, filtered to `generator != "deepseek-ai/..."`, grouped by
+produces, without the removed DeepSeek rows, grouped by
 (judge, generator) and averaged per rubric item -- plain means, no model
 fit (the model fit is section 18's job). No new API calls.
 
@@ -1695,159 +1633,113 @@ fit (the model fit is section 18's job). No new API calls.
 
 ## 18. The judge-swap design on the real free-tier models (Q3, Oct 6)
 
-**Finding.** A judge favors its own kind of model, and this holds on the
-project's real four free-tier models, not only the two local stand-ins the
-earlier pilot used (PROGRESS.md sections 23, 41, 52). gpt-oss-120b scores
-its own replies 0.68 rubric points higher than its normal habits predict.
-gpt-oss-20b does the same by 0.59 points. Both p<.0001.
+**Finding.** Measured against llama3.2:3b as the reference, each gpt-oss
+judge seems to favor its own writing: +0.68 rubric points for gpt-oss-120b
+and +0.59 for gpt-oss-20b, both p<.0001. **This is not self-preference.**
+Measured against qwen3.8-27b, a writer that does not judge, both are about
+zero (-0.05 and -0.12). The gpt-oss judges are harsh on llama's writing,
+and llama's own judge is not. The interaction picks up that disagreement.
 
 **How.** Four models write replies to the same 60 scenarios (10 personas x
-6 scenarios, the design sections 23/41/52 use). Three models then score
-every reply, including their own, on the 1-5 rubric. Self-preference is
-the interaction term of a `generator x judge` model: how much a model's
-own-written-own-judged score sits above what its general writing quality
-and its general judging habits already predict, measured against
-llama3.2:3b as the baseline for both. Read it as a disagreement between two
-judges, not one model's bias alone -- how much more the model's own judge
-prefers its writing than llama's judge does.
+6 scenarios, the design `PROGRESS.md` sections 23/41/52 use): llama3.2:3b,
+gpt-oss-20b, gpt-oss-120b and qwen3.8-27b. Three of them then score every
+reply, including their own, on the 1-5 rubric: llama3.2:3b, gpt-oss-20b
+and gpt-oss-120b. qwen writes only. As a judge it fails Groq's JSON check
+on about 40% of its answers, and Groq's rate limits made the retries take
+days.
 
-**DeepSeek could not judge.** NVIDIA retired the DeepSeek model this
-project uses mid-session (`deepseek-v4-flash-0731`, end of life
-2026-09-21, confirmed by a live HTTP 410 response). Its replies were
-already cached from earlier work, so it still writes here. It cannot be
-called live any more, so it was dropped as a judge. DeepSeek's own
-self-preference is not tested.
+Self-preference is the interaction term of a `generator x judge` model:
+how much a model's own-written-own-judged score sits above what its
+general writing quality and its general judging habits predict. It is
+measured against one reference writer and one reference judge. Read it as
+a disagreement between two judges, not one model's bias alone.
 
 **Results**, 239 replies (one gpt-oss-20b reply did not parse and was
-dropped), 717 scores.
+dropped), 717 scores. The fit is run on every rubric item, not only the
+overall mean, because every judge call scores all six items.
 
-| Effect | Coefficient | SE | p |
-|---|---:|---:|---:|
-| gpt-oss-120b self-preference (overall rubric) | +0.681 | 0.123 | <.0001 |
-| gpt-oss-20b self-preference (overall rubric) | +0.587 | 0.123 | <.0001 |
-| gpt-oss-120b self-preference (corpus_plausibility only) | +0.483 | 0.167 | .004 |
-| gpt-oss-20b self-preference (corpus_plausibility only) | +0.618 | 0.168 | .0002 |
-
-![Self-preference coefficient and 95% interval, gpt-oss-120b and gpt-oss-20b as judge, llama3.2:3b as the reference.](docs/figures/judge_swap_free_tier_self_preference.png)
-
-**Correction (Oct 10): the result above is mis-specified.** The interaction
-is measured relative to llama3.2:3b as the one reference writer. That choice
-turned out not to be neutral.
-
-The code was generalized this session to fit the same interaction on every
-individual rubric item, not only `corpus_plausibility` (every judge call
-already scores all six; only two were ever being fit). Doing that first:
+Self-preference with llama3.2:3b as the reference writer:
 
 | Item | gpt-oss-120b | p | gpt-oss-20b | p |
 |---|---:|---:|---:|---:|
 | overall rubric mean | +0.681 | <.0001 | +0.587 | <.0001 |
 | role_consistency | +1.317 | <.0001 | +1.004 | <.0001 |
-| contextual_fit | +1.383 | <.0001 | +1.203 | <.0001 |
-| corpus_plausibility | +0.483 | .004 | +0.618 | .0002 |
-| clarity | +0.200 | .094 | +0.254 | .034 |
-| politeness_appropriateness | +0.117 | .498 | +0.130 | .452 |
-| conflict_management | +0.583 | .006 | +0.316 | .140 |
+| contextual_fit | +1.383 | <.0001 | +1.202 | <.0001 |
+| corpus_plausibility | +0.483 | .004 | +0.618 | .0003 |
+| clarity | +0.200 | .146 | +0.254 | .066 |
+| politeness_appropriateness | +0.117 | .511 | +0.130 | .466 |
+| conflict_management | +0.583 | .007 | +0.316 | .145 |
 
-Self-preference is far from uniform -- it concentrates in `role_consistency`
-and `contextual_fit`. That pattern is what exposed the problem: those are
-exactly the two items `build_judge_items` cannot give the judge enough
-information to answer. It sends the reply text alone, no role, no original
-message -- yet `role_consistency` asks about "the stated role" and
-`contextual_fit` asks about "the specific message it is responding to." A
-judge scoring those from the reply alone is scoring general writing quality
-under a specific-sounding label, not role or context fit.
-
-Re-fitting the identical model with `deepseek-ai/deepseek-v4-flash-0731` as
-the reference writer instead -- a model no judge in this grid ever belongs
-to, so it cannot produce a self-preference effect by construction -- settles
-it:
+Self-preference with qwen3.8-27b as the reference writer:
 
 | Item | gpt-oss-120b | p | gpt-oss-20b | p |
 |---|---:|---:|---:|---:|
-| overall rubric mean | -0.211 | .086 | -0.241 | .051 |
-| role_consistency | -0.050 | .794 | -0.429 | .026 |
-| contextual_fit | -0.150 | .511 | -0.231 | .314 |
-| corpus_plausibility | -0.533 | .001 | -0.316 | .060 |
-| clarity | -0.133 | .264 | -0.080 | .506 |
-| politeness_appropriateness | -0.183 | .287 | -0.203 | .239 |
-| conflict_management | -0.217 | .308 | -0.184 | .388 |
+| overall rubric mean | -0.050 | .698 | -0.124 | .339 |
+| role_consistency | -0.117 | .531 | -0.462 | .013 |
+| contextual_fit | -0.000 | 1.000 | +0.052 | .821 |
+| corpus_plausibility | -0.083 | .620 | -0.033 | .847 |
+| clarity | -0.033 | .808 | -0.063 | .648 |
+| politeness_appropriateness | +0.100 | .573 | +0.030 | .867 |
+| conflict_management | -0.167 | .440 | -0.268 | .216 |
 
-Every coefficient collapses to roughly zero or goes negative. The cell means
-explain why in plain terms: both gpt-oss judges score llama3.2:3b's replies
-far below how llama scores itself (`role_consistency` 2.33/2.75 under the
-gpt-oss judges against llama's own 4.50; `contextual_fit` 2.78/2.98 against
-llama's own 4.03), while scoring DeepSeek's replies about as well as their
-own writing, sometimes slightly better (`role_consistency` 3.73/4.22 against
-their own-writing scores of 3.82/4.03; `contextual_fit` 4.73/4.83 against
-their own 4.82/4.78). **The honest reading: the gpt-oss judges are not
-generous to their own writing. They are harsh on llama's writing
-specifically, and llama's own lenient self-judging does not share that
-harshness.** Measuring self-preference against llama as the one reference
-writer mistook that asymmetry for self-preference.
+![Self-preference coefficient and 95% interval, overall rubric mean, each gpt-oss model measured against llama3.2:3b and against qwen as the reference writer.](docs/figures/judge_swap_free_tier_self_preference_corrected.png)
 
-![Self-preference coefficient and 95% interval, overall rubric mean, each gpt-oss model measured against llama3.2:3b and against DeepSeek as the reference writer.](docs/figures/judge_swap_free_tier_self_preference_corrected.png)
+**Why the reference writer matters.** The first fit (Oct 6) used llama as
+the only reference and read the result as self-preference. On Oct 10 the
+fit was run on every rubric item. Self-preference then sat almost entirely
+in `role_consistency` and `contextual_fit`. Those are the two items the
+judge cannot answer: it gets the reply alone, with no role and no incoming
+message. So a judge scoring them is scoring general writing quality under
+a specific-sounding label.
 
-This does not have a clean answer for llama's own self-preference (it still
-cannot be measured -- it is always one of the two reference levels here, and
-DeepSeek cannot judge to give it a judge-free comparison either), and it does
-not revisit the two-local-model pilot (PROGRESS.md section 52): with only
-two models there, every writer is also a judge, so no judge-free reference
-exists to re-fit against.
+The cell means show what the llama-referenced fit picks up:
 
-The `clarity` row above also needs a second look once more tests are run on
-the same table: 14 self-preference tests in the llama-referenced table alone
-(7 outcomes x 2 models), not 4. Holm-corrected across those 14 (checked
-directly, not estimated), gpt-oss-20b's `clarity` row (p=.034 uncorrected)
-needs p<=.010 to survive and does not -- treat it as noise, not an effect.
-Every other significance call in the llama-referenced table is unchanged by
-the correction. Separately, `clarity` is likely at a ceiling (86% of scores
-are a 5), which would mute any real effect there whether or not it is
-significant.
+| Writer | role_consistency: llama judge | gpt-oss-120b judge | gpt-oss-20b judge | contextual_fit: llama judge | gpt-oss-120b judge | gpt-oss-20b judge |
+|---|---:|---:|---:|---:|---:|---:|
+| llama3.2:3b | 4.50 | 2.33 | 2.75 | 4.03 | 2.78 | 2.98 |
+| qwen3.8-27b | 4.57 | 3.83 | 4.28 | 4.65 | 4.78 | 4.75 |
+| gpt-oss-120b | 4.67 | 3.82 | 4.00 | 4.68 | 4.82 | 4.78 |
+| gpt-oss-20b | 4.78 | 3.85 | 4.03 | 4.63 | 4.80 | 4.78 |
 
-Code: `fit_rubric_item_models` (all six items) and a new `--manifest-out`
-flag (re-fit the same cached scores against a different `--generators`
-reference order without overwriting the primary manifest), both in
-`src/thesis/analysis/judge_swap.py`. Re-fit source:
-```
-python -m thesis.analysis.judge_swap \
-  --generators llama3.2:3b openai/gpt-oss-20b@low openai/gpt-oss-120b@low deepseek-ai/deepseek-v4-flash-0731 \
-  --judges openai/gpt-oss-20b@low openai/gpt-oss-120b@low llama3.2:3b \
-  --analyse-only --manifest-out outputs/manifests/judge_swap_free_tier_deepseek_ref.json
-```
-Manifests: `outputs/manifests/judge_swap_free_tier.json` (llama-referenced,
-now all six items) and `outputs/manifests/judge_swap_free_tier_deepseek_ref.json`
-(new, DeepSeek-referenced).
+- Both gpt-oss judges score llama's replies far below how llama's judge
+  scores them.
+- Both gpt-oss judges score qwen's replies about as high as their own.
+- **So the gpt-oss judges are not generous to their own writing. They are
+  harsh on llama's writing specifically**, and llama's lenient judge does
+  not share that harshness. With llama as the reference writer, that
+  asymmetry looks like self-preference.
+
+**Multiple tests.** Each table holds 14 tests (7 items x 2 models). With a
+Holm correction across 14, every llama-referenced row with p<.01 stays
+significant. With qwen as reference, gpt-oss-20b's `role_consistency`
+(p=.013) needs p<=.0036 and does not survive. `clarity` is likely at a
+ceiling (86% of scores are a 5), which would mute any effect there.
+
+**What cannot be measured here.** llama's own self-preference: llama is
+always a reference level on the judge side. qwen's: it does not judge. The
+two-local-model pilot (`PROGRESS.md` section 52, +0.40, p=.005) is not
+rechecked: with only two models there, every writer is also a judge, so no
+neutral reference writer exists.
 
 **What this means.**
 
-- **Not safe as stated -- see the correction above.** This bullet originally
-  said the real four-model result was "stronger and clearer than the
-  two-local-model pilot found" (section 52's +0.40, p=.005, against this
-  section's +0.68/+0.59). That comparison assumed both numbers measure the
-  same thing. The correction above shows this section's number is mostly
-  judge severity toward llama, not self-preference, so the two are not
-  comparable as stated. Whether the pilot's own +0.40 has the same problem
-  is not checked here -- it would need its own judge-free reference writer,
-  which the two-local-model design does not have.
+- **The self-preference interaction measures how two judges disagree about
+  a writer.** It should be reported with the cell means and with a
+  neutral reference writer, not alone.
 - **This is model-level, not family-level.** gpt-oss-20b and gpt-oss-120b
   are the same family (OpenAI). The design tests whether each favors its
-  own exact writing, not whether one favors the other's. (Unaffected by the
-  correction -- this is about which models were compared, not the reference
-  writer.)
-- **The near-zero persona variance did not understate the result.** The
+  own exact writing, not whether one favors the other's.
+- **The near-zero persona variance does not distort the result.** The
   mixed-model fit logged a singular-covariance warning, the same
-  degenerate case sections 33/34/41/52 hit. A cluster-robust OLS refit
-  gives the same coefficients (0.681 and 0.587) at the same or slightly
-  tighter precision. (Unaffected by the correction -- this is about the
-  standard error, not what the coefficient measures.)
-- **Not safe as stated -- see the correction above.** This bullet originally
-  read the own-family means (4.49 and 4.53, against llama's 4.28) as
-  self-preference "adding back" more than harsh general scoring "takes
-  away." DeepSeek's replies score just as high under both gpt-oss judges
-  (4.52 and 4.58) without any own-family relationship to them, so the
-  own-family means being high is not evidence of self-preference either --
-  both gpt-oss judges simply rate DeepSeek's and their own writing alike,
-  and rate llama's much lower.
+  degenerate case sections 33/34/41/52 of `PROGRESS.md` hit. A
+  cluster-robust OLS refit gives the same coefficients.
+- **High own-family means are not evidence of self-preference.** The
+  gpt-oss judges score qwen's replies about as high as their own.
+
+**Writing quality.** Judged against llama's writing, both gpt-oss models
+write better replies (+0.33 and +0.35, both p<.001), and so does qwen
+(+0.22, p=.016). These generator-quality terms do not depend on any
+model judging itself.
 
 **A real bug this surfaced.** Judging with an NVIDIA or Groq model as
 judge, never done before in this project, crashed with an unpriced-model
@@ -1855,65 +1747,35 @@ error -- `judge/run.py`'s cost check named the local-model case but not the
 free-tier API case. Fixed in the same commit, with a regression test per
 provider.
 
-**qwen added as a writer (Oct 26).** qwen writes replies to the same 60
-scenarios. It was meant to judge too, but it fails Groq's JSON check on
-about 40% of its judge answers, and Groq's rate limits made the retries
-take days. So qwen is a writer only, and its own self-preference is not
-tested.
-
-qwen is useful in another way. It does not judge, so like DeepSeek it is a
-neutral reference writer. Re-fitting the same model with qwen as the
-reference writer checks the correction above a second time.
-
-| Self-preference, overall rubric mean | Reference: llama | Reference: DeepSeek | Reference: qwen |
-|---|---:|---:|---:|
-| gpt-oss-120b | +0.681 (p<.0001) | -0.211 (p=.086) | -0.050 (p=.68) |
-| gpt-oss-20b | +0.587 (p<.0001) | -0.241 (p=.051) | -0.124 (p=.31) |
-
-With qwen as the reference, self-preference is again about zero. Two
-different neutral writers give the same answer. This supports the
-correction: the gpt-oss judges do not favor their own writing. They are
-harsh on llama's writing. On single items, only gpt-oss-20b's
-role_consistency is below zero (-0.462, p=.014). It does not survive a
-Holm correction across the 14 tests.
-
-qwen's writing quality, judged against llama's: +0.219 (p=.011). It sits
-between DeepSeek (+0.156, p=.071) and the two gpt-oss models (+0.33 and
-+0.35).
-
-Manifests: `outputs/manifests/judge_swap_free_tier_qwen.json` (llama as
-reference) and `outputs/manifests/judge_swap_free_tier_qwen_ref.json`
-(qwen as reference, made with `--analyse-only` and qwen listed last in
-`--generators`).
-
 **Recommendation.** For future automated judging in this project, pair
 gpt-oss-20b as generator with llama3.2:3b as judge. Both gpt-oss models
-write better replies than llama by llama's own judgment (+0.35 and +0.33,
-both p<.0001) -- a comparison llama has no stake in, unlike a model
-judging itself. (The second half of this recommendation, as originally
-written, leaned on gpt-oss "favoring its own writing" -- see the correction
-above; that reasoning no longer holds, but the generator-quality numbers
-above are unaffected, so the recommendation itself stands on those alone.)
-gpt-oss-20b over gpt-oss-120b as generator:
-their generator-quality coefficients are close (+0.35 and +0.33, not
-tested directly against each other), but gpt-oss-20b runs on NVIDIA's
-free tier, not Groq's, so it avoids the daily cap that slowed this very
-run and the qwen3.8-27b Q1 run for days.
+write better replies than llama by llama's own judgment, a comparison
+llama has no stake in. gpt-oss-20b over gpt-oss-120b as generator: their
+generator-quality terms are close (+0.35 and +0.33, not tested directly
+against each other), but gpt-oss-20b runs on NVIDIA's free tier, not
+Groq's, so it avoids Groq's daily cap.
 
-**Caveats.** One draw per cell. DeepSeek has no self-preference number
-(see above). All four p-values survive a Holm correction across the four
-tests. Generation cost nothing (all 240 cells already cached); judging
-needed 717 live calls, run through the same resumable, backoff-retrying
-script the qwen3.8-27b Q1 run uses, since gpt-oss-120b hit Groq's shared
-daily cap repeatedly.
+**Caveats.** One draw per cell. qwen has no self-preference number (see
+above). Generation cost nothing: every reply was already cached. Judging
+needed 717 live calls, run through a resumable script that retries with
+backoff, since gpt-oss-120b hit Groq's daily cap repeatedly.
 
-Source:
+Code: `fit_rubric_item_models` (all six items), `--manifest-out` (refit the
+same cached scores with a different reference without overwriting a
+manifest), and `keep_listed_generators` (fit only the writers listed in
+`--generators`), all in `src/thesis/analysis/judge_swap.py`. Source, llama
+as reference:
 ```
 python -m thesis.analysis.judge_swap \
-  --generators deepseek-ai/deepseek-v4-flash-0731 openai/gpt-oss-20b@low openai/gpt-oss-120b@low llama3.2:3b \
-  --judges openai/gpt-oss-20b@low openai/gpt-oss-120b@low llama3.2:3b --design pilot
+  --generators qwen/qwen3.8-27b openai/gpt-oss-20b@low openai/gpt-oss-120b@low llama3.2:3b \
+  --judges openai/gpt-oss-20b@low openai/gpt-oss-120b@low llama3.2:3b --design pilot \
+  --out data/interim/judge_swap_grid_free_tier_qwen.parquet \
+  --scores-out data/interim/judge_swap_scores_free_tier_qwen.parquet \
+  --manifest-out outputs/manifests/judge_swap_free_tier_qwen.json
 ```
-Manifest: `outputs/manifests/judge_swap_free_tier.json`. Prompt hash
+For qwen as reference, add `--analyse-only`, list qwen last in
+`--generators`, and write to
+`outputs/manifests/judge_swap_free_tier_qwen_ref.json`. Prompt hash
 `d4c18550ed56f2de`, matching every other current-prompt section.
 
 ---
@@ -2020,110 +1882,11 @@ Code: the `--model` option of `src/thesis/analysis/judge_blindness.py`,
 on branch `judge-context-rerun` (not yet merged). Manifests:
 `outputs/manifests/judge_blindness_gpt_oss_{20b,120b}.json`.
 
-**At scale: the 239 judge-swap replies (Oct 31).** The test above used
-100 Llama replies. Section 18 has 239 replies from four writers. All three
-judges (llama3.2:3b, gpt-oss-20b, gpt-oss-120b) scored them again, now
-with the incoming message. The role is still not shown. Two questions: how
-do the scores move, and does self-preference change?
-
-**Finding.** The message moves the judges in opposite directions. The two
-gpt-oss judges score higher. The llama judge scores lower. This changes
-the self-preference estimate. But no gpt-oss judge scores its own writing
-above its sibling's.
-
-Mean score per judge (1-5), same 239 replies. Change tested with a
-signed-rank test, paired by reply.
-
-| Judge | Item | Reply only | With message | Change | p |
-|---|---|---:|---:|---:|---:|
-| llama3.2:3b | overall | 4.49 | 4.28 | -0.21 | <.001 |
-| llama3.2:3b | contextual_fit | 4.45 | 4.15 | -0.30 | .004 |
-| llama3.2:3b | role_consistency | 4.62 | 4.18 | -0.44 | <.001 |
-| gpt-oss-120b | overall | 4.25 | 4.45 | +0.20 | <.001 |
-| gpt-oss-120b | contextual_fit | 4.28 | 4.62 | +0.34 | <.001 |
-| gpt-oss-120b | role_consistency | 3.43 | 3.62 | +0.19 | <.001 |
-| gpt-oss-20b | overall | 4.32 | 4.60 | +0.28 | <.001 |
-| gpt-oss-20b | contextual_fit | 4.34 | 4.83 | +0.49 | <.001 |
-| gpt-oss-20b | role_consistency | 3.75 | 4.13 | +0.38 | <.001 |
-
-For both gpt-oss judges, conflict_management also rises (+0.47 and +0.44,
-p<.001).
-
-Self-preference, overall rubric mean (the section 18 fit):
-
-| Judge | Reference | Reply only | With message |
-|---|---|---:|---:|
-| gpt-oss-120b | llama | +0.681 (p<.001) | +0.861 (p<.001) |
-| gpt-oss-120b | DeepSeek | -0.211 (p=.086) | +0.289 (p=.029) |
-| gpt-oss-20b | llama | +0.587 (p<.001) | +0.265 (p=.046) |
-| gpt-oss-20b | DeepSeek | -0.241 (p=.051) | +0.168 (p=.21) |
-
-![With the message, the DeepSeek-referenced self-preference estimate turns positive for both gpt-oss judges.](docs/figures/judge_swap_free_tier_self_preference_with_context.png)
-
-**Why the estimate turns positive.** The cell means show it. Overall
-rubric mean, writer by judge:
-
-| Writer | llama judge: reply only | with message | gpt-oss-120b judge: reply only | with message | gpt-oss-20b judge: reply only | with message |
-|---|---:|---:|---:|---:|---:|---:|
-| DeepSeek | 4.44 | 4.49 | 4.52 | 4.66 | 4.58 | 4.74 |
-| llama3.2:3b | 4.28 | 4.10 | 3.48 | 3.70 | 3.60 | 4.25 |
-| gpt-oss-120b | 4.62 | 4.26 | 4.49 | 4.72 | 4.56 | 4.70 |
-| gpt-oss-20b | 4.63 | 4.29 | 4.51 | 4.73 | 4.53 | 4.71 |
-
-- With the message, the llama judge scores gpt-oss replies below
-  DeepSeek's (4.26 and 4.29 vs 4.49). Without it, the llama judge scored
-  them above (4.62 and 4.63 vs 4.44).
-- The gpt-oss judges score DeepSeek and gpt-oss writing about the same in
-  both setups.
-- So the positive estimate comes from the llama judge changing its view,
-  not from a gpt-oss judge favoring itself. The same thing happened in
-  section 18 with llama as reference.
-
-**A check without llama.** Compare each gpt-oss judge's score for its own
-replies with its score for the other gpt-oss model's replies. With the
-message: gpt-oss-120b gives 4.72 to its own and 4.73 to gpt-oss-20b's.
-gpt-oss-20b gives 4.71 to its own and 4.70 to gpt-oss-120b's. Reply only
-gives the same picture (4.49 vs 4.51, 4.53 vs 4.56). There is no
-self-preference here. This check is weak, because the two models are from
-the same family and write alike.
-
-**Section 19's question at scale.** Does the message shrink self-preference
-in role_consistency and contextual_fit? It depends on the reference.
-Against llama, both items shrink (gpt-oss-120b: contextual_fit 1.38 to
-0.87, role_consistency 1.32 to 1.02; gpt-oss-20b: 1.20 to 0.21, 1.00 to
-0.65). Against DeepSeek, both items go from about zero to about +0.4
-(p=.07 to .08). So there is no clean drop.
-
-**What this means.**
-
-- The self-preference interaction measures how much two judges disagree
-  about a writer. This holds in both setups. It should be reported with
-  the cell means, not alone.
-- The llama judge reacts to the message differently from the gpt-oss
-  judges. It lowers its scores, most for role_consistency (-0.44). So
-  scores from the two setups cannot be mixed, as said above.
-- The one significant DeepSeek-referenced result (gpt-oss-120b, p=.029)
-  does not survive a Holm correction across the two overall tests (it
-  needs p<=.025).
-- The recommendation above stands: show gpt-oss-120b the message. These
-  239 replies have no mirrored labels, so they cannot test that part.
-
-**Limits.** One draw per cell. DeepSeek and qwen cannot judge, so their
-self-preference is not tested. qwen's replies were not rescored with the
-message.
-
-Code: `--with-context` in `src/thesis/analysis/judge_swap.py`. Source:
-```
-python -m thesis.analysis.judge_swap --with-context \
-  --generators deepseek-ai/deepseek-v4-flash-0731 openai/gpt-oss-20b@low openai/gpt-oss-120b@low llama3.2:3b \
-  --judges openai/gpt-oss-20b@low openai/gpt-oss-120b@low llama3.2:3b --design pilot
-```
-The DeepSeek-referenced fit adds `--analyse-only`, lists DeepSeek last in
-`--generators`, and writes to `--manifest-out`. Manifests:
-`outputs/manifests/judge_swap_free_tier_with_context.json` (llama
-reference) and
-`outputs/manifests/judge_swap_free_tier_with_context_deepseek_ref.json`
-(DeepSeek reference).
+**At scale: the judge-swap replies (Oct 31).** All three judges rescored
+the section 18 replies with the incoming message. The first result used
+DeepSeek as the neutral reference writer. It is being refit with qwen in
+its place, after DeepSeek's removal. qwen's 60 replies are being rescored
+with the message now. The result follows here when that run ends.
 
 ---
 
@@ -2374,7 +2137,6 @@ python -m thesis.analysis.q1 --groq openai/gpt-oss-120b@low \
   --out data/interim/q1_direction_grid_gpt_oss_120b.parquet
 python -m thesis.analysis.q1_models \
   --grid "Llama 3.2 3B=data/interim/q1_direction_grid_llama_act.parquet" \
-  --grid "DeepSeek V4 Flash=data/interim/q1_direction_grid_deepseek.parquet" \
   --grid "gpt-oss-20b=data/interim/q1_direction_grid_gpt_oss_20b.parquet" \
   --grid "gpt-oss-120b=data/interim/q1_direction_grid_gpt_oss_120b.parquet" \
   --figure-prefix q1_models_all_ --manifest outputs/manifests/q1_models_all.json
@@ -2445,10 +2207,9 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   comparison under `compared_with_previous_prompt`, the wrong name since
   `compare_runs` compares any two runs -- two prompt versions or two
   models. Now `compared_with_run`. Nothing reads the old key
-  programmatically, so this is code-only; the four manifests already saved
+  programmatically, so this is code-only; the three manifests already saved
   under the old name (`mirroring_gpt_oss.json`,
-  `mirroring_gpt_oss_120b.json`, `mirroring_deepseek.json`,
-  `mirroring_act.json`) are left as they are, historical artifacts of the
+  `mirroring_gpt_oss_120b.json`, `mirroring_act.json`) are left as they are, historical artifacts of the
   code at the time, not regenerated.
 - **The real-email fit now has a robust-standard-error cross-check, and
   the model-vs-real comparisons use it.** See "15. A robust standard-error
@@ -2467,21 +2228,19 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   free-tier models' separability AUC (0.904 to 0.932) is not lower than
   Llama's (0.890); for Llama, length explains most of the gap, for the
   three free-tier models it explains almost none.
-- **The judge-swap design now covers the project's real four free-tier
+- **The judge-swap design now covers the project's real free-tier
   models, not two local stand-ins.** See "18. The judge-swap design on the
-  real free-tier models (Q3, Oct 6)" above. Covers item 4 here.
-  gpt-oss-120b and gpt-oss-20b both show self-preference against llama as
-  reference (+0.68 and +0.59, both p<.0001), stronger than the two-local-
-  model pilot found. DeepSeek could not be tested as judge: NVIDIA retired
-  the model this project uses mid-session.
+  real free-tier models (Q3, Oct 6)" above. Covers item 4 here. Against
+  llama as reference, both gpt-oss judges seem to favor their own writing
+  (+0.68 and +0.59, both p<.0001). Against qwen, a writer that does not
+  judge, both are about zero. So the gpt-oss judges are harsh on llama's
+  writing, not generous to their own.
 
 1. **A larger sample would help the two remaining NVIDIA/Groq models too.**
    Every simulator interval in the four-model figure is 0.5 to 0.7 wide,
    against 0.2 for real email's 2,202 emails -- true for gpt-oss-20b and
    gpt-oss-120b still, now that Llama's own version of this question is
-   answered above. DeepSeek is no longer a candidate here: NVIDIA retired
-   the model this project uses (see section 18), so its 240 cached replies
-   are fixed in place and cannot be enlarged. gpt-oss-120b's Groq rate cap
+   answered above. gpt-oss-120b's Groq rate cap
    (200,000 tokens/day) makes this a multi-day job there, not an overnight
    one.
 2. **Hand-code a sample of replies by a person.** The mirroring cutoff and
@@ -2490,12 +2249,14 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
    `50bd3aa`): 50 emails, two replies each from two models, in random
    order, with the model hidden. The codebook's missing `wrong_register`
    definition is also already fixed. Nothing left but a person to sit down
-   and code it. This session built three more such packets, one per
-   free-tier model (`outputs/tables/{gpt_oss,gpt_oss_120b,deepseek}/
+   and code it. This session built two more such packets, one per
+   OpenAI model (`outputs/tables/{gpt_oss,gpt_oss_120b}/
    manual_review_sheet.csv` and `manual_review_packet.md`, gitignored
    prep material, not committed). This is the review-pack half of what
-   used to be item 4 here. Like the Llama-vs-DeepSeek packet above, no
-   one has coded these yet, so they produce no citable numbers so far.
+   used to be item 4 here. No one has coded these yet, so they produce no
+   citable numbers so far. The blind page (`blind_review.py`) now pairs
+   Llama with gpt-oss-120b by default. A page built before Oct 31 paired
+   Llama with DeepSeek and must be rebuilt before anyone codes it.
 3. **A run without the act instruction.** This would show whether a larger
    model follows the instruction better than the small local one did
    (`PROGRESS.md` section 43 found only a small effect on Llama). The code

@@ -23,7 +23,7 @@ from thesis.analysis.blind_review import (
 from thesis.analysis.review_pack import CODING_COLUMNS, FAILURE_MODES
 
 FIRST_MODEL = "local/llama3.2:3b"
-SECOND_MODEL = "nim/deepseek-ai/deepseek-v4-flash-0731"
+SECOND_MODEL = "nim/openai/gpt-oss-20b@low"
 
 
 def _pairs(
@@ -101,7 +101,7 @@ def test_the_page_does_not_reveal_the_model() -> None:
     sample = draw_blind_sample(first, second, n=50)
     items, _ = assign_slots(sample, (FIRST_MODEL, SECOND_MODEL))
     page = render_page(build_page_data(sample, items)).lower()
-    for leak in ("llama", "deepseek", "sim_local", "sim_nvidia", "nim/", "local/", "__real_"):
+    for leak in ("llama", "gpt-oss", "sim_local", "sim_nvidia", "nim/", "local/", "__real_"):
         assert leak not in page
     for i in range(6):
         assert f"first reply {i}" in page

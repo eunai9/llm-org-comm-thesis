@@ -33,7 +33,7 @@ from thesis.paths import INTERIM_DIR, TABLES_DIR, ensure_dirs
 log = get_logger(__name__)
 
 FIRST_PAIRS: Path = INTERIM_DIR / "real_vs_generated_pairs_act.parquet"
-SECOND_PAIRS: Path = INTERIM_DIR / "pairs_deepseek.parquet"
+SECOND_PAIRS: Path = INTERIM_DIR / "pairs_gpt_oss_120b.parquet"
 SAMPLE_SIZE = 50
 SLOTS: tuple[str, str] = ("A", "B")
 

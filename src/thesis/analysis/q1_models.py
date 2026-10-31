@@ -9,7 +9,7 @@ one manifest and one figure, named by the caller so a later run with more
 models never overwrites the numbers an earlier section cited.
 
     python -m thesis.analysis.q1_models \\
-        --grid "DeepSeek V4 Flash=data/interim/q1_direction_grid_deepseek.parquet" \\
+        --grid "gpt-oss-120b=data/interim/q1_direction_grid_gpt_oss_120b.parquet" \\
         --grid "gpt-oss-20b=data/interim/q1_direction_grid_gpt_oss_20b.parquet" \\
         --figure-prefix q1_models_ --manifest outputs/manifests/q1_models.json
 """

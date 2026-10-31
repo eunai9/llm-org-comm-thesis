@@ -982,18 +982,17 @@ def main() -> None:
     )
 
     # Next-steps item 4 (Q3): the judge-swap design on the project's real
-    # four free-tier models and three families, not the two local 3B
-    # stand-ins sections 23/41/52 used. DeepSeek could not judge (NVIDIA
-    # retired deepseek-v4-flash-0731 mid-project), so only gpt-oss-20b and
-    # gpt-oss-120b have a self-preference coefficient here -- each
-    # measured against llama3.2:3b as the reference judge/generator.
-    # Coefficients and standard errors from
-    # outputs/manifests/judge_swap_free_tier.json.
+    # free-tier models, not the two local 3B stand-ins sections 23/41/52
+    # used. Writers: llama3.2:3b, gpt-oss-20b, gpt-oss-120b, qwen3.8-27b.
+    # Only gpt-oss-20b and gpt-oss-120b judge and have a self-preference
+    # coefficient, each measured against llama3.2:3b as the reference
+    # judge/generator. Coefficients and standard errors from
+    # outputs/manifests/judge_swap_free_tier_qwen.json.
     plot_effect_intervals(
         ("openai/gpt-oss-120b@low", "openai/gpt-oss-20b@low"),
         (0.6806, 0.5872),
-        (0.6806 - 1.96 * 0.1228, 0.5872 - 1.96 * 0.1233),
-        (0.6806 + 1.96 * 0.1228, 0.5872 + 1.96 * 0.1233),
+        (0.6806 - 1.96 * 0.1290, 0.5872 - 1.96 * 0.1295),
+        (0.6806 + 1.96 * 0.1290, 0.5872 + 1.96 * 0.1295),
         path=DOCS_FIGURES_DIR / "judge_swap_free_tier_self_preference.png",
         title="Judge swap on the real free-tier models: self-preference holds",
         subtitle=(
@@ -1004,80 +1003,38 @@ def main() -> None:
     )
 
     # Correction (Oct 10): the figure above measures self-preference against
-    # llama3.2:3b as the one reference writer. Re-fit against
-    # deepseek-ai/deepseek-v4-flash-0731 instead -- a writer no judge in this
-    # grid belongs to, so it cannot produce a self-preference effect by
-    # construction -- and both coefficients collapse to roughly zero. What
-    # the llama-referenced fit was actually picking up: both gpt-oss judges
-    # score llama's writing far below how llama scores itself, which a
-    # judge-free reference reclassified below as the plain read on its own
-    # (both negative, borderline p=.05-.09). Coefficients and standard
-    # errors from outputs/manifests/judge_swap_free_tier.json (llama
-    # reference) and outputs/manifests/judge_swap_free_tier_deepseek_ref.json
-    # (DeepSeek reference).
+    # llama3.2:3b as the one reference writer. Re-fit against qwen3.8-27b
+    # instead -- a writer no judge in this grid belongs to, so it cannot
+    # produce a self-preference effect by construction -- and both
+    # coefficients collapse to roughly zero. What the llama-referenced fit
+    # was actually picking up: both gpt-oss judges score llama's writing far
+    # below how llama scores itself. Coefficients and standard errors from
+    # outputs/manifests/judge_swap_free_tier_qwen{,_ref}.json.
     plot_effect_intervals(
         (
             "gpt-oss-120b (vs. llama3.2:3b)",
-            "gpt-oss-120b (vs. DeepSeek)",
+            "gpt-oss-120b (vs. qwen)",
             "gpt-oss-20b (vs. llama3.2:3b)",
-            "gpt-oss-20b (vs. DeepSeek)",
+            "gpt-oss-20b (vs. qwen)",
         ),
-        (0.6806, -0.2111, 0.5872, -0.2405),
+        (0.6806, -0.0500, 0.5872, -0.1239),
         (
-            0.6806 - 1.96 * 0.1228,
-            -0.2111 - 1.96 * 0.1228,
-            0.5872 - 1.96 * 0.1233,
-            -0.2405 - 1.96 * 0.1233,
+            0.6806 - 1.96 * 0.1290,
+            -0.0500 - 1.96 * 0.1290,
+            0.5872 - 1.96 * 0.1295,
+            -0.1239 - 1.96 * 0.1295,
         ),
         (
-            0.6806 + 1.96 * 0.1228,
-            -0.2111 + 1.96 * 0.1228,
-            0.5872 + 1.96 * 0.1233,
-            -0.2405 + 1.96 * 0.1233,
+            0.6806 + 1.96 * 0.1290,
+            -0.0500 + 1.96 * 0.1290,
+            0.5872 + 1.96 * 0.1295,
+            -0.1239 + 1.96 * 0.1295,
         ),
         path=DOCS_FIGURES_DIR / "judge_swap_free_tier_self_preference_corrected.png",
         title="Judge swap, corrected: self-preference depends on the reference writer",
-        subtitle=(
-            "Same self-preference interaction (overall rubric mean), re-fit against two "
-            "different reference writers. Against llama, p<.0001 for both models; against "
-            "DeepSeek (no judge in the grid writes it), both collapse to roughly zero."
-        ),
+        subtitle=("Overall rubric mean. Against llama, p<.0001. Against qwen, about zero."),
         x_label="self-preference coefficient (rubric points, own replies vs. predicted)",
         second_series=(0, 2),  # the two "vs. llama3.2:3b" rows, colored as one group
-    )
-
-    # Section 19, at scale (Oct 31): the same DeepSeek-referenced fit, once
-    # with the reply only and once with the incoming message shown to every
-    # judge. Coefficients and standard errors from
-    # outputs/manifests/judge_swap_free_tier_deepseek_ref.json and
-    # outputs/manifests/judge_swap_free_tier_with_context_deepseek_ref.json.
-    plot_effect_intervals(
-        (
-            "gpt-oss-120b (reply only)",
-            "gpt-oss-120b (with message)",
-            "gpt-oss-20b (reply only)",
-            "gpt-oss-20b (with message)",
-        ),
-        (-0.2111, 0.2889, -0.2405, 0.1681),
-        (
-            -0.2111 - 1.96 * 0.1228,
-            0.2889 - 1.96 * 0.1327,
-            -0.2405 - 1.96 * 0.1233,
-            0.1681 - 1.96 * 0.1332,
-        ),
-        (
-            -0.2111 + 1.96 * 0.1228,
-            0.2889 + 1.96 * 0.1327,
-            -0.2405 + 1.96 * 0.1233,
-            0.1681 + 1.96 * 0.1332,
-        ),
-        path=DOCS_FIGURES_DIR / "judge_swap_free_tier_self_preference_with_context.png",
-        title="With the message, self-preference turns positive",
-        subtitle=(
-            "Overall rubric mean, DeepSeek as reference. With message: " "120b p=.03, 20b p=.21."
-        ),
-        x_label="self-preference coefficient (rubric points, own replies vs. predicted)",
-        second_series=(1, 3),  # the two "with message" rows, colored as one group
     )
 
     # Section 45: the power score split into its two halves and checked
@@ -1185,6 +1142,62 @@ def main() -> None:
         x_label="which prompt the persona was given",
         y_label="% of replies flagged",
         legend_loc="lower left",
+    )
+
+    # PROGRESS_llms.md sections 7-9, redrawn on Oct 31 without DeepSeek,
+    # which was removed from the project. qwen3.8-27b takes its place where
+    # its numbers exist. Numbers are the tables in those sections, from
+    # outputs/manifests/mirroring_*.json and embedding_map_*.json.
+    plot_factor_interaction(
+        # qwen is not last: it sits on the real line, so the end labels would collide.
+        ("Llama 3.2 3B", "qwen3.8-27b", "gpt-oss-20b", "gpt-oss-120b"),
+        {
+            "AI reply, cut to the Llama length": (0.565, 0.298, 0.373, 0.435),
+            "real reply, cut to the Llama length": (0.294, 0.294, 0.294, 0.294),
+        },
+        path=DOCS_FIGURES_DIR / "nvidia_four_models_mirroring.png",
+        title="Mirroring by model, at the same length",
+        subtitle="Mean share of reply words taken from the sender. Same 183 emails, same prompt.",
+        x_label="model",
+        y_label="mean borrowed words",
+        legend_loc="upper right",
+    )
+
+    # qwen is left out here: its length-only AUC (0.473) is below chance,
+    # which this scale cannot draw.
+    plot_discrimination_auc(
+        (
+            "Llama: length only",
+            "Llama: text, same length",
+            "gpt-oss-20b: length only",
+            "gpt-oss-20b: text, same length",
+            "gpt-oss-120b: length only",
+            "gpt-oss-120b: text, same length",
+        ),
+        (0.837, 0.881, 0.687, 0.970, 0.748, 0.962),
+        path=DOCS_FIGURES_DIR / "nvidia_four_models_auc.png",
+        title="Can a simple classifier tell AI replies from real ones?",
+        subtitle="Same prompt. Signature and header lines removed. n=183 pairs each.",
+        x_label="AUC: how often a real reply is ranked above an AI reply",
+        chance_note="0.5 = pure guessing",
+    )
+
+    embedding_models = ("Llama 3.2 3B", "gpt-oss-20b", "gpt-oss-120b", "qwen3.8-27b")
+    plot_discrimination_auc(
+        embedding_models,
+        (0.890, 0.932, 0.904, 0.934),
+        path=DOCS_FIGURES_DIR / "embedding_four_models_auc_stored.png",
+        title="Embedding-space separability: real vs generated, as written",
+        subtitle="A classifier on sentence embeddings alone, not word choice.",
+        chance_note="0.5 = indistinguishable",
+    )
+    plot_discrimination_auc(
+        embedding_models,
+        (0.817, 0.924, 0.909, 0.936),
+        path=DOCS_FIGURES_DIR / "embedding_four_models_auc_length_matched.png",
+        title="Embedding-space separability: real vs generated, same length",
+        subtitle="Each real reply cut to its AI partner's word count first.",
+        chance_note="0.5 = indistinguishable",
     )
 
 

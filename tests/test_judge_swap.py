@@ -923,9 +923,6 @@ def test_client_for_model_dispatches_by_provider(monkeypatch: pytest.MonkeyPatch
     from thesis.llm.nvidia_client import NvidiaClient
     from thesis.llm.ollama_client import OllamaClient
 
-    assert isinstance(
-        judge_swap.client_for_model("deepseek-ai/deepseek-v4-flash-0731"), NvidiaClient
-    )
     assert isinstance(judge_swap.client_for_model("openai/gpt-oss-20b@low"), NvidiaClient)
     assert isinstance(judge_swap.client_for_model("openai/gpt-oss-120b@low"), GroqClient)
     assert isinstance(judge_swap.client_for_model("qwen/qwen3.8-27b"), GroqClient)
@@ -937,11 +934,19 @@ def test_client_for_model_dispatches_by_provider(monkeypatch: pytest.MonkeyPatch
 
 def test_free_tier_generators_are_exactly_the_four_models_section_2_names() -> None:
     """The project's own model table (PROGRESS_llms.md section 2) names
-    these four models across three families (Meta, DeepSeek, OpenAI); this
+    these four models across three families (Meta, OpenAI, Alibaba); this
     constant has to match it exactly, not a different pick."""
     assert judge_swap.FREE_TIER_GENERATORS == (
-        "deepseek-ai/deepseek-v4-flash-0731",
+        "qwen/qwen3.8-27b",
         "openai/gpt-oss-20b@low",
         "openai/gpt-oss-120b@low",
         "llama3.2:3b",
     )
+
+
+def test_keep_listed_generators_drops_other_writers() -> None:
+    replies = pd.DataFrame({"model": ["a", "b", "c"], "cell_id": ["1", "2", "3"]})
+    scores = pd.DataFrame({"generator": ["a", "b", "c", "c"], "score_overall": [1, 2, 3, 4]})
+    kept_replies, kept_scores = judge_swap.keep_listed_generators(replies, scores, ["a", "c"])
+    assert kept_replies["model"].tolist() == ["a", "c"]
+    assert kept_scores["generator"].tolist() == ["a", "c", "c"]
