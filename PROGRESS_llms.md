@@ -2104,30 +2104,53 @@ analysis now runs on the original 10-persona grids, the ones sections
 exactly (Llama +0.127, gpt-oss-20b +0.258, gpt-oss-120b +0.483, qwen
 +0.510), which checks the setup.
 
-Change against writing to a peer. "Matches" means the same direction and
-significance as real email. "Cannot test" means almost no reply uses the
-measure.
+Each measure is checked against the direction research expects, not
+against real email. Real email is checked the same way.
+
+| Measure | Expected direction | Source |
+|---|---|---|
+| "you" rate | More when writing down | Kacewicz et al. 2014 |
+| Hierarchy phrases | Higher when writing up | Gilbert 2012 |
+| Gratitude | Less when writing down, more when writing up | Danescu-Niculescu-Mizil et al. 2013 |
+| Hedges | Fewer when writing down, more when writing up | Prabhakaran et al. 2018 |
+
+"Follows" and "Against" mean a significant change (p<.05) in or against
+the expected direction, compared with writing to a peer. "No effect" means
+no significant change, which may only mean too little data. "Cannot test"
+means almost no reply uses the measure.
+
+10-persona design:
 
 | Measure | Real email | Llama (4,320) | gpt-oss-20b (1,428) | gpt-oss-120b (1,440) | qwen3.8-27b (1,440) |
 |---|---|---|---|---|---|
-| "you" rate | More when writing down | More when writing down (p<.001): matches | No difference | Less when writing down (p<.001) | No difference |
-| Hierarchy phrases | Higher when writing up | No difference | No difference | Higher when writing down (p=.004) | No difference |
-| Gratitude | More when writing down | Cannot test: 1 reply thanks | No difference (up: p=.05) | Cannot test: 8 replies thank | More when writing up (p=.003) |
-| Hedges | No difference | Fewer writing down (p<.001) and up (p=.015) | Cannot test: 3 replies hedge | Cannot test: 1 reply hedges | Fewer writing down (p=.03) |
+| "you" rate | Follows | Follows (p<.001) | No effect | Against: less when writing down (p<.001) | No effect |
+| Hierarchy phrases | Follows | No effect | No effect | Against: higher when writing down (p=.004) | No effect |
+| Gratitude | Against: more when writing down | Cannot test: 1 reply thanks | No effect | Cannot test: 8 replies thank | Follows: more when writing up (p=.003) |
+| Hedges | No effect | Mixed: fewer writing down (p<.001), but also fewer up (p=.015) | Cannot test: 3 replies hedge | Cannot test: 1 reply hedges | Follows: fewer writing down (p=.03) |
 
-- **Only one cell matches real email:** Llama's "you" rate.
-- **The two designs disagree.** Llama's "you" match is gone with 40
-  personas. gpt-oss-20b's "you" match appears only with 40 personas. So
-  neither match is stable across persona sets.
-- **gpt-oss-120b shows the same pattern in both designs.** Less "you" and
-  more hierarchy phrases when writing down. Both go against real email.
-- **qwen thanks more when writing up.** Real email thanks more when
-  writing down.
+40-persona pilot, the same check on the results above:
 
-**What this means.** No model reproduces the real-email pattern on the new
-measures, in either design. This supports the 40-persona conclusion:
-what the models show by direction depends on the persona prompts more
-than on rank.
+| Measure | Real email | Llama | gpt-oss-20b | gpt-oss-120b |
+|---|---|---|---|---|
+| "you" rate | Follows | No effect | Follows (p=.04) | Against (p=.02) |
+| Hierarchy phrases | Follows | Against: higher when writing down (p=.004) | Against (p=.04) | Against (p=.04) |
+| Gratitude | Against | Cannot test: no reply thanks | No effect | Follows: more when writing up (p=.01), but only 2% thank |
+| Hedges | No effect | Follows: fewer writing down (p=.006) | No effect | Cannot test: no reply hedges |
+
+- **Real email follows the expectation for "you" and hierarchy phrases.**
+  It goes against it for gratitude (managers thank staff for work done),
+  and shows no effect for hedges.
+- **The models rarely follow it.** 3 of 16 cells in the 10-persona design
+  and 3 of 12 in the pilot. They go against it in 2 and 4 cells.
+- **Only one result holds in both designs:** Llama hedges less when writing
+  down.
+- **gpt-oss-120b goes against the expectation in both designs**, for "you"
+  and for hierarchy phrases.
+
+**What this means.** No model shows the expected direction on the new
+measures in a stable way. The results change with the persona set. This
+supports the 40-persona conclusion: what the models show by direction
+depends on the persona prompts more than on rank.
 
 Caveats. 10 personas means 10 clusters, so the persona-clustered p-values
 are likely too small (the reason section 20 exists). No Holm correction
