@@ -1,0 +1,84 @@
+{
+  "n_replies": 1440,
+  "n_personas": 10,
+  "directions": [
+    "down",
+    "up"
+  ],
+  "primary": {
+    "down": {
+      "coefficient": 0.4829,
+      "se": 0.0671,
+      "p": 0.0
+    },
+    "up": {
+      "coefficient": 0.1063,
+      "se": 0.0533,
+      "p": 0.046255
+    }
+  },
+  "reply_level": {
+    "imperative_ratio": {
+      "down": {
+        "coefficient": 0.1017,
+        "se": 0.0184,
+        "p": 0.0
+      },
+      "up": {
+        "coefficient": 0.0144,
+        "se": 0.0134,
+        "p": 0.281195
+      }
+    },
+    "hedge_rate": {
+      "down": {
+        "coefficient": -0.0007,
+        "se": 0.0007,
+        "p": 0.319167
+      },
+      "up": {
+        "coefficient": -0.0007,
+        "se": 0.0007,
+        "p": 0.319167
+      }
+    },
+    "you_rate": {
+      "down": {
+        "coefficient": -0.0031,
+        "se": 0.0009,
+        "p": 0.000389
+      },
+      "up": {
+        "coefficient": 0.0006,
+        "se": 0.0011,
+        "p": 0.562846
+      }
+    },
+    "gratitude": {
+      "down": {
+        "coefficient": 0.0042,
+        "se": 0.0052,
+        "p": 0.424457
+      },
+      "up": {
+        "coefficient": 0.0062,
+        "se": 0.0054,
+        "p": 0.251002
+      }
+    },
+    "gilbert_score": {
+      "down": {
+        "coefficient": 1.4482,
+        "se": 0.5079,
+        "p": 0.004357
+      },
+      "up": {
+        "coefficient": 0.9793,
+        "se": 0.5447,
+        "p": 0.07221
+      }
+    }
+  },
+  "traits": {},
+  "mean_sentences_per_reply": 1.79
+}

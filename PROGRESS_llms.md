@@ -2097,6 +2097,49 @@ check. Caveat: each pilot has 832 replies against 1,428 to 4,320 in the
 Manifests:
 `outputs/manifests/q1_personas_{llama,gpt_oss_20b,gpt_oss_120b}_pilot.json`.
 
+**The new measures on the 10-persona replies (Oct 31).** The new measures
+had only been tested by direction on the 40-persona pilots. The same
+analysis now runs on the original 10-persona grids, the ones sections
+12-13 use. No model is called. The orders contrasts reproduce section 13
+exactly (Llama +0.127, gpt-oss-20b +0.258, gpt-oss-120b +0.483, qwen
++0.510), which checks the setup.
+
+Change against writing to a peer. "Matches" means the same direction and
+significance as real email. "Cannot test" means almost no reply uses the
+measure.
+
+| Measure | Real email | Llama (4,320) | gpt-oss-20b (1,428) | gpt-oss-120b (1,440) | qwen3.8-27b (1,440) |
+|---|---|---|---|---|---|
+| "you" rate | More when writing down | More when writing down (p<.001): matches | No difference | Less when writing down (p<.001) | No difference |
+| Hierarchy phrases | Higher when writing up | No difference | No difference | Higher when writing down (p=.004) | No difference |
+| Gratitude | More when writing down | Cannot test: 1 reply thanks | No difference (up: p=.05) | Cannot test: 8 replies thank | More when writing up (p=.003) |
+| Hedges | No difference | Fewer writing down (p<.001) and up (p=.015) | Cannot test: 3 replies hedge | Cannot test: 1 reply hedges | Fewer writing down (p=.03) |
+
+- **Only one cell matches real email:** Llama's "you" rate.
+- **The two designs disagree.** Llama's "you" match is gone with 40
+  personas. gpt-oss-20b's "you" match appears only with 40 personas. So
+  neither match is stable across persona sets.
+- **gpt-oss-120b shows the same pattern in both designs.** Less "you" and
+  more hierarchy phrases when writing down. Both go against real email.
+- **qwen thanks more when writing up.** Real email thanks more when
+  writing down.
+
+**What this means.** No model reproduces the real-email pattern on the new
+measures, in either design. This supports the 40-persona conclusion:
+what the models show by direction depends on the persona prompts more
+than on rank.
+
+Caveats. 10 personas means 10 clusters, so the persona-clustered p-values
+are likely too small (the reason section 20 exists). No Holm correction
+across the 32 tests here. Llama's grid has three draws per cell; the
+others have one.
+
+Code: `analyse_persona_grid` in `src/thesis/analysis/q1_personas.py` now
+skips the trait check for grids without persona variants. Run with
+`python -m thesis.analysis.q1_personas --analyse GRID --manifest OUT`.
+Manifests:
+`outputs/manifests/q1_measures_10personas_{llama,gpt_oss_20b,gpt_oss_120b,qwen}.json`.
+
 ---
 
 ## 21. Where the code lives

@@ -140,7 +140,11 @@ def _contrasts(fit: FixedEffectsResult) -> dict[str, dict[str, float]]:
 def analyse_persona_grid(
     frame: pd.DataFrame, phrases: Mapping[tuple[str, ...], float]
 ) -> dict[str, Any]:
-    """Direction contrasts with persona fixed effects, clustered by persona."""
+    """Direction contrasts with persona fixed effects, clustered by persona.
+
+    A grid without persona variants (the 10-persona design) has no tenure or
+    origin, so its trait check is skipped.
+    """
     docs = parse_replies(frame)
     sentences = extract_q1_sentence_features(frame, docs=docs)
     primary = fit_direction_fixed_effects(sentences, "is_imperative", family="logistic")
@@ -151,15 +155,11 @@ def analyse_persona_grid(
             for cid, body in zip(frame["cell_id"], frame["body"], strict=True)
         ]
     )
-    reply = pd.concat(
-        [
-            frame[["persona_id", "tenure", "origin", "direction", "base_persona_id"]].reset_index(
-                drop=True
-            ),
-            cues,
-        ],
-        axis=1,
-    )
+    has_traits = {"tenure", "origin", "base_persona_id"} <= set(frame.columns)
+    id_cols = ["persona_id", "direction"]
+    if has_traits:
+        id_cols += ["tenure", "origin", "base_persona_id"]
+    reply = pd.concat([frame[id_cols].reset_index(drop=True), cues], axis=1)
     reply_level: dict[str, Any] = {}
     for outcome in REPLY_OUTCOMES:
         if reply[outcome].std() == 0:
@@ -169,20 +169,21 @@ def analyse_persona_grid(
         except InsufficientDataError:
             continue
 
-    working = reply.assign(tenure=reply["tenure"].astype(str))
-    trait_fit = smf.ols(
-        "imperative_ratio ~ C(direction, Treatment(reference='lateral'))"
-        " + C(tenure) + C(origin) + C(base_persona_id)",
-        data=working,
-    ).fit(cov_type="cluster", cov_kwds={"groups": pd.factorize(working["persona_id"])[0]})
     traits = {}
-    for name in ("tenure", "origin"):
-        term = next(t for t in trait_fit.params.index if t.startswith(f"C({name})"))
-        traits[name] = {
-            "term": term,
-            "coefficient": round(float(trait_fit.params[term]), 4),
-            "p": round(float(trait_fit.pvalues[term]), 6),
-        }
+    if has_traits:
+        working = reply.assign(tenure=reply["tenure"].astype(str))
+        trait_fit = smf.ols(
+            "imperative_ratio ~ C(direction, Treatment(reference='lateral'))"
+            " + C(tenure) + C(origin) + C(base_persona_id)",
+            data=working,
+        ).fit(cov_type="cluster", cov_kwds={"groups": pd.factorize(working["persona_id"])[0]})
+        for name in ("tenure", "origin"):
+            term = next(t for t in trait_fit.params.index if t.startswith(f"C({name})"))
+            traits[name] = {
+                "term": term,
+                "coefficient": round(float(trait_fit.params[term]), 4),
+                "p": round(float(trait_fit.pvalues[term]), 6),
+            }
 
     return {
         "n_replies": len(frame),

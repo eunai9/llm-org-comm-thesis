@@ -116,6 +116,13 @@ def test_analysis_finds_more_orders_writing_down() -> None:
     assert {"tenure", "origin"} <= set(result["traits"])
 
 
+def test_analysis_skips_traits_for_a_grid_without_variants() -> None:
+    grid = _synthetic_grid().drop(columns=["tenure", "origin", "base_persona_id"])
+    result = analyse_persona_grid(grid, {("could", "you"): 1.0})
+    assert result["traits"] == {}
+    assert result["primary"]["down"]["coefficient"] > 0
+
+
 def test_analysis_runs_with_missing_rows() -> None:
     result = analyse_persona_grid(_synthetic_grid(drop=5), {})
     assert result["n_replies"] == len(_synthetic_grid()) - 5
