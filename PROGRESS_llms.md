@@ -1920,7 +1920,7 @@ Manifest: `outputs/manifests/judge_swap_free_tier.json`. Prompt hash
 
 ## 19. Does showing the judge the incoming message help? A planned rerun (Q3, Oct 23)
 
-Status: run on Oct 25. The result is at the end of this section.
+Status: run on Oct 25, and on all 239 judge-swap replies on Oct 31. Both results are at the end of this section.
 
 **The problem.** Two rubric items ask about things the judge never sees.
 
@@ -2019,6 +2019,111 @@ replies only, 25 mirrored replies.
 Code: the `--model` option of `src/thesis/analysis/judge_blindness.py`,
 on branch `judge-context-rerun` (not yet merged). Manifests:
 `outputs/manifests/judge_blindness_gpt_oss_{20b,120b}.json`.
+
+**At scale: the 239 judge-swap replies (Oct 31).** The test above used
+100 Llama replies. Section 18 has 239 replies from four writers. All three
+judges (llama3.2:3b, gpt-oss-20b, gpt-oss-120b) scored them again, now
+with the incoming message. The role is still not shown. Two questions: how
+do the scores move, and does self-preference change?
+
+**Finding.** The message moves the judges in opposite directions. The two
+gpt-oss judges score higher. The llama judge scores lower. This changes
+the self-preference estimate. But no gpt-oss judge scores its own writing
+above its sibling's.
+
+Mean score per judge (1-5), same 239 replies. Change tested with a
+signed-rank test, paired by reply.
+
+| Judge | Item | Reply only | With message | Change | p |
+|---|---|---:|---:|---:|---:|
+| llama3.2:3b | overall | 4.49 | 4.28 | -0.21 | <.001 |
+| llama3.2:3b | contextual_fit | 4.45 | 4.15 | -0.30 | .004 |
+| llama3.2:3b | role_consistency | 4.62 | 4.18 | -0.44 | <.001 |
+| gpt-oss-120b | overall | 4.25 | 4.45 | +0.20 | <.001 |
+| gpt-oss-120b | contextual_fit | 4.28 | 4.62 | +0.34 | <.001 |
+| gpt-oss-120b | role_consistency | 3.43 | 3.62 | +0.19 | <.001 |
+| gpt-oss-20b | overall | 4.32 | 4.60 | +0.28 | <.001 |
+| gpt-oss-20b | contextual_fit | 4.34 | 4.83 | +0.49 | <.001 |
+| gpt-oss-20b | role_consistency | 3.75 | 4.13 | +0.38 | <.001 |
+
+For both gpt-oss judges, conflict_management also rises (+0.47 and +0.44,
+p<.001).
+
+Self-preference, overall rubric mean (the section 18 fit):
+
+| Judge | Reference | Reply only | With message |
+|---|---|---:|---:|
+| gpt-oss-120b | llama | +0.681 (p<.001) | +0.861 (p<.001) |
+| gpt-oss-120b | DeepSeek | -0.211 (p=.086) | +0.289 (p=.029) |
+| gpt-oss-20b | llama | +0.587 (p<.001) | +0.265 (p=.046) |
+| gpt-oss-20b | DeepSeek | -0.241 (p=.051) | +0.168 (p=.21) |
+
+![With the message, the DeepSeek-referenced self-preference estimate turns positive for both gpt-oss judges.](docs/figures/judge_swap_free_tier_self_preference_with_context.png)
+
+**Why the estimate turns positive.** The cell means show it. Overall
+rubric mean, writer by judge:
+
+| Writer | llama judge: reply only | with message | gpt-oss-120b judge: reply only | with message | gpt-oss-20b judge: reply only | with message |
+|---|---:|---:|---:|---:|---:|---:|
+| DeepSeek | 4.44 | 4.49 | 4.52 | 4.66 | 4.58 | 4.74 |
+| llama3.2:3b | 4.28 | 4.10 | 3.48 | 3.70 | 3.60 | 4.25 |
+| gpt-oss-120b | 4.62 | 4.26 | 4.49 | 4.72 | 4.56 | 4.70 |
+| gpt-oss-20b | 4.63 | 4.29 | 4.51 | 4.73 | 4.53 | 4.71 |
+
+- With the message, the llama judge scores gpt-oss replies below
+  DeepSeek's (4.26 and 4.29 vs 4.49). Without it, the llama judge scored
+  them above (4.62 and 4.63 vs 4.44).
+- The gpt-oss judges score DeepSeek and gpt-oss writing about the same in
+  both setups.
+- So the positive estimate comes from the llama judge changing its view,
+  not from a gpt-oss judge favoring itself. The same thing happened in
+  section 18 with llama as reference.
+
+**A check without llama.** Compare each gpt-oss judge's score for its own
+replies with its score for the other gpt-oss model's replies. With the
+message: gpt-oss-120b gives 4.72 to its own and 4.73 to gpt-oss-20b's.
+gpt-oss-20b gives 4.71 to its own and 4.70 to gpt-oss-120b's. Reply only
+gives the same picture (4.49 vs 4.51, 4.53 vs 4.56). There is no
+self-preference here. This check is weak, because the two models are from
+the same family and write alike.
+
+**Section 19's question at scale.** Does the message shrink self-preference
+in role_consistency and contextual_fit? It depends on the reference.
+Against llama, both items shrink (gpt-oss-120b: contextual_fit 1.38 to
+0.87, role_consistency 1.32 to 1.02; gpt-oss-20b: 1.20 to 0.21, 1.00 to
+0.65). Against DeepSeek, both items go from about zero to about +0.4
+(p=.07 to .08). So there is no clean drop.
+
+**What this means.**
+
+- The self-preference interaction measures how much two judges disagree
+  about a writer. This holds in both setups. It should be reported with
+  the cell means, not alone.
+- The llama judge reacts to the message differently from the gpt-oss
+  judges. It lowers its scores, most for role_consistency (-0.44). So
+  scores from the two setups cannot be mixed, as said above.
+- The one significant DeepSeek-referenced result (gpt-oss-120b, p=.029)
+  does not survive a Holm correction across the two overall tests (it
+  needs p<=.025).
+- The recommendation above stands: show gpt-oss-120b the message. These
+  239 replies have no mirrored labels, so they cannot test that part.
+
+**Limits.** One draw per cell. DeepSeek and qwen cannot judge, so their
+self-preference is not tested. qwen's replies were not rescored with the
+message.
+
+Code: `--with-context` in `src/thesis/analysis/judge_swap.py`. Source:
+```
+python -m thesis.analysis.judge_swap --with-context \
+  --generators deepseek-ai/deepseek-v4-flash-0731 openai/gpt-oss-20b@low openai/gpt-oss-120b@low llama3.2:3b \
+  --judges openai/gpt-oss-20b@low openai/gpt-oss-120b@low llama3.2:3b --design pilot
+```
+The DeepSeek-referenced fit adds `--analyse-only`, lists DeepSeek last in
+`--generators`, and writes to `--manifest-out`. Manifests:
+`outputs/manifests/judge_swap_free_tier_with_context.json` (llama
+reference) and
+`outputs/manifests/judge_swap_free_tier_with_context_deepseek_ref.json`
+(DeepSeek reference).
 
 ---
 

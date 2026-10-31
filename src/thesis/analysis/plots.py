@@ -1046,6 +1046,40 @@ def main() -> None:
         second_series=(0, 2),  # the two "vs. llama3.2:3b" rows, colored as one group
     )
 
+    # Section 19, at scale (Oct 31): the same DeepSeek-referenced fit, once
+    # with the reply only and once with the incoming message shown to every
+    # judge. Coefficients and standard errors from
+    # outputs/manifests/judge_swap_free_tier_deepseek_ref.json and
+    # outputs/manifests/judge_swap_free_tier_with_context_deepseek_ref.json.
+    plot_effect_intervals(
+        (
+            "gpt-oss-120b (reply only)",
+            "gpt-oss-120b (with message)",
+            "gpt-oss-20b (reply only)",
+            "gpt-oss-20b (with message)",
+        ),
+        (-0.2111, 0.2889, -0.2405, 0.1681),
+        (
+            -0.2111 - 1.96 * 0.1228,
+            0.2889 - 1.96 * 0.1327,
+            -0.2405 - 1.96 * 0.1233,
+            0.1681 - 1.96 * 0.1332,
+        ),
+        (
+            -0.2111 + 1.96 * 0.1228,
+            0.2889 + 1.96 * 0.1327,
+            -0.2405 + 1.96 * 0.1233,
+            0.1681 + 1.96 * 0.1332,
+        ),
+        path=DOCS_FIGURES_DIR / "judge_swap_free_tier_self_preference_with_context.png",
+        title="With the message, self-preference turns positive",
+        subtitle=(
+            "Overall rubric mean, DeepSeek as reference. With message: " "120b p=.03, 20b p=.21."
+        ),
+        x_label="self-preference coefficient (rubric points, own replies vs. predicted)",
+        second_series=(1, 3),  # the two "with message" rows, colored as one group
+    )
+
     # Section 45: the power score split into its two halves and checked
     # against seniority separately. Three lines, not two, so
     # plot_factor_interaction's cap does not fit -- this is exactly the case
