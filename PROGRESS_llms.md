@@ -1782,7 +1782,7 @@ For qwen as reference, add `--analyse-only`, list qwen last in
 
 ## 19. Does showing the judge the incoming message help? A planned rerun (Q3, Oct 23)
 
-Status: run on Oct 25, and on all 239 judge-swap replies on Oct 31. Both results are at the end of this section.
+Status: run on Oct 25, and on all 239 judge-swap replies on Nov 2. Both results are at the end of this section.
 
 **The problem.** Two rubric items ask about things the judge never sees.
 
@@ -1882,11 +1882,85 @@ Code: the `--model` option of `src/thesis/analysis/judge_blindness.py`,
 on branch `judge-context-rerun` (not yet merged). Manifests:
 `outputs/manifests/judge_blindness_gpt_oss_{20b,120b}.json`.
 
-**At scale: the judge-swap replies (Oct 31).** All three judges rescored
-the section 18 replies with the incoming message. The first result used
-DeepSeek as the neutral reference writer. It is being refit with qwen in
-its place, after DeepSeek's removal. qwen's 60 replies are being rescored
-with the message now. The result follows here when that run ends.
+**At scale: the judge-swap replies (Nov 2).** The test above used only
+Llama replies. So the next step was to check what the message does on the
+full section 18 grid. All three judges (Llama, gpt-oss-20b, gpt-oss-120b)
+rescored the same 239 replies with the incoming message. The replies come
+from four writers: Llama, gpt-oss-20b, gpt-oss-120b and qwen. This gives
+717 paired scores.
+
+**Finding 1: the message moves the judges in opposite directions.** Mean
+score, reply only vs. with message, tested with a signed-rank test paired
+by reply:
+
+| Judge | Reply only | With message | Change | p |
+|---|---:|---:|---:|---:|
+| Llama 3.2 3B | 4.51 | 4.25 | -0.25 | <.001 |
+| gpt-oss-120b | 4.22 | 4.43 | +0.21 | <.001 |
+| gpt-oss-20b | 4.30 | 4.60 | +0.30 | <.001 |
+
+- The largest changes are in `contextual_fit` and `role_consistency`.
+  Llama: -0.41 and -0.49. gpt-oss-20b: +0.51 and +0.39. gpt-oss-120b:
+  +0.31 and +0.18. All p<.001.
+- gpt-oss-120b also gains +0.51 on `conflict_management` (p<.001).
+
+**Finding 2: still no self-preference.** The section 18 fit was rerun on
+the with-message scores, with qwen as the reference writer:
+
+| Item | gpt-oss-120b | p | gpt-oss-20b | p |
+|---|---:|---:|---:|---:|
+| overall rubric mean | +0.233 | .085 | +0.046 | .736 |
+| role_consistency | +0.233 | .318 | +0.053 | .820 |
+| contextual_fit | +0.233 | .331 | +0.181 | .453 |
+| corpus_plausibility | +0.333 | .054 | +0.175 | .314 |
+| clarity | +0.233 | .072 | +0.073 | .577 |
+| politeness_appropriateness | +0.150 | .448 | -0.116 | .561 |
+| conflict_management | +0.217 | .251 | -0.091 | .631 |
+
+No row reaches p<.05, so none survives a Holm correction across the 14
+tests either.
+
+![Self-preference against qwen, overall rubric mean, reply only vs. with message.](docs/figures/judge_swap_free_tier_self_preference_with_context.png)
+
+gpt-oss-120b's +0.23 is not a preference for its own writing. The cell
+means show where it comes from (overall rubric mean, with message):
+
+| Writer | Llama judge | gpt-oss-120b judge | gpt-oss-20b judge |
+|---|---:|---:|---:|
+| Llama 3.2 3B | 4.10 | 3.70 | 4.25 |
+| qwen3.8-27b | 4.36 | 4.59 | 4.74 |
+| gpt-oss-120b | 4.26 | 4.72 | 4.70 |
+| gpt-oss-20b | 4.29 | 4.73 | 4.71 |
+
+- **Sibling check.** gpt-oss-120b scores its own replies 4.72 and
+  gpt-oss-20b's 4.73. gpt-oss-20b scores its own 4.71 and gpt-oss-120b's
+  4.70. Neither judge favors its own replies over its sibling's.
+- gpt-oss-120b scores qwen's replies a little lower (4.59) than either
+  gpt-oss model's. That small gap is what the +0.23 picks up.
+- With Llama as the reference writer, the interaction is +0.86 for
+  gpt-oss-120b (p<.001) and +0.27 for gpt-oss-20b (p=.051). As in
+  section 18, this is gpt-oss-120b being harsh on Llama's writing (3.70),
+  not generous to its own.
+
+**What this means.**
+
+- The section 18 conclusion holds with the message shown: the gpt-oss
+  judges do not favor their own writing.
+- The message changes the score level, in opposite directions for Llama
+  and the gpt-oss judges. Scores from the two setups cannot be mixed.
+- Future judging shows gpt-oss-120b the message, as decided above.
+
+**Caveats.** One draw per cell. qwen and Llama have no self-preference
+number of their own (qwen does not judge, and Llama is the reference
+judge). The singular-covariance warning from section 18 appears again;
+persona variance is near zero (0.003).
+
+Source: `python -m thesis.analysis.judge_swap --analyse-only --with-context`
+with the section 18 `--generators` and `--judges`, `--scores-out
+data/interim/judge_swap_scores_free_tier_with_context_qwen.parquet`.
+Manifests: `outputs/manifests/judge_swap_free_tier_with_context_qwen.json`
+(Llama as reference) and `..._with_context_qwen_ref.json` (qwen as
+reference).
 
 ---
 

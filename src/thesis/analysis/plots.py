@@ -1037,6 +1037,36 @@ def main() -> None:
         second_series=(0, 2),  # the two "vs. llama3.2:3b" rows, colored as one group
     )
 
+    # Section 19 at scale (Nov 2): the same fit against qwen, once with the
+    # reply only and once with the incoming message shown to every judge.
+    # From outputs/manifests/judge_swap_free_tier{,_with_context}_qwen_ref.json.
+    plot_effect_intervals(
+        (
+            "gpt-oss-120b, with message",
+            "gpt-oss-120b, reply only",
+            "gpt-oss-20b, with message",
+            "gpt-oss-20b, reply only",
+        ),
+        (0.2333, -0.0500, 0.0459, -0.1239),
+        (
+            0.2333 - 1.96 * 0.1353,
+            -0.0500 - 1.96 * 0.1290,
+            0.0459 - 1.96 * 0.1358,
+            -0.1239 - 1.96 * 0.1295,
+        ),
+        (
+            0.2333 + 1.96 * 0.1353,
+            -0.0500 + 1.96 * 0.1290,
+            0.0459 + 1.96 * 0.1358,
+            -0.1239 + 1.96 * 0.1295,
+        ),
+        path=DOCS_FIGURES_DIR / "judge_swap_free_tier_self_preference_with_context.png",
+        title="With the message shown, still no clear self-preference",
+        subtitle="Overall rubric mean, qwen as reference writer. All four p>.05. 239 replies.",
+        x_label="self-preference coefficient (rubric points, own replies vs. predicted)",
+        second_series=(0, 2),  # the two "with message" rows, colored as one group
+    )
+
     # Section 45: the power score split into its two halves and checked
     # against seniority separately. Three lines, not two, so
     # plot_factor_interaction's cap does not fit -- this is exactly the case
