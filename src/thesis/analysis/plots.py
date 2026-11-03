@@ -122,11 +122,14 @@ def plot_paired_dimensions(
     *,
     title: str = "Judge scores: real vs generated reply to the same message",
     subtitle: str = "",
+    series_labels: tuple[str, str] = ("real", "generated"),
+    x_label: str = "mean rubric score (1-5)",
 ) -> Path:
     """Dumbbell plot of two paired score series across rubric dimensions.
 
     Ordered by gap size so the dimensions that differ most sit together
-    rather than scattered through the axis.
+    rather than scattered through the axis. series_labels names the
+    first and second series.
     """
     if not (len(dimensions) == len(real_scores) == len(generated_scores)):
         msg = (
@@ -153,7 +156,7 @@ def plot_paired_dimensions(
     ax.scatter(real, y, s=95, color=SERIES_1, zorder=3, edgecolors=SURFACE, linewidths=2)
 
     ax.set_yticks(y, labels)
-    ax.set_xlabel("mean rubric score (1-5)", color=INK_SECONDARY, fontsize=9.5)
+    ax.set_xlabel(x_label, color=INK_SECONDARY, fontsize=9.5)
     ax.set_ylim(-0.7, len(labels) - 0.3)
 
     # Direct-label one row rather than every dot, and pick the row with the
@@ -161,7 +164,7 @@ def plot_paired_dimensions(
     # other, which is exactly what happened when this labelled the first row.
     anchor = max(y, key=lambda i: abs(real[i] - gen[i]))
     ax.annotate(
-        "real",
+        series_labels[0],
         (real[anchor], anchor),
         textcoords="offset points",
         xytext=(0, 14),
@@ -171,7 +174,7 @@ def plot_paired_dimensions(
         fontweight="600",
     )
     ax.annotate(
-        "generated",
+        series_labels[1],
         (gen[anchor], anchor),
         textcoords="offset points",
         xytext=(0, 14),
@@ -1065,6 +1068,20 @@ def main() -> None:
         subtitle="Overall rubric mean, qwen as reference writer. All four p>.05. 239 replies.",
         x_label="self-preference coefficient (rubric points, own replies vs. predicted)",
         second_series=(0, 2),  # the two "with message" rows, colored as one group
+    )
+
+    # Section 21 (Nov 3): the holistic tone judge. Writing-down vs writing-up
+    # mean on the same 1-7 scale, one row per source; the gap is the
+    # hierarchy effect. From outputs/manifests/tone_judge_pilot.json.
+    plot_paired_dimensions(
+        ("real email", "llama3.2:3b", "gpt-oss-20b", "gpt-oss-120b", "qwen3.8-27b"),
+        real_scores=(3.433, 3.373, 4.373, 4.642, 5.463),
+        generated_scores=(3.030, 3.209, 4.060, 3.687, 4.134),
+        path=DOCS_FIGURES_DIR / "tone_judge_by_direction.png",
+        title="Larger models sound more in charge than real email",
+        subtitle="Judge score 1-7. Gap = writing down vs. up. 67 emails per direction per source.",
+        series_labels=("writing down", "writing up"),
+        x_label="mean authoritative-tone score (1 = defers, 7 = in charge)",
     )
 
     # Section 45: the power score split into its two halves and checked

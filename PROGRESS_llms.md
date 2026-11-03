@@ -36,7 +36,7 @@ directly (the Q1 real-email comparison).
 
 Other open items: a run without the "act" instruction, an embedding map and
 review pack for the newer models, and committing the blind-coding module.
-See "22. Next steps" at the end.
+See "23. Next steps" at the end.
 
 ---
 
@@ -672,13 +672,13 @@ robust, sender-clustered fit (section 15).
   standard deviation (`hierarchy.py`). gpt-oss-120b's case (reported p=5e-08,
   honest p≈.001) is what exposed it. Fixed: the code now also fits a
   persona-clustered cross-check on its own (`Q1Result.sentence_model_persona_fe`,
-  commit `85e833a`) -- see the "22. Next steps" done-block below for what still
+  commit `85e833a`) -- see the "23. Next steps" done-block below for what still
   needs it substituted in.
 - **Two small bugs found while checking this result, since fixed.** The Q1
   grid generator now writes `prompt_text_hash()` onto the saved grid instead
   of only computing it in memory (commit `5ee4b46`), and `q1_models.py`'s
   grid loader now counts real cache/generation numbers instead of
-  hard-coding every row as "from cache" (commit `36fbc3e`). See "22. Next
+  hard-coding every row as "from cache" (commit `36fbc3e`). See "23. Next
   steps" for the one small gap that remains.
 
 ---
@@ -987,7 +987,7 @@ Chance that a sentence gives an order, by direction:
   scale** (1.98 at pilot scale, 4.75 for real email). A short reply
   inflates the "orders per sentence" share for the same underlying
   behavior -- the same caveat the pilot section raised. No length-matched
-  version of this comparison exists yet (see "22. Next steps").
+  version of this comparison exists yet (see "23. Next steps").
 - **qwen3.8-27b shows the biggest writing-down effect of the four:
   +0.510, about twice real email's +0.253.** Its replies are 3.87
   sentences long, the closest to real email's 4.75, so the short-reply
@@ -2239,7 +2239,81 @@ Manifests:
 
 ---
 
-## 21. Where the code lives
+## 21. A holistic tone judge: does the whole email sound more in charge? (Q1, Nov 3)
+
+**Why this was needed.** Every Q1 measure so far either counts single cues
+(orders, hedges, "you", hierarchy phrases) or asks the judge for the formal
+direction (Layer 1, section 16). None asks how authoritative a whole email
+*feels* to a reader. Section 16 found that direction is hard to guess from
+one real email, so the next question is whether the overall tone still
+differs by direction.
+
+**What the judge does.** gpt-oss-120b reads one whole email, with names
+removed and no role shown. It rates its overall tone from 1 to 7.
+1 = defers to the reader: asks, checks, leaves the decision to them.
+7 = writes as the one in charge: decides, directs, expects it to be done.
+The prompt names no cues, so the score is an overall impression.
+
+**Reliability gate first.** 100 emails scored three times. Weighted kappa
+0.877, against a bar of 0.4. Layer 1 passed at 0.542, so the tone question
+is much more stable for the judge than the direction question.
+
+**The sample.** 201 emails per source, 67 per direction, balanced. Real
+emails come from the Layer 1 set. Model replies are draw 1 of each model's
+full 10-persona grid. 0 invalid scores.
+
+**Result.** Coefficients are "writing down" and "writing up" against
+"writing to a peer", on the 1-7 scale. Real email uses sender-clustered
+errors. A mixed model with a random intercept per sender and sender rank
+as a control gives the same answer (down +0.22, p=.46; up −0.03, p=.90).
+Models use persona fixed effects with persona-clustered errors.
+
+| Source | Down vs. peer | Up vs. peer | Mean down / peer / up |
+|---|---|---|---|
+| Real email | +0.16 (p=.73) | +0.11 (p=.81) | 3.43 / 3.12 / 3.03 |
+| Llama 3.2 3B | +0.14 (p=.47) | −0.11 (p=.49) | 3.37 / 3.24 / 3.21 |
+| gpt-oss-20b | +0.48 (p=.008) | +0.20 (p=.24) | 4.37 / 3.85 / 4.06 |
+| gpt-oss-120b | +0.37 (p=.058) | −0.61 (p=.11) | 4.64 / 4.25 / 3.69 |
+| qwen3.8-27b | +0.50 (p=.044) | −0.91 (p<.001) | 5.46 / 5.00 / 4.13 |
+
+![Tone score by direction](docs/figures/tone_judge_by_direction.png)
+
+Each row shows the mean score when writing down (blue) and writing up
+(orange). A longer bar means a bigger hierarchy gap. A row further right
+means the emails sound more in charge overall.
+
+**Which cues go with the score on real email** (Spearman): orders +0.19,
+questions −0.24, hedges +0.04. So the judge's impression leans on orders
+and questions, but only weakly. It is not just an order count.
+
+**What this means.**
+
+- **Real email shows no clear tone difference by direction.** This agrees
+  with section 16: hierarchy is hard to read from one real email.
+- **Larger models sound more in charge overall**, about 4 to 5.5 against
+  3.0 to 3.4 for real email.
+- **qwen shows the clearest hierarchy gradient**: more in charge when
+  writing down, more deferent when writing up. gpt-oss-20b shows only the
+  writing-down effect. gpt-oss-120b points the same way as qwen but is not
+  significant.
+- **Llama 3.2 3B is closest to real email**, on both level and direction.
+- Same pattern as sections 13 and 16: generated replies show hierarchy
+  *more* than real email does, not less.
+
+Caveats. A pilot, 201 per source. One judge, and gpt-oss-120b also judges
+its own replies (but gpt-oss-20b and qwen show the effect too). No human
+ratings yet. No correction across the 10 tests. 10 personas means 10
+clusters, so the model p-values are likely too small (see section 20).
+
+Code: `src/thesis/analysis/tone_judge.py`, on branch
+`layer1-consensus-tone` (not merged into main yet). Run with
+`python -m thesis.analysis.tone_judge`. Manifest:
+`outputs/manifests/tone_judge_pilot.json`. Figure:
+`docs/figures/tone_judge_by_direction.png`, made by `plots.py`.
+
+---
+
+## 22. Where the code lives
 
 **The clients.** `src/thesis/llm/openai_compatible.py` holds the shared
 request and retry logic. `nvidia_client.py` and `groq_client.py` are thin
@@ -2287,7 +2361,7 @@ made along the way, are in `PROGRESS_nvidia.md`.
 
 ---
 
-## 22. Next steps
+## 23. Next steps
 
 Most valuable first.
 
