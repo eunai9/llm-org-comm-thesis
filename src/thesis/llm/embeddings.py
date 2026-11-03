@@ -6,7 +6,9 @@ replies can be placed in a common space and looked at (t-SNE) and measured
 
 - **It has to be free.** The project has no paid API budget, so embeddings come
   from an open-weights model served by the same local Ollama instance that
-  generates the replies -- ``nomic-embed-text`` by default.
+  generates the replies -- ``nomic-embed-text`` by default. A model id with a
+  ``/`` (a Hugging Face id such as ``StyleDistance/styledistance``) is run
+  locally with sentence-transformers instead.
 - **It has to be stable across re-runs.** A t-SNE map that shifts every time
   the analysis is re-run cannot be discussed in a supervision meeting. Vectors
   are therefore cached by ``sha256(model + text)``, exactly the same argument
@@ -25,7 +27,9 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Sequence
+from functools import cache
 from pathlib import Path
+from typing import Any
 
 import httpx
 import numpy as np
@@ -87,6 +91,24 @@ def _request_embeddings(texts: Sequence[str], model: str, host: str) -> list[lis
     return embeddings
 
 
+def is_hugging_face_model(model: str) -> bool:
+    """Whether ``model`` is a Hugging Face id, run locally, not an Ollama name."""
+    return "/" in model
+
+
+@cache
+def _sentence_transformer(model: str) -> Any:
+    from sentence_transformers import SentenceTransformer
+
+    # float32: the model ships in bfloat16, which is slow on this CPU.
+    return SentenceTransformer(model, device="cpu", model_kwargs={"dtype": "float32"})
+
+
+def _encode_locally(texts: Sequence[str], model: str) -> list[list[float]]:
+    vectors = _sentence_transformer(model).encode(list(texts), batch_size=BATCH_SIZE)
+    return [list(map(float, vector)) for vector in vectors]
+
+
 def embed_texts(
     texts: Sequence[str],
     *,
@@ -106,7 +128,12 @@ def embed_texts(
 
     for start in range(0, len(missing), BATCH_SIZE):
         batch = missing[start : start + BATCH_SIZE]
-        for text, vector in zip(batch, _request_embeddings(batch, model, host), strict=True):
+        vectors = (
+            _encode_locally(batch, model)
+            if is_hugging_face_model(model)
+            else _request_embeddings(batch, model, host)
+        )
+        for text, vector in zip(batch, vectors, strict=True):
             cache[_key(model, text)] = np.asarray(vector, dtype=np.float32)
         log.info("embedded %d/%d new text(s)", min(start + BATCH_SIZE, len(missing)), len(missing))
 

@@ -27,6 +27,7 @@ import json
 import random
 from dataclasses import dataclass
 from itertools import combinations
+from pathlib import Path
 from typing import Any, Final
 
 import pandas as pd
@@ -197,7 +198,14 @@ def main() -> None:
     parser.add_argument("--judge-model", default=DEFAULT_JUDGE_MODEL)
     parser.add_argument("--per-direction", type=int, default=67)
     parser.add_argument("--gate-per-source", type=int, default=20)
+    parser.add_argument(
+        "--skip-gate",
+        action="store_true",
+        help="Skip the reliability gate, for a larger run after the pilot passed it.",
+    )
+    parser.add_argument("--out", default=str(MANIFEST_PATH))
     args = parser.parse_args()
+    out = Path(args.out)
 
     configure_logging()
     ensure_dirs()
@@ -226,34 +234,35 @@ def main() -> None:
         pick = balanced_sample(grid, per_direction=args.per_direction, seed=PILOT_SEED)
         sources[label], _ = build_absolute_items_from_grid(pick)
 
-    # Writers share cell ids, so gate answers are keyed by source too.
-    rng = random.Random(PILOT_SEED)
-    gate = {label: rng.sample(items, args.gate_per_source) for label, items in sources.items()}
-    passes = []
-    for replicate in (1, 2, 3):
-        scores: dict[str, int] = {}
-        for label, items in gate.items():
-            by_item, summary = score_tone(
-                items,
-                client,
-                model=args.judge_model,
-                cache=cache,
-                ledger=ledger,
-                replicate=replicate,
-            )
-            log.info("gate pass %d, %s: %s", replicate, label, summary)
-            scores |= {f"{label}|{item_id}": score for item_id, score in by_item.items()}
-        passes.append(scores)
-    kappa, n_gate = weighted_kappa(passes)
-    log.info("tone self-consistency: weighted kappa %.3f on %d items", kappa, n_gate)
-    manifest: dict[str, Any] = {
-        "judge": args.judge_model,
-        "gate": {"weighted_kappa": kappa, "n_items": n_gate, "bar": KAPPA_BAR},
-    }
-    if kappa < KAPPA_BAR:
-        log.error("tone self-consistency below %.1f; stopping before the pilot", KAPPA_BAR)
-        MANIFEST_PATH.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-        return
+    manifest: dict[str, Any] = {"judge": args.judge_model, "per_direction": args.per_direction}
+    if args.skip_gate:
+        manifest["gate"] = f"skipped; the pilot passed it, see {MANIFEST_PATH.name}"
+    else:
+        # Writers share cell ids, so gate answers are keyed by source too.
+        rng = random.Random(PILOT_SEED)
+        gate = {label: rng.sample(items, args.gate_per_source) for label, items in sources.items()}
+        passes = []
+        for replicate in (1, 2, 3):
+            scores: dict[str, int] = {}
+            for label, items in gate.items():
+                by_item, summary = score_tone(
+                    items,
+                    client,
+                    model=args.judge_model,
+                    cache=cache,
+                    ledger=ledger,
+                    replicate=replicate,
+                )
+                log.info("gate pass %d, %s: %s", replicate, label, summary)
+                scores |= {f"{label}|{item_id}": score for item_id, score in by_item.items()}
+            passes.append(scores)
+        kappa, n_gate = weighted_kappa(passes)
+        log.info("tone self-consistency: weighted kappa %.3f on %d items", kappa, n_gate)
+        manifest["gate"] = {"weighted_kappa": kappa, "n_items": n_gate, "bar": KAPPA_BAR}
+        if kappa < KAPPA_BAR:
+            log.error("tone self-consistency below %.1f; stopping before the pilot", KAPPA_BAR)
+            out.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+            return
 
     results: dict[str, Any] = {}
     for label, items in sources.items():
@@ -285,8 +294,8 @@ def main() -> None:
         }
         results[label] = entry
     manifest["results"] = results
-    MANIFEST_PATH.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    log.info("wrote %s", MANIFEST_PATH)
+    out.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    log.info("wrote %s", out)
 
 
 if __name__ == "__main__":
