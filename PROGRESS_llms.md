@@ -9,7 +9,7 @@ can be read at once.
 the model in September, so its results cannot be rerun or extended. Its rows,
 figures and manifests were taken out of this log. They are still in the git
 history before that date. Where a fit pooled DeepSeek with other models (the
-judge swap, sections 18-19), it was refit without it. Every other model's
+judge swap, sections 19-20), it was refit without it. Every other model's
 numbers are fitted per model, so they did not change.
 
 `PROGRESS_nvidia.md` still holds the day-by-day build log: what was tried,
@@ -36,7 +36,7 @@ directly (the Q1 real-email comparison).
 
 Other open items: a run without the "act" instruction, an embedding map and
 review pack for the newer models, and committing the blind-coding module.
-See "23. Next steps" at the end.
+See "24. Next steps" at the end.
 
 ---
 
@@ -672,13 +672,13 @@ robust, sender-clustered fit (section 15).
   standard deviation (`hierarchy.py`). gpt-oss-120b's case (reported p=5e-08,
   honest p≈.001) is what exposed it. Fixed: the code now also fits a
   persona-clustered cross-check on its own (`Q1Result.sentence_model_persona_fe`,
-  commit `85e833a`) -- see the "23. Next steps" done-block below for what still
+  commit `85e833a`) -- see the "24. Next steps" done-block below for what still
   needs it substituted in.
 - **Two small bugs found while checking this result, since fixed.** The Q1
   grid generator now writes `prompt_text_hash()` onto the saved grid instead
   of only computing it in memory (commit `5ee4b46`), and `q1_models.py`'s
   grid loader now counts real cache/generation numbers instead of
-  hard-coding every row as "from cache" (commit `36fbc3e`). See "23. Next
+  hard-coding every row as "from cache" (commit `36fbc3e`). See "24. Next
   steps" for the one small gap that remains.
 
 ---
@@ -987,7 +987,7 @@ Chance that a sentence gives an order, by direction:
   scale** (1.98 at pilot scale, 4.75 for real email). A short reply
   inflates the "orders per sentence" share for the same underlying
   behavior -- the same caveat the pilot section raised. No length-matched
-  version of this comparison exists yet (see "23. Next steps").
+  version of this comparison exists yet (see "24. Next steps").
 - **qwen3.8-27b shows the biggest writing-down effect of the four:
   +0.510, about twice real email's +0.253.** Its replies are 3.87
   sentences long, the closest to real email's 4.75, so the short-reply
@@ -1507,10 +1507,10 @@ one of the three tested judges not caught favoring its own writing (section
 18). This answers Q2's question -- does a generated reply look like it
 fits its role and situation -- using the rubric's existing items, kept
 separate from Q3's question about whether the judge itself can be trusted
-(section 18's subject).
+(section 19's subject).
 
 **Results**, 60 replies per model (59 for gpt-oss-20b -- one reply did not
-parse, the same gap section 18 notes).
+parse, the same gap section 19 notes).
 
 Judge = llama3.2:3b:
 
@@ -1556,7 +1556,7 @@ Judge = gpt-oss-120b:
 | conflict_management | 3.50 | 4.14 | 4.08 |
 
 **qwen3.8-27b replies (added Oct 26).** The same 60 scenarios, written by
-qwen and scored by the same three judges. qwen does not judge (section 18).
+qwen and scored by the same three judges. qwen does not judge (section 19).
 
 | Item | Judge llama3.2:3b | Judge gpt-oss-20b | Judge gpt-oss-120b |
 |---|---:|---:|---:|
@@ -1582,7 +1582,7 @@ lower. Manifest: `outputs/manifests/judge_swap_free_tier_qwen.json`.
   gpt-oss-20b and 3.48 under gpt-oss-120b). gpt-oss-20b's and
   gpt-oss-120b's replies stay in roughly the same high band, overall
   4.5-4.6, under every judge, including themselves.
-- **The drop concentrates on the same two items section 18 already
+- **The drop concentrates on the same two items section 19 already
   flagged, and for the same reason -- judge severity toward llama, not
   self-preference.** role_consistency goes from llama's own score of 4.50
   down to 2.75 under gpt-oss-20b and 2.33 under gpt-oss-120b.
@@ -1624,14 +1624,80 @@ lower. Manifest: `outputs/manifests/judge_swap_free_tier_qwen.json`.
   classifier or an LLM judge is doing the looking. See section 8's own
   note on this for the same point from the other side.
 
-Source: the same `judge_swap_scores_free_tier.parquet` section 18
+Source: the same `judge_swap_scores_free_tier.parquet` section 19
 produces, without the removed DeepSeek rows, grouped by
 (judge, generator) and averaged per rubric item -- plain means, no model
-fit (the model fit is section 18's job). No new API calls.
+fit (the model fit is section 19's job). No new API calls.
 
 ---
 
-## 18. The judge-swap design on the real free-tier models (Q3, Oct 6)
+## 18. Style embeddings and Self-BLEU: do the models write differently, and is their wording diverse? (Q2, Nov 3)
+
+**Status: running since Nov 3. No results yet.**
+
+**Why this is needed.** Section 9 found that a classifier tells real and
+generated replies apart in embedding space (AUC 0.82 to 0.94). But
+`nomic-embed-text` mixes topic and style. So section 9 cannot say whether
+the gap is in *how* the replies are written or in *what* they say. Also, Q2
+asks whether generated replies are "diverse enough", and no diversity
+measure has been run yet. The Exposé names Self-BLEU for this.
+
+**Job 1: style embeddings.** The same analysis as section 9, with a
+different embedding model: StyleDistance (Patel et al. 2025,
+`StyleDistance/styledistance`). It is trained so that texts with the same
+style sit close together, whatever their topic. Same four pairs files and
+same steps: separability AUC as stored, AUC with real replies cut to the
+same length, and topical tracking.
+
+How to read it:
+
+- AUC stays high: the models write in a different style from real email.
+- AUC drops toward 0.5: the section 9 gap was mostly about topic.
+- Topical tracking should shrink, because the model is meant to ignore
+  topic. This checks that the style model does what it claims.
+
+**Job 2: Self-BLEU.** Each reply gets a BLEU score against all the other
+replies in its set, and the scores are averaged. A high score means the
+replies reuse the same word sequences, so the wording is less diverse.
+Two comparisons:
+
+1. **Generated vs. real, same messages.** The same four pairs files. Both
+   sides answer the same incoming messages, so the topics are equal. The
+   two sides are compared pair by pair (Wilcoxon signed-rank test). This is
+   also done with each real reply cut to its partner's length, because
+   longer texts share more word sequences by chance.
+2. **Within one scenario.** Each model's Q1 grid (draw 1) has 144
+   scenarios with 10 replies each, from different personas. Each reply is
+   scored against the other 9 replies to the same scenario. This asks
+   whether a different persona changes the wording. Real email has no such
+   set, so this compares the models only.
+
+95% intervals come from a bootstrap over replies.
+
+| Model | Pairs file (jobs 1 and 2) | Q1 grid (job 2, comparison 2) |
+|---|---|---|
+| Llama 3.2 3B | `real_vs_generated_pairs_act.parquet` | `q1_direction_grid_full_3draws.parquet` |
+| gpt-oss-20b | `pairs_gpt_oss.parquet` | `q1_direction_grid_gpt_oss_20b_full.parquet` |
+| gpt-oss-120b | `pairs_gpt_oss_120b.parquet` | `q1_direction_grid_gpt_oss_120b_full.parquet` |
+| qwen3.8-27b | `pairs_qwen.parquet` | `q1_direction_grid_qwen_full.parquet` |
+
+Both jobs run locally on CPU. No API calls, no cost.
+
+Caveat known in advance: with 182 other replies as references, Self-BLEU
+values are high in absolute terms. Only the comparison between sets means
+something.
+
+Code: `src/thesis/llm/embeddings.py` (now also runs Hugging Face models
+locally) and `src/thesis/diversity/self_bleu.py`, on branch
+`layer1-consensus-tone`. Run with `python -m thesis.analysis.embedding_map
+--embed-model StyleDistance/styledistance --pairs <file>` once per model,
+then `python -m thesis.diversity.self_bleu`. Manifests:
+`outputs/manifests/embedding_map_style_{act,gpt_oss,gpt_oss_120b,qwen}.json`
+and `outputs/manifests/self_bleu.json`.
+
+---
+
+## 19. The judge-swap design on the real free-tier models (Q3, Oct 6)
 
 **Finding.** Measured against llama3.2:3b as the reference, each gpt-oss
 judge seems to favor its own writing: +0.68 rubric points for gpt-oss-120b
@@ -1780,7 +1846,7 @@ For qwen as reference, add `--analyse-only`, list qwen last in
 
 ---
 
-## 19. Does showing the judge the incoming message help? A planned rerun (Q3, Oct 23)
+## 20. Does showing the judge the incoming message help? A planned rerun (Q3, Oct 23)
 
 Status: run on Oct 25, and on all 239 judge-swap replies on Nov 2. Both results are at the end of this section.
 
@@ -1792,7 +1858,7 @@ Status: run on Oct 25, and on all 239 judge-swap replies on Nov 2. Both results 
   does not get the role.
 
 So for these two items the judge scores the reply alone. Its scores may
-not mean what the item names say. Section 18 already found that these two
+not mean what the item names say. Section 19 already found that these two
 items carry most of the judge disagreement.
 
 **The question.** If the judge also sees the incoming message, does
@@ -1884,7 +1950,7 @@ on branch `judge-context-rerun` (not yet merged). Manifests:
 
 **At scale: the judge-swap replies (Nov 2).** The test above used only
 Llama replies. So the next step was to check what the message does on the
-full section 18 grid. All three judges (Llama, gpt-oss-20b, gpt-oss-120b)
+full section 19 grid. All three judges (Llama, gpt-oss-20b, gpt-oss-120b)
 rescored the same 239 replies with the incoming message. The replies come
 from four writers: Llama, gpt-oss-20b, gpt-oss-120b and qwen. This gives
 717 paired scores.
@@ -1904,7 +1970,7 @@ by reply:
   +0.31 and +0.18. All p<.001.
 - gpt-oss-120b also gains +0.51 on `conflict_management` (p<.001).
 
-**Finding 2: still no self-preference.** The section 18 fit was rerun on
+**Finding 2: still no self-preference.** The section 19 fit was rerun on
 the with-message scores, with qwen as the reference writer:
 
 | Item | gpt-oss-120b | p | gpt-oss-20b | p |
@@ -1939,12 +2005,12 @@ means show where it comes from (overall rubric mean, with message):
   gpt-oss model's. That small gap is what the +0.23 picks up.
 - With Llama as the reference writer, the interaction is +0.86 for
   gpt-oss-120b (p<.001) and +0.27 for gpt-oss-20b (p=.051). As in
-  section 18, this is gpt-oss-120b being harsh on Llama's writing (3.70),
+  section 19, this is gpt-oss-120b being harsh on Llama's writing (3.70),
   not generous to its own.
 
 **What this means.**
 
-- The section 18 conclusion holds with the message shown: the gpt-oss
+- The section 19 conclusion holds with the message shown: the gpt-oss
   judges do not favor their own writing.
 - The message changes the score level, in opposite directions for Llama
   and the gpt-oss judges. Scores from the two setups cannot be mixed.
@@ -1952,11 +2018,11 @@ means show where it comes from (overall rubric mean, with message):
 
 **Caveats.** One draw per cell. qwen and Llama have no self-preference
 number of their own (qwen does not judge, and Llama is the reference
-judge). The singular-covariance warning from section 18 appears again;
+judge). The singular-covariance warning from section 19 appears again;
 persona variance is near zero (0.003).
 
 Source: `python -m thesis.analysis.judge_swap --analyse-only --with-context`
-with the section 18 `--generators` and `--judges`, `--scores-out
+with the section 19 `--generators` and `--judges`, `--scores-out
 data/interim/judge_swap_scores_free_tier_with_context_qwen.parquet`.
 Manifests: `outputs/manifests/judge_swap_free_tier_with_context_qwen.json`
 (Llama as reference) and `..._with_context_qwen_ref.json` (qwen as
@@ -1964,7 +2030,7 @@ reference).
 
 ---
 
-## 20. A parallel Q1 experiment: persona variants and new measures (Q1, Oct 15)
+## 21. A parallel Q1 experiment: persona variants and new measures (Q1, Oct 15)
 
 This is a second Q1 experiment. It runs next to the existing one and does
 not replace it. The two will be compared later.
@@ -2227,7 +2293,7 @@ supports the 40-persona conclusion: what the models show by direction
 depends on the persona prompts more than on rank.
 
 Caveats. 10 personas means 10 clusters, so the persona-clustered p-values
-are likely too small (the reason section 20 exists). No Holm correction
+are likely too small (the reason section 21 exists). No Holm correction
 across the 32 tests here. Llama's grid has three draws per cell; the
 others have one.
 
@@ -2239,7 +2305,7 @@ Manifests:
 
 ---
 
-## 21. A holistic tone judge: does the whole email sound more in charge? (Q1, Nov 3)
+## 22. A holistic tone judge: does the whole email sound more in charge? (Q1, Nov 3)
 
 **Why this was needed.** Every Q1 measure so far either counts single cues
 (orders, hedges, "you", hierarchy phrases) or asks the judge for the formal
@@ -2303,7 +2369,7 @@ and questions, but only weakly. It is not just an order count.
 Caveats. A pilot, 201 per source. One judge, and gpt-oss-120b also judges
 its own replies (but gpt-oss-20b and qwen show the effect too). No human
 ratings yet. No correction across the 10 tests. 10 personas means 10
-clusters, so the model p-values are likely too small (see section 20).
+clusters, so the model p-values are likely too small (see section 21).
 
 Code: `src/thesis/analysis/tone_judge.py`, on branch
 `layer1-consensus-tone` (not merged into main yet). Run with
@@ -2313,7 +2379,7 @@ Code: `src/thesis/analysis/tone_judge.py`, on branch
 
 ---
 
-## 22. Where the code lives
+## 23. Where the code lives
 
 **The clients.** `src/thesis/llm/openai_compatible.py` holds the shared
 request and retry logic. `nvidia_client.py` and `groq_client.py` are thin
@@ -2361,7 +2427,7 @@ made along the way, are in `PROGRESS_nvidia.md`.
 
 ---
 
-## 23. Next steps
+## 24. Next steps
 
 Most valuable first.
 
@@ -2443,7 +2509,7 @@ be items 1 and 3 here (item 3 bundled two separate fixes).
   Llama's (0.890); for Llama, length explains most of the gap, for the
   three free-tier models it explains almost none.
 - **The judge-swap design now covers the project's real free-tier
-  models, not two local stand-ins.** See "18. The judge-swap design on the
+  models, not two local stand-ins.** See "19. The judge-swap design on the
   real free-tier models (Q3, Oct 6)" above. Covers item 4 here. Against
   llama as reference, both gpt-oss judges seem to favor their own writing
   (+0.68 and +0.59, both p<.0001). Against qwen, a writer that does not
