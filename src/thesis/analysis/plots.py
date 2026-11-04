@@ -434,7 +434,7 @@ def plot_effect_intervals(
     subtitle: str = "",
     x_label: str = "",
     second_series: Sequence[int] | None = None,
-    reference: float = 0.0,
+    reference: float | None = 0.0,
 ) -> Path:
     """One estimate with a 95% interval per row, and a line at ``reference``.
 
@@ -449,6 +449,9 @@ def plot_effect_intervals(
     held against. Pass a larger set to color rows by group instead (e.g.
     every row measured against the same reference level), so color still
     follows what the row actually is rather than only its position.
+
+    ``reference=None`` draws no line, for levels that have no natural
+    comparison point.
     """
     if not len(labels) == len(estimates) == len(lower) == len(upper):
         msg = "labels, estimates, lower and upper must all be the same length"
@@ -462,7 +465,8 @@ def plot_effect_intervals(
     _style_axes(ax)
     ax.xaxis.grid(True, color=GRIDLINE, linewidth=1)
     ax.set_axisbelow(True)
-    ax.axvline(reference, color=BASELINE, linewidth=1.5, zorder=3)
+    if reference is not None:
+        ax.axvline(reference, color=BASELINE, linewidth=1.5, zorder=3)
     label_format = "{:+.2f}" if reference == 0.0 else "{:.2f}"
 
     for i, (yi, est, lo, hi) in enumerate(zip(y, estimates, lower, upper, strict=True)):
@@ -1245,6 +1249,41 @@ def main() -> None:
         title="Embedding-space separability: real vs generated, same length",
         subtitle="Each real reply cut to its AI partner's word count first.",
         chance_note="0.5 = indistinguishable",
+    )
+
+    # PROGRESS_llms.md section 18. Numbers from
+    # outputs/manifests/embedding_map_style_*.json and self_bleu.json.
+    plot_paired_dimensions(
+        embedding_models,
+        real_scores=(0.817, 0.924, 0.909, 0.936),
+        generated_scores=(0.969, 0.990, 0.989, 0.969),
+        path=DOCS_FIGURES_DIR / "embedding_style_vs_nomic_auc.png",
+        title="A style-only embedding separates real and AI replies even better",
+        subtitle="Same 183 pairs, real replies cut to the same length. 0.5 = cannot tell apart.",
+        series_labels=("topic + style (nomic)", "style only (StyleDistance)"),
+        x_label="AUC: how well a classifier tells real from AI replies",
+    )
+    plot_paired_dimensions(
+        embedding_models,
+        real_scores=(0.269, 0.284, 0.274, 0.315),
+        generated_scores=(0.506, 0.558, 0.566, 0.510),
+        path=DOCS_FIGURES_DIR / "self_bleu_vs_real.png",
+        title="AI replies reuse the same phrases more than real email",
+        subtitle="Self-BLEU within each set. Same 183 messages. Real replies cut to the same length.",
+        series_labels=("real reply", "AI reply"),
+        x_label="Self-BLEU (higher = less diverse wording)",
+    )
+    plot_effect_intervals(
+        embedding_models,
+        estimates=(0.3818, 0.3043, 0.5952, 0.1695),
+        lower=(0.367, 0.296, 0.582, 0.163),
+        upper=(0.396, 0.313, 0.609, 0.176),
+        path=DOCS_FIGURES_DIR / "self_bleu_within_scenario.png",
+        title="How much does the persona change the wording?",
+        subtitle="Self-BLEU among the 10 persona replies to the same scenario. 144 scenarios, 95% interval.",
+        x_label="Self-BLEU (higher = personas write more alike)",
+        second_series=(),
+        reference=None,
     )
 
 

@@ -1633,46 +1633,135 @@ fit (the model fit is section 19's job). No new API calls.
 
 ## 18. Style embeddings and Self-BLEU: do the models write differently, and is their wording diverse? (Q2, Nov 3)
 
-**Status: running since Nov 3. No results yet.**
+**Finding.** The gap between real and generated replies is in style, not
+topic. Generated replies are also less diverse in wording than real email.
+How much the persona changes the wording depends strongly on the model.
 
-**Why this is needed.** Section 9 found that a classifier tells real and
+**Why this was needed.** Section 9 found that a classifier tells real and
 generated replies apart in embedding space (AUC 0.82 to 0.94). But
-`nomic-embed-text` mixes topic and style. So section 9 cannot say whether
-the gap is in *how* the replies are written or in *what* they say. Also, Q2
-asks whether generated replies are "diverse enough", and no diversity
-measure has been run yet. The Exposé names Self-BLEU for this.
+`nomic-embed-text` mixes topic and style. So section 9 could not say
+whether the gap is in *how* the replies are written or in *what* they say.
+Also, Q2 asks whether generated replies are "diverse enough", and no
+diversity measure had been run yet. The Exposé names Self-BLEU for this.
 
-**Job 1: style embeddings.** The same analysis as section 9, with a
-different embedding model: StyleDistance (Patel et al. 2025,
-`StyleDistance/styledistance`). It is trained so that texts with the same
-style sit close together, whatever their topic. Same four pairs files and
-same steps: separability AUC as stored, AUC with real replies cut to the
-same length, and topical tracking.
+### Job 1: style embeddings
 
-How to read it:
+**How.** The same analysis as section 9, with a different embedding model:
+StyleDistance (Patel et al. 2025, `StyleDistance/styledistance`). It is
+trained so that texts with the same style sit close together, whatever
+their topic. Same four pairs files (183 pairs; 182 for qwen), same steps.
 
-- AUC stays high: the models write in a different style from real email.
-- AUC drops toward 0.5: the section 9 gap was mostly about topic.
-- Topical tracking should shrink, because the model is meant to ignore
-  topic. This checks that the style model does what it claims.
+**Results.** AUC: 0.5 = the classifier cannot tell real from generated,
+1.0 = it always can. "Tracks own email" is how often a generated reply
+sits closer to the real reply it answered than to an unrelated one (0.5 =
+no link to its own email).
 
-**Job 2: Self-BLEU.** Each reply gets a BLEU score against all the other
-replies in its set, and the scores are averaged. A high score means the
-replies reuse the same word sequences, so the wording is less diverse.
-Two comparisons:
+| Model | AUC, as written | AUC, same length | Same length, nomic (section 9) | Tracks own email | Tracks own email, nomic |
+|---|---:|---:|---:|---:|---:|
+| Llama 3.2 3B | 0.993 | 0.969 | 0.817 | 0.48 | 0.86 |
+| gpt-oss-20b | 0.979 | 0.990 | 0.924 | 0.51 | 0.81 |
+| gpt-oss-120b | 0.990 | 0.989 | 0.909 | 0.48 | 0.83 |
+| qwen3.8-27b | 0.990 | 0.969 | 0.936 | 0.46 | 0.82 |
+
+![AUC with nomic and with StyleDistance, same length](docs/figures/embedding_style_vs_nomic_auc.png)
+
+Each row is one model. Blue is the section 9 AUC (topic and style mixed).
+Orange is the AUC from style alone. Further right means easier to tell
+apart.
+
+**What this means.**
+
+- **The style model ignores topic, as it should.** "Tracks own email"
+  falls from 0.81–0.86 to about 0.5. So this check works as intended.
+- **Style alone separates real and generated replies better than nomic
+  did**: 0.97 to 0.99, against 0.82 to 0.94. Cutting to the same length
+  does not lower it. So the section 9 gap is about how the replies are
+  written, not what they are about.
+- **Llama moves the most** (0.82 to 0.97). In section 9 Llama looked
+  closest to real email. In style it is as far away as the others.
+
+### Job 2: Self-BLEU
+
+**How.** Each reply gets a BLEU score against all the other replies in its
+set, and the scores are averaged. A high score means the replies reuse the
+same word sequences, so the wording is less diverse. Two comparisons:
 
 1. **Generated vs. real, same messages.** The same four pairs files. Both
    sides answer the same incoming messages, so the topics are equal. The
    two sides are compared pair by pair (Wilcoxon signed-rank test). This is
-   also done with each real reply cut to its partner's length, because
-   longer texts share more word sequences by chance.
+   also done with each real reply cut to its partner's length.
 2. **Within one scenario.** Each model's Q1 grid (draw 1) has 144
-   scenarios with 10 replies each, from different personas. Each reply is
-   scored against the other 9 replies to the same scenario. This asks
-   whether a different persona changes the wording. Real email has no such
-   set, so this compares the models only.
+   scenarios with 10 replies each, one per persona. Each reply is scored
+   against the other 9 replies to the same scenario. This asks whether a
+   different persona changes the wording. Real email has no such set, so
+   this compares the models only.
 
 95% intervals come from a bootstrap over replies.
+
+**Results, comparison 1.** Self-BLEU, 0 to 1.
+
+| Model | Generated | Real, as written | Real, same length | Difference, same length |
+|---|---:|---:|---:|---:|
+| Llama 3.2 3B | 0.51 (0.45–0.57) | 0.38 (0.34–0.43) | 0.27 (0.23–0.31) | +0.24 |
+| gpt-oss-20b | 0.56 (0.51–0.61) | 0.38 (0.34–0.43) | 0.28 (0.24–0.33) | +0.27 |
+| gpt-oss-120b | 0.57 (0.51–0.62) | 0.38 (0.34–0.43) | 0.27 (0.23–0.32) | +0.29 |
+| qwen3.8-27b | 0.51 (0.46–0.57) | 0.38 (0.34–0.43) | 0.31 (0.27–0.36) | +0.20 |
+
+All 8 comparisons (4 models, as written and same length): p<.001.
+
+![Self-BLEU of generated and real replies](docs/figures/self_bleu_vs_real.png)
+
+Each row is one model. Blue is real email, orange is the model. Further
+right means less diverse wording.
+
+**Results, comparison 2.**
+
+| Model | Self-BLEU within a scenario (95% interval) |
+|---|---|
+| qwen3.8-27b | 0.17 (0.16–0.18) |
+| gpt-oss-20b | 0.30 (0.30–0.31) |
+| Llama 3.2 3B | 0.38 (0.37–0.40) |
+| gpt-oss-120b | 0.60 (0.58–0.61) |
+
+![Self-BLEU within one scenario](docs/figures/self_bleu_within_scenario.png)
+
+Further right means the 10 personas write more alike.
+
+**What this means.**
+
+- **All four models are less diverse than real email.** Generated replies
+  reuse word sequences much more: 0.51 to 0.57, against 0.38 for real
+  email. The gap grows when lengths match, because shorter real replies
+  share even fewer word sequences. This fits section 8: the stock phrases
+  that give the models away are the same phrases repeated across replies.
+- **Model size does not decide diversity.** Llama and qwen are the least
+  repetitive across messages. gpt-oss-120b is the most repetitive.
+- **The persona changes qwen's wording a lot and gpt-oss-120b's wording
+  little.** For gpt-oss-120b, 10 different personas answering the same
+  scenario write quite alike (0.60). For qwen they write very differently
+  (0.17).
+
+**Caveats.**
+
+- With 182 other replies as references, Self-BLEU values are high in
+  absolute terms. Only comparisons between sets mean something.
+- Comparison 1 tests each model against real email. It does not test the
+  models against each other.
+- Cutting a real reply to the same length can also cut off its sign-off.
+  That could itself look like a style difference to StyleDistance. The
+  "as written" AUC, which cuts nothing, is just as high, so this does not
+  explain the result.
+- No human check yet that StyleDistance captures what a reader would call
+  style.
+
+Code: `src/thesis/llm/embeddings.py` (now also runs Hugging Face models
+locally) and `src/thesis/diversity/self_bleu.py`, on branch
+`layer1-consensus-tone`. Run with `python -m thesis.analysis.embedding_map
+--embed-model StyleDistance/styledistance --pairs <file>` once per model,
+then `python -m thesis.diversity.self_bleu`. Both run locally on CPU, no
+API calls. Manifests:
+`outputs/manifests/embedding_map_style_{act,gpt_oss,gpt_oss_120b,qwen}.json`
+and `outputs/manifests/self_bleu.json`. Figures made by `plots.py`.
 
 | Model | Pairs file (jobs 1 and 2) | Q1 grid (job 2, comparison 2) |
 |---|---|---|
@@ -1680,20 +1769,6 @@ Two comparisons:
 | gpt-oss-20b | `pairs_gpt_oss.parquet` | `q1_direction_grid_gpt_oss_20b_full.parquet` |
 | gpt-oss-120b | `pairs_gpt_oss_120b.parquet` | `q1_direction_grid_gpt_oss_120b_full.parquet` |
 | qwen3.8-27b | `pairs_qwen.parquet` | `q1_direction_grid_qwen_full.parquet` |
-
-Both jobs run locally on CPU. No API calls, no cost.
-
-Caveat known in advance: with 182 other replies as references, Self-BLEU
-values are high in absolute terms. Only the comparison between sets means
-something.
-
-Code: `src/thesis/llm/embeddings.py` (now also runs Hugging Face models
-locally) and `src/thesis/diversity/self_bleu.py`, on branch
-`layer1-consensus-tone`. Run with `python -m thesis.analysis.embedding_map
---embed-model StyleDistance/styledistance --pairs <file>` once per model,
-then `python -m thesis.diversity.self_bleu`. Manifests:
-`outputs/manifests/embedding_map_style_{act,gpt_oss,gpt_oss_120b,qwen}.json`
-and `outputs/manifests/self_bleu.json`.
 
 ---
 
