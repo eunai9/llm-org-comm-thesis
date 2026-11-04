@@ -1,0 +1,188 @@
+{
+  "seed": 20261103,
+  "n_bootstrap": 2000,
+  "versus_real": {
+    "llama3.2:3b": {
+      "pairs_file": "real_vs_generated_pairs_act.parquet",
+      "generated": {
+        "mean": 0.5061,
+        "ci95": [
+          0.4494,
+          0.5655
+        ],
+        "n": 183
+      },
+      "as stored": {
+        "real": {
+          "mean": 0.3832,
+          "ci95": [
+            0.341,
+            0.4253
+          ],
+          "n": 183
+        },
+        "difference_generated_minus_real": 0.1229,
+        "wilcoxon_p": 0.000887
+      },
+      "length-matched": {
+        "real": {
+          "mean": 0.2688,
+          "ci95": [
+            0.2281,
+            0.3099
+          ],
+          "n": 183
+        },
+        "difference_generated_minus_real": 0.2373,
+        "wilcoxon_p": 0.0
+      }
+    },
+    "gpt-oss-20b": {
+      "pairs_file": "pairs_gpt_oss.parquet",
+      "generated": {
+        "mean": 0.5576,
+        "ci95": [
+          0.5052,
+          0.6118
+        ],
+        "n": 183
+      },
+      "as stored": {
+        "real": {
+          "mean": 0.3832,
+          "ci95": [
+            0.341,
+            0.4253
+          ],
+          "n": 183
+        },
+        "difference_generated_minus_real": 0.1744,
+        "wilcoxon_p": 0.0
+      },
+      "length-matched": {
+        "real": {
+          "mean": 0.2837,
+          "ci95": [
+            0.244,
+            0.3255
+          ],
+          "n": 183
+        },
+        "difference_generated_minus_real": 0.2739,
+        "wilcoxon_p": 0.0
+      }
+    },
+    "gpt-oss-120b": {
+      "pairs_file": "pairs_gpt_oss_120b.parquet",
+      "generated": {
+        "mean": 0.5659,
+        "ci95": [
+          0.5126,
+          0.6202
+        ],
+        "n": 183
+      },
+      "as stored": {
+        "real": {
+          "mean": 0.3832,
+          "ci95": [
+            0.341,
+            0.4253
+          ],
+          "n": 183
+        },
+        "difference_generated_minus_real": 0.1827,
+        "wilcoxon_p": 0.0
+      },
+      "length-matched": {
+        "real": {
+          "mean": 0.2735,
+          "ci95": [
+            0.2323,
+            0.316
+          ],
+          "n": 183
+        },
+        "difference_generated_minus_real": 0.2924,
+        "wilcoxon_p": 0.0
+      }
+    },
+    "qwen3.8-27b": {
+      "pairs_file": "pairs_qwen.parquet",
+      "generated": {
+        "mean": 0.5101,
+        "ci95": [
+          0.456,
+          0.5687
+        ],
+        "n": 182
+      },
+      "as stored": {
+        "real": {
+          "mean": 0.3835,
+          "ci95": [
+            0.342,
+            0.4281
+          ],
+          "n": 182
+        },
+        "difference_generated_minus_real": 0.1266,
+        "wilcoxon_p": 8.2e-05
+      },
+      "length-matched": {
+        "real": {
+          "mean": 0.3147,
+          "ci95": [
+            0.2745,
+            0.3589
+          ],
+          "n": 182
+        },
+        "difference_generated_minus_real": 0.1953,
+        "wilcoxon_p": 0.0
+      }
+    }
+  },
+  "within_scenario": {
+    "llama3.2:3b": {
+      "grid_file": "q1_direction_grid_full_3draws.parquet",
+      "mean": 0.3818,
+      "ci95": [
+        0.3671,
+        0.3956
+      ],
+      "n": 1440,
+      "n_scenarios": 144
+    },
+    "gpt-oss-20b": {
+      "grid_file": "q1_direction_grid_gpt_oss_20b_full.parquet",
+      "mean": 0.3043,
+      "ci95": [
+        0.2955,
+        0.3132
+      ],
+      "n": 1428,
+      "n_scenarios": 144
+    },
+    "gpt-oss-120b": {
+      "grid_file": "q1_direction_grid_gpt_oss_120b_full.parquet",
+      "mean": 0.5952,
+      "ci95": [
+        0.5821,
+        0.6085
+      ],
+      "n": 1440,
+      "n_scenarios": 144
+    },
+    "qwen3.8-27b": {
+      "grid_file": "q1_direction_grid_qwen_full.parquet",
+      "mean": 0.1695,
+      "ci95": [
+        0.1633,
+        0.1755
+      ],
+      "n": 1440,
+      "n_scenarios": 144
+    }
+  }
+}

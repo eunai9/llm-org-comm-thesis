@@ -1,0 +1,26 @@
+{
+  "embedding_model": "StyleDistance/styledistance",
+  "quotes_already_stripped": true,
+  "seed": 20260830,
+  "topical_tracking": {
+    "mean_cosine_matched": 0.635,
+    "mean_cosine_mismatched": 0.637,
+    "share_matched_higher": 0.475
+  },
+  "views": [
+    {
+      "mean_generated_words": 22.7,
+      "mean_real_words": 65.0,
+      "n_pairs": 183,
+      "separability_auc": 0.993,
+      "view": "as stored"
+    },
+    {
+      "mean_generated_words": 22.7,
+      "mean_real_words": 21.4,
+      "n_pairs": 183,
+      "separability_auc": 0.969,
+      "view": "length-matched"
+    }
+  ]
+}
