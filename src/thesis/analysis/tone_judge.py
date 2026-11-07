@@ -49,6 +49,7 @@ from thesis.llm.base import CompletionRequest, Message
 from thesis.llm.cache import ResponseCache, cache_key
 from thesis.llm.cost import CostLedger, LedgerEntry
 from thesis.llm.ollama_client import OllamaClient, OllamaUnavailableError
+from thesis.llm.openai_compatible import ModelGenerationError
 from thesis.logging_setup import configure_logging, get_logger
 from thesis.paths import CACHE_DIR, COST_LEDGER, INTERIM_DIR, MANIFESTS_DIR, ensure_dirs
 
@@ -139,7 +140,14 @@ def score_tone(
         key = cache_key(request, client.provider)
         response = cache.get(key)
         if response is None:
-            response = client.complete(request)
+            try:
+                response = client.complete(request)
+            except ModelGenerationError as exc:
+                log.warning(
+                    "item %s: model failed to generate JSON; skipping (%s)", item.item_id, exc
+                )
+                summary.n_invalid += 1
+                continue
             cache.put(key, request, response, client.provider)
         else:
             summary.n_from_cache += 1
