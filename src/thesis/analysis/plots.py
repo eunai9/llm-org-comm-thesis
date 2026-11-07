@@ -1074,16 +1074,17 @@ def main() -> None:
         second_series=(0, 2),  # the two "with message" rows, colored as one group
     )
 
-    # Section 21 (Nov 3): the holistic tone judge. Writing-down vs writing-up
+    # Section 22: the holistic tone judge. Writing-down vs writing-up
     # mean on the same 1-7 scale, one row per source; the gap is the
-    # hierarchy effect. From outputs/manifests/tone_judge_pilot.json.
+    # hierarchy effect. The larger run (Nov 6), from
+    # outputs/manifests/tone_judge_250.json.
     plot_paired_dimensions(
         ("real email", "llama3.2:3b", "gpt-oss-20b", "gpt-oss-120b", "qwen3.8-27b"),
-        real_scores=(3.433, 3.373, 4.373, 4.642, 5.463),
-        generated_scores=(3.030, 3.209, 4.060, 3.687, 4.134),
+        real_scores=(3.180, 3.260, 4.256, 4.300, 5.428),
+        generated_scores=(2.876, 3.344, 3.916, 3.900, 4.452),
         path=DOCS_FIGURES_DIR / "tone_judge_by_direction.png",
         title="Larger models sound more in charge than real email",
-        subtitle="Judge score 1-7. Gap = writing down vs. up. 67 emails per direction per source.",
+        subtitle="Judge score 1-7. Gap = writing down vs. up. 250 emails per direction per source.",
         series_labels=("writing down", "writing up"),
         x_label="mean authoritative-tone score (1 = defers, 7 = in charge)",
     )

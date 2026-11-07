@@ -1,0 +1,117 @@
+{
+  "judge": "openai/gpt-oss-120b@low",
+  "per_direction": 250,
+  "gate": "skipped; the pilot passed it, see tone_judge_pilot.json",
+  "results": {
+    "real email": {
+      "n": 750,
+      "n_invalid": 0,
+      "mixed": {
+        "down": {
+          "coefficient": 0.158,
+          "p": 0.28613
+        },
+        "up": {
+          "coefficient": -0.0398,
+          "p": 0.766358
+        }
+      },
+      "fixed_effects": {
+        "down": {
+          "coefficient": 0.2358,
+          "p": 0.169419
+        },
+        "up": {
+          "coefficient": 0.1077,
+          "p": 0.555802
+        }
+      },
+      "cue_spearman": {
+        "imperative_ratio": 0.2409,
+        "hedge_rate": -0.0247,
+        "question_ratio": -0.1909
+      },
+      "mean_by_direction": {
+        "down": 3.18,
+        "lateral": 3.032,
+        "up": 2.876
+      }
+    },
+    "llama3.2:3b": {
+      "n": 750,
+      "n_invalid": 0,
+      "fixed_effects": {
+        "down": {
+          "coefficient": 0.0739,
+          "p": 0.533435
+        },
+        "up": {
+          "coefficient": 0.1432,
+          "p": 0.345529
+        }
+      },
+      "mean_by_direction": {
+        "down": 3.26,
+        "lateral": 3.208,
+        "up": 3.344
+      }
+    },
+    "gpt-oss-20b": {
+      "n": 750,
+      "n_invalid": 0,
+      "fixed_effects": {
+        "down": {
+          "coefficient": 0.4072,
+          "p": 2.2e-05
+        },
+        "up": {
+          "coefficient": 0.0567,
+          "p": 0.593775
+        }
+      },
+      "mean_by_direction": {
+        "down": 4.256,
+        "lateral": 3.856,
+        "up": 3.916
+      }
+    },
+    "gpt-oss-120b": {
+      "n": 750,
+      "n_invalid": 0,
+      "fixed_effects": {
+        "down": {
+          "coefficient": 0.4536,
+          "p": 3.9e-05
+        },
+        "up": {
+          "coefficient": 0.0566,
+          "p": 0.639127
+        }
+      },
+      "mean_by_direction": {
+        "down": 4.3,
+        "lateral": 3.876,
+        "up": 3.9
+      }
+    },
+    "qwen3.8-27b": {
+      "n": 750,
+      "n_invalid": 0,
+      "fixed_effects": {
+        "down": {
+          "coefficient": 0.5638,
+          "p": 0.0
+        },
+        "up": {
+          "coefficient": -0.4207,
+          "p": 0.0
+        }
+      },
+      "mean_by_direction": {
+        "down": 5.428,
+        "lateral": 4.9,
+        "up": 4.452
+      }
+    }
+  }
+}

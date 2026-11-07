@@ -2399,57 +2399,80 @@ The prompt names no cues, so the score is an overall impression.
 0.877, against a bar of 0.4. Layer 1 passed at 0.542, so the tone question
 is much more stable for the judge than the direction question.
 
-**The sample.** 201 emails per source, 67 per direction, balanced. Real
-emails come from the Layer 1 set. Model replies are draw 1 of each model's
-full 10-persona grid. 0 invalid scores.
+**The sample.** First a pilot with 67 emails per direction (201 per
+source). Then a larger run with 250 per direction (750 per source,
+finished Nov 6). The pilot emails are part of the larger sample. 250 is
+the most the real side allows: the Layer 1 set has 251 "writing down"
+emails. Real emails come from the Layer 1 set. Model replies are draw 1 of
+each model's full 10-persona grid. 0 invalid scores in either run. The
+larger run skips the reliability gate, since the pilot already passed it.
 
 **Result.** Coefficients are "writing down" and "writing up" against
 "writing to a peer", on the 1-7 scale. Real email uses sender-clustered
 errors. A mixed model with a random intercept per sender and sender rank
-as a control gives the same answer (down +0.22, p=.46; up −0.03, p=.90).
-Models use persona fixed effects with persona-clustered errors.
+as a control gives the same answer (larger run: down +0.16, p=.29; up
+−0.04, p=.77). Models use persona fixed effects with persona-clustered
+errors.
 
 | Source | Down vs. peer | Up vs. peer | Mean down / peer / up |
 |---|---|---|---|
-| Real email | +0.16 (p=.73) | +0.11 (p=.81) | 3.43 / 3.12 / 3.03 |
-| Llama 3.2 3B | +0.14 (p=.47) | −0.11 (p=.49) | 3.37 / 3.24 / 3.21 |
-| gpt-oss-20b | +0.48 (p=.008) | +0.20 (p=.24) | 4.37 / 3.85 / 4.06 |
-| gpt-oss-120b | +0.37 (p=.058) | −0.61 (p=.11) | 4.64 / 4.25 / 3.69 |
-| qwen3.8-27b | +0.50 (p=.044) | −0.91 (p<.001) | 5.46 / 5.00 / 4.13 |
+| Real email | +0.24 (p=.17) | +0.11 (p=.56) | 3.18 / 3.03 / 2.88 |
+| Llama 3.2 3B | +0.07 (p=.53) | +0.14 (p=.35) | 3.26 / 3.21 / 3.34 |
+| gpt-oss-20b | +0.41 (p<.001) | +0.06 (p=.59) | 4.26 / 3.86 / 3.92 |
+| gpt-oss-120b | +0.45 (p<.001) | +0.06 (p=.64) | 4.30 / 3.88 / 3.90 |
+| qwen3.8-27b | +0.56 (p<.001) | −0.42 (p<.001) | 5.43 / 4.90 / 4.45 |
 
 ![Tone score by direction](docs/figures/tone_judge_by_direction.png)
 
 Each row shows the mean score when writing down (blue) and writing up
-(orange). A longer bar means a bigger hierarchy gap. A row further right
-means the emails sound more in charge overall.
+(orange), from the larger run. A longer bar means a bigger hierarchy gap.
+A row further right means the emails sound more in charge overall.
 
-**Which cues go with the score on real email** (Spearman): orders +0.19,
-questions −0.24, hedges +0.04. So the judge's impression leans on orders
-and questions, but only weakly. It is not just an order count.
+**Pilot vs. larger run.** The same coefficients, pilot first.
+
+| Source | Down, pilot → larger | Up, pilot → larger |
+|---|---|---|
+| Real email | +0.16 (p=.73) → +0.24 (p=.17) | +0.11 (p=.81) → +0.11 (p=.56) |
+| Llama 3.2 3B | +0.14 (p=.47) → +0.07 (p=.53) | −0.11 (p=.49) → +0.14 (p=.35) |
+| gpt-oss-20b | +0.48 (p=.008) → +0.41 (p<.001) | +0.20 (p=.24) → +0.06 (p=.59) |
+| gpt-oss-120b | +0.37 (p=.058) → +0.45 (p<.001) | −0.61 (p=.11) → +0.06 (p=.64) |
+| qwen3.8-27b | +0.50 (p=.044) → +0.56 (p<.001) | −0.91 (p<.001) → −0.42 (p<.001) |
+
+The writing-down effects held their size and became clear. gpt-oss-120b's
+writing-up effect in the pilot (−0.61) was noise. It is gone in the larger
+run.
+
+**Which cues go with the score on real email** (Spearman, larger run):
+orders +0.24, questions −0.19, hedges −0.02. So the judge's impression
+leans on orders and questions, but only weakly. It is not just an order
+count.
 
 **What this means.**
 
 - **Real email shows no clear tone difference by direction.** This agrees
   with section 16: hierarchy is hard to read from one real email.
-- **Larger models sound more in charge overall**, about 4 to 5.5 against
-  3.0 to 3.4 for real email.
-- **qwen shows the clearest hierarchy gradient**: more in charge when
-  writing down, more deferent when writing up. gpt-oss-20b shows only the
-  writing-down effect. gpt-oss-120b points the same way as qwen but is not
-  significant.
-- **Llama 3.2 3B is closest to real email**, on both level and direction.
+- **Llama 3.2 3B shows none either.** It is closest to real email, on both
+  level and direction.
+- **All three larger models sound more in charge when writing down**
+  (+0.41 to +0.56).
+- **Only qwen also sounds more deferent when writing up** (−0.42). For the
+  two gpt-oss models, writing up sounds the same as writing to a peer.
+- **Larger models sound more in charge overall**, about 3.9 to 5.4 against
+  2.9 to 3.2 for real email.
 - Same pattern as sections 13 and 16: generated replies show hierarchy
   *more* than real email does, not less.
 
-Caveats. A pilot, 201 per source. One judge, and gpt-oss-120b also judges
-its own replies (but gpt-oss-20b and qwen show the effect too). No human
-ratings yet. No correction across the 10 tests. 10 personas means 10
-clusters, so the model p-values are likely too small (see section 21).
+Caveats. One judge, and gpt-oss-120b also judges its own replies (but
+gpt-oss-20b and qwen show the effect too). No human ratings yet. No
+correction across the 10 tests. 10 personas means 10 clusters, so the
+model p-values are likely too small (see section 21).
 
 Code: `src/thesis/analysis/tone_judge.py`, on branch
-`layer1-consensus-tone` (not merged into main yet). Run with
-`python -m thesis.analysis.tone_judge`. Manifest:
-`outputs/manifests/tone_judge_pilot.json`. Figure:
+`layer1-consensus-tone` (not merged into main yet). Pilot: `python -m
+thesis.analysis.tone_judge`. Larger run: add `--per-direction 250
+--skip-gate --out outputs/manifests/tone_judge_250.json`. Manifests:
+`outputs/manifests/tone_judge_pilot.json` and
+`outputs/manifests/tone_judge_250.json`. Figure:
 `docs/figures/tone_judge_by_direction.png`, made by `plots.py`.
 
 ---
