@@ -203,6 +203,11 @@ def main() -> None:
         action="store_true",
         help="Skip the reliability gate, for a larger run after the pilot passed it.",
     )
+    parser.add_argument(
+        "--gate-only",
+        action="store_true",
+        help="Stop after the reliability gate, to check a new judge before a full run.",
+    )
     parser.add_argument("--out", default=str(MANIFEST_PATH))
     args = parser.parse_args()
     out = Path(args.out)
@@ -259,8 +264,9 @@ def main() -> None:
         kappa, n_gate = weighted_kappa(passes)
         log.info("tone self-consistency: weighted kappa %.3f on %d items", kappa, n_gate)
         manifest["gate"] = {"weighted_kappa": kappa, "n_items": n_gate, "bar": KAPPA_BAR}
-        if kappa < KAPPA_BAR:
-            log.error("tone self-consistency below %.1f; stopping before the pilot", KAPPA_BAR)
+        if kappa < KAPPA_BAR or args.gate_only:
+            if kappa < KAPPA_BAR:
+                log.error("tone self-consistency below %.1f; stopping before the pilot", KAPPA_BAR)
             out.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
             return
 
