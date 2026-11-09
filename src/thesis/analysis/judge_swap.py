@@ -213,7 +213,9 @@ _MODEL_PROVIDER: dict[str, str] = {
 }
 
 
-def client_for_model(model: str, *, ollama_host: str | None = None) -> LLMClient:
+def client_for_model(
+    model: str, *, ollama_host: str | None = None, provider: str | None = None
+) -> LLMClient:
     """The client that reaches ``model``: NVIDIA's or Groq's free tier for
     a model this project reaches that way, local Ollama for everything
     else.
@@ -222,9 +224,10 @@ def client_for_model(model: str, *, ollama_host: str | None = None) -> LLMClient
     ``--groq`` CLI flag for this, since each of them only ever calls one
     model per run. This module calls several models, possibly from
     different providers, in the same run (every generator, then every
-    judge), so it needs a lookup instead of a flag.
+    judge), so it needs a lookup instead of a flag. ``provider`` overrides
+    the lookup, for a model more than one free tier serves.
     """
-    provider = _MODEL_PROVIDER.get(model)
+    provider = provider or _MODEL_PROVIDER.get(model)
     if provider == "nvidia":
         from thesis.llm.nvidia_client import NvidiaClient
 

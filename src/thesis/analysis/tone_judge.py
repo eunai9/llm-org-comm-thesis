@@ -204,6 +204,11 @@ def balanced_sample(frame: pd.DataFrame, *, per_direction: int, seed: int) -> pd
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--judge-model", default=DEFAULT_JUDGE_MODEL)
+    parser.add_argument(
+        "--provider",
+        choices=["groq", "nvidia"],
+        help="Override the judge's default provider, e.g. gpt-oss-20b on Groq.",
+    )
     parser.add_argument("--per-direction", type=int, default=67)
     parser.add_argument("--gate-per-source", type=int, default=20)
     parser.add_argument(
@@ -222,7 +227,7 @@ def main() -> None:
 
     configure_logging()
     ensure_dirs()
-    client = client_for_model(args.judge_model)
+    client = client_for_model(args.judge_model, provider=args.provider)
     if isinstance(client, OllamaClient) and not client.is_available():
         raise OllamaUnavailableError(f"no Ollama server reachable for {args.judge_model}")
     cache = ResponseCache(CACHE_DIR)
@@ -247,7 +252,11 @@ def main() -> None:
         pick = balanced_sample(grid, per_direction=args.per_direction, seed=PILOT_SEED)
         sources[label], _ = build_absolute_items_from_grid(pick)
 
-    manifest: dict[str, Any] = {"judge": args.judge_model, "per_direction": args.per_direction}
+    manifest: dict[str, Any] = {
+        "judge": args.judge_model,
+        "provider": client.provider,
+        "per_direction": args.per_direction,
+    }
     if args.skip_gate:
         manifest["gate"] = f"skipped; the pilot passed it, see {MANIFEST_PATH.name}"
     else:
