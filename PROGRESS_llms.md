@@ -36,7 +36,7 @@ directly (the Q1 real-email comparison).
 
 Other open items: a run without the "act" instruction, an embedding map and
 review pack for the newer models, and committing the blind-coding module.
-See "24. Next steps" at the end.
+See "25. Next steps" at the end.
 
 ---
 
@@ -672,13 +672,13 @@ robust, sender-clustered fit (section 15).
   standard deviation (`hierarchy.py`). gpt-oss-120b's case (reported p=5e-08,
   honest p≈.001) is what exposed it. Fixed: the code now also fits a
   persona-clustered cross-check on its own (`Q1Result.sentence_model_persona_fe`,
-  commit `85e833a`) -- see the "24. Next steps" done-block below for what still
+  commit `85e833a`) -- see the "25. Next steps" done-block below for what still
   needs it substituted in.
 - **Two small bugs found while checking this result, since fixed.** The Q1
   grid generator now writes `prompt_text_hash()` onto the saved grid instead
   of only computing it in memory (commit `5ee4b46`), and `q1_models.py`'s
   grid loader now counts real cache/generation numbers instead of
-  hard-coding every row as "from cache" (commit `36fbc3e`). See "24. Next
+  hard-coding every row as "from cache" (commit `36fbc3e`). See "25. Next
   steps" for the one small gap that remains.
 
 ---
@@ -987,7 +987,7 @@ Chance that a sentence gives an order, by direction:
   scale** (1.98 at pilot scale, 4.75 for real email). A short reply
   inflates the "orders per sentence" share for the same underlying
   behavior -- the same caveat the pilot section raised. No length-matched
-  version of this comparison exists yet (see "24. Next steps").
+  version of this comparison exists yet (see "25. Next steps").
 - **qwen3.8-27b shows the biggest writing-down effect of the four:
   +0.510, about twice real email's +0.253.** Its replies are 3.87
   sentences long, the closest to real email's 4.75, so the short-reply
@@ -2499,7 +2499,130 @@ Manifests: `outputs/manifests/tone_judge_gate_gpt_oss_20b_groq.json` and
 
 ---
 
-## 23. Where the code lives
+## 23. Politeness from a model trained on human ratings (Q1, Nov 9)
+
+**Finding.** The politeness model finds no direction effect in real email.
+Among the models, only qwen changes its politeness by direction: less
+polite when writing down, more polite when writing up. Almost every email
+scores as polite, so this model separates emails only weakly.
+
+**Why this was needed.** This is plan D from the tone pilot slide (A: tone
+judge, section 22; E: style embeddings, section 18). Section 21 counted
+politeness words (gratitude, apology, "please", greeting). Politeness
+research does not count words. It scores the whole message, using models
+trained on human ratings. So this checks the word-count result with a
+whole-message score that people, not an LLM, defined.
+
+**The model.** `Genius1237/xlm-roberta-large-tydip` (Srinivasan and Choi,
+EMNLP Findings 2022). It is XLM-RoBERTa large, fine-tuned on the English
+part of TyDiP. TyDiP takes the most and least polite requests of the
+Stanford Politeness Corpus (Danescu-Niculescu-Mizil et al., ACL 2013),
+which people rated by hand. It reaches 0.89 accuracy on the TyDiP English
+test set. The score is the model's probability that the email is polite,
+P(polite), from 0 to 1. It runs locally on CPU, with no API calls.
+
+A quick test on four made-up sentences gave the expected order:
+
+| Sentence | P(polite) |
+|---|---:|
+| "Sorry to bother you, but would you mind taking a look when you have a moment?" | 0.996 |
+| "Could you please send me the contract by Friday? Thanks a lot." | 0.994 |
+| "Send me the contract by Friday." | 0.851 |
+| "I need this done today. No excuses." | 0.412 |
+
+**The sample.** The same 750 emails per source as the tone judge's larger
+run (section 22): 250 per direction. So the two scores can be compared
+email by email. 11 real emails were longer than the model's limit of 512
+tokens and were cut. No model reply was.
+
+**Most emails score near the top.** Median P(polite) is 0.97 to 0.99 in
+every source. Only 0.3% (gpt-oss) to 7% (real email) score below 0.5. So
+differences in P(polite) are squeezed near 1. Because of this, the model
+is fitted twice. Once on P(polite) itself, and once on its log-odds, which
+spreads out the values near 1. The log-odds is the main result.
+
+**Result.** Coefficients are "writing down" and "writing up" against
+"writing to a peer", on the log-odds of P(polite). Negative means less
+polite. Same models as section 22: real email with sender-clustered
+errors, models with persona fixed effects and persona-clustered errors.
+
+| Source | Down vs. peer | Up vs. peer | Mean P(polite) down / peer / up |
+|---|---|---|---|
+| Real email | −0.21 (p=.53) | +0.05 (p=.87) | 0.924 / 0.872 / 0.923 |
+| Llama 3.2 3B | −0.02 (p=.89) | −0.00 (p=.99) | 0.909 / 0.916 / 0.925 |
+| gpt-oss-20b | −0.15 (p=.051) | −0.14 (p=.21) | 0.981 / 0.979 / 0.984 |
+| gpt-oss-120b | −0.08 (p=.50) | −0.04 (p=.51) | 0.963 / 0.974 / 0.975 |
+| qwen3.8-27b | −0.45 (p<.001) | +0.18 (p<.001) | 0.905 / 0.939 / 0.948 |
+
+On real email, a mixed model with a random intercept per sender and sender
+rank as a control agrees: down +0.08 (p=.72), up +0.27 (p=.19). On
+P(polite) itself, only qwen's writing-down effect is clear (−0.037,
+p=.003). No other coefficient has p<.10.
+
+![Politeness by direction](docs/figures/politeness_by_direction.png)
+
+Each row shows the mean P(polite) when writing down (blue) and writing up
+(orange). A longer bar means a bigger gap between the two directions. For
+real email the two dots overlap. The axis covers only 0.90 to 0.99, so
+small gaps look large: only qwen's gap is clear.
+
+**How politeness relates to the tone score** (Spearman, same emails):
+
+| Source | Politeness vs. tone score |
+|---|---:|
+| Real email | −0.12 |
+| Llama 3.2 3B | −0.25 |
+| gpt-oss-20b | −0.31 |
+| gpt-oss-120b | −0.45 |
+| qwen3.8-27b | −0.44 |
+
+On real email, politeness also goes weakly with deference words (+0.15)
+and with orders (+0.14). It barely goes with hedges (−0.04) or questions
+(+0.04).
+
+**What this means.**
+
+- **Real email shows no politeness difference by direction.** This matches
+  the tone judge (section 22) and Layer 1 (section 16): hierarchy is hard
+  to read from one real email.
+- **Only qwen shifts its politeness with direction.** This is the same
+  model that alone sounds more deferent when writing up in section 22. So
+  for qwen, two different measures agree.
+- **The gpt-oss models sound more in charge when writing down (section 22)
+  but not less polite.** So for them, sounding in charge and being polite
+  are separate things. They give orders, but politely.
+- **The two scores are linked, but only partly.** Emails that sound more in
+  charge score as less polite, in every source. On real email the link is
+  weak (−0.12), so the two measure different things.
+- **Section 21's word counts found one effect on real email**: people
+  thank more when writing down (36% against 29%). The whole-message score
+  does not show it. One thank-you may not change how polite the whole
+  email reads. The two use different samples, so they are not directly
+  comparable.
+
+**Caveats.**
+
+- The model was trained on short requests from Wikipedia and Stack
+  Exchange, not workplace email. Most emails score near 1, which suggests
+  the model sees nearly all workplace email as polite.
+- TyDiP keeps only the most and least polite requests. So the model learned
+  the two ends, not the middle, where most of these emails are.
+- No human check that the scores fit these emails.
+- No correction across the 10 tests. 10 personas means 10 clusters, so the
+  model p-values are likely too small (see section 21).
+
+Code: `src/thesis/analysis/politeness.py`, on branch
+`layer1-consensus-tone` (not merged into main yet). Run with `python -m
+thesis.analysis.politeness`. It uses the tone judge's sample
+(`build_sources` in `tone_judge.py`) and reads the gpt-oss-120b tone scores
+from the response cache. Per-email scores:
+`data/interim/politeness_250.parquet` (not committed, like all data).
+Manifest: `outputs/manifests/politeness_250.json`. Figure:
+`docs/figures/politeness_by_direction.png`, made by `plots.py`.
+
+---
+
+## 24. Where the code lives
 
 **The clients.** `src/thesis/llm/openai_compatible.py` holds the shared
 request and retry logic. `nvidia_client.py` and `groq_client.py` are thin
@@ -2547,7 +2670,7 @@ made along the way, are in `PROGRESS_nvidia.md`.
 
 ---
 
-## 24. Next steps
+## 25. Next steps
 
 Most valuable first.
 

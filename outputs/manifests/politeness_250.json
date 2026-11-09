@@ -1,0 +1,203 @@
+{
+  "model": "Genius1237/xlm-roberta-large-tydip",
+  "per_direction": 250,
+  "scores_file": "politeness_250.parquet",
+  "results": {
+    "real email": {
+      "n": 750,
+      "n_with_tone": 750,
+      "politeness": {
+        "mixed": {
+          "down": {
+            "coefficient": 0.0147,
+            "p": 0.505171
+          },
+          "up": {
+            "coefficient": 0.0318,
+            "p": 0.109214
+          }
+        },
+        "fixed_effects": {
+          "down": {
+            "coefficient": -0.0117,
+            "p": 0.69347
+          },
+          "up": {
+            "coefficient": 0.0086,
+            "p": 0.739557
+          }
+        }
+      },
+      "politeness_logit": {
+        "mixed": {
+          "down": {
+            "coefficient": 0.0826,
+            "p": 0.722883
+          },
+          "up": {
+            "coefficient": 0.2743,
+            "p": 0.18967
+          }
+        },
+        "fixed_effects": {
+          "down": {
+            "coefficient": -0.2139,
+            "p": 0.525818
+          },
+          "up": {
+            "coefficient": 0.0534,
+            "p": 0.865385
+          }
+        }
+      },
+      "cue_spearman": {
+        "imperative_ratio": 0.1401,
+        "hedge_rate": -0.0397,
+        "question_ratio": 0.0426,
+        "deference_rate": 0.1462
+      },
+      "tone_spearman": -0.1152,
+      "mean_by_direction": {
+        "down": 0.9236,
+        "lateral": 0.872,
+        "up": 0.9232
+      }
+    },
+    "llama3.2:3b": {
+      "n": 750,
+      "n_with_tone": 750,
+      "politeness": {
+        "fixed_effects": {
+          "down": {
+            "coefficient": -0.0059,
+            "p": 0.748909
+          },
+          "up": {
+            "coefficient": 0.0093,
+            "p": 0.384895
+          }
+        }
+      },
+      "politeness_logit": {
+        "fixed_effects": {
+          "down": {
+            "coefficient": -0.0204,
+            "p": 0.887169
+          },
+          "up": {
+            "coefficient": -0.0009,
+            "p": 0.994873
+          }
+        }
+      },
+      "tone_spearman": -0.2525,
+      "mean_by_direction": {
+        "down": 0.9086,
+        "lateral": 0.9158,
+        "up": 0.9254
+      }
+    },
+    "gpt-oss-20b": {
+      "n": 750,
+      "n_with_tone": 750,
+      "politeness": {
+        "fixed_effects": {
+          "down": {
+            "coefficient": 0.0015,
+            "p": 0.768997
+          },
+          "up": {
+            "coefficient": 0.0054,
+            "p": 0.348961
+          }
+        }
+      },
+      "politeness_logit": {
+        "fixed_effects": {
+          "down": {
+            "coefficient": -0.1454,
+            "p": 0.050984
+          },
+          "up": {
+            "coefficient": -0.1377,
+            "p": 0.211056
+          }
+        }
+      },
+      "tone_spearman": -0.3051,
+      "mean_by_direction": {
+        "down": 0.9806,
+        "lateral": 0.9794,
+        "up": 0.9844
+      }
+    },
+    "gpt-oss-120b": {
+      "n": 750,
+      "n_with_tone": 750,
+      "politeness": {
+        "fixed_effects": {
+          "down": {
+            "coefficient": -0.0112,
+            "p": 0.158959
+          },
+          "up": {
+            "coefficient": 0.0003,
+            "p": 0.951689
+          }
+        }
+      },
+      "politeness_logit": {
+        "fixed_effects": {
+          "down": {
+            "coefficient": -0.0842,
+            "p": 0.495266
+          },
+          "up": {
+            "coefficient": -0.0362,
+            "p": 0.507842
+          }
+        }
+      },
+      "tone_spearman": -0.4479,
+      "mean_by_direction": {
+        "down": 0.9633,
+        "lateral": 0.9741,
+        "up": 0.9747
+      }
+    },
+    "qwen3.8-27b": {
+      "n": 750,
+      "n_with_tone": 750,
+      "politeness": {
+        "fixed_effects": {
+          "down": {
+            "coefficient": -0.0365,
+            "p": 0.002591
+          },
+          "up": {
+            "coefficient": 0.007,
+            "p": 0.277721
+          }
+        }
+      },
+      "politeness_logit": {
+        "fixed_effects": {
+          "down": {
+            "coefficient": -0.4526,
+            "p": 5.6e-05
+          },
+          "up": {
+            "coefficient": 0.1802,
+            "p": 0.000655
+          }
+        }
+      },
+      "tone_spearman": -0.4368,
+      "mean_by_direction": {
+        "down": 0.9052,
+        "lateral": 0.9391,
+        "up": 0.9477
+      }
+    }
+  }
+}

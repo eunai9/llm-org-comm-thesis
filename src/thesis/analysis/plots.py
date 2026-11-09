@@ -1089,6 +1089,20 @@ def main() -> None:
         x_label="mean authoritative-tone score (1 = defers, 7 = in charge)",
     )
 
+    # Section 23: politeness from a model trained on human ratings, on the
+    # same emails as the tone judge. Mean P(polite) writing down vs. up,
+    # from outputs/manifests/politeness_250.json.
+    plot_paired_dimensions(
+        ("real email", "llama3.2:3b", "gpt-oss-20b", "gpt-oss-120b", "qwen3.8-27b"),
+        real_scores=(0.9236, 0.9086, 0.9806, 0.9633, 0.9052),
+        generated_scores=(0.9232, 0.9254, 0.9844, 0.9747, 0.9477),
+        path=DOCS_FIGURES_DIR / "politeness_by_direction.png",
+        title="Only qwen is less polite when writing down",
+        subtitle="Politeness model, P(polite). 250 emails per direction per source.",
+        series_labels=("writing down", "writing up"),
+        x_label="mean probability that the email is polite",
+    )
+
     # Section 45: the power score split into its two halves and checked
     # against seniority separately. Three lines, not two, so
     # plot_factor_interaction's cap does not fit -- this is exactly the case
