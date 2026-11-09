@@ -201,6 +201,33 @@ def balanced_sample(frame: pd.DataFrame, *, per_direction: int, seed: int) -> pd
     return frame.groupby("direction", group_keys=False).sample(n=per_direction, random_state=seed)
 
 
+def build_sources(
+    per_direction: int,
+) -> tuple[dict[str, list[JudgeItem]], pd.DataFrame, dict[str, pd.DataFrame]]:
+    """The tone sample: items per source, the real-email measures, and each
+    writer's draw-1 grid. The same seed gives nested samples, so a larger
+    run contains the pilot."""
+    real_emails = pd.read_parquet(INTERIM_DIR / "q1_real_emails.parquet").drop_duplicates(
+        subset="message_uid"
+    )
+    layer1 = sample_real_directions(
+        real_emails[["message_uid", "direction"]], n=1000, seed=REAL_SAMPLE_SEED
+    )
+    real_pick = balanced_sample(layer1, per_direction=per_direction, seed=PILOT_SEED)
+    real_items, _ = build_absolute_items_from_real_email(
+        load_bodies(real_pick["message_uid"]), real_pick
+    )
+    sources: dict[str, list[JudgeItem]] = {"real email": real_items}
+    grids: dict[str, pd.DataFrame] = {}
+    for label, path in GENERATING_GRIDS.items():
+        grid = pd.read_parquet(path)
+        grid = grid[grid["replicate"] == 1]
+        grids[label] = grid
+        pick = balanced_sample(grid, per_direction=per_direction, seed=PILOT_SEED)
+        sources[label], _ = build_absolute_items_from_grid(pick)
+    return sources, real_emails, grids
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--judge-model", default=DEFAULT_JUDGE_MODEL)
@@ -233,24 +260,7 @@ def main() -> None:
     cache = ResponseCache(CACHE_DIR)
     ledger = CostLedger(COST_LEDGER)
 
-    real_emails = pd.read_parquet(INTERIM_DIR / "q1_real_emails.parquet").drop_duplicates(
-        subset="message_uid"
-    )
-    layer1 = sample_real_directions(
-        real_emails[["message_uid", "direction"]], n=1000, seed=REAL_SAMPLE_SEED
-    )
-    real_pick = balanced_sample(layer1, per_direction=args.per_direction, seed=PILOT_SEED)
-    real_items, _ = build_absolute_items_from_real_email(
-        load_bodies(real_pick["message_uid"]), real_pick
-    )
-    sources: dict[str, list[JudgeItem]] = {"real email": real_items}
-    grids: dict[str, pd.DataFrame] = {}
-    for label, path in GENERATING_GRIDS.items():
-        grid = pd.read_parquet(path)
-        grid = grid[grid["replicate"] == 1]
-        grids[label] = grid
-        pick = balanced_sample(grid, per_direction=args.per_direction, seed=PILOT_SEED)
-        sources[label], _ = build_absolute_items_from_grid(pick)
+    sources, real_emails, grids = build_sources(args.per_direction)
 
     manifest: dict[str, Any] = {
         "judge": args.judge_model,
