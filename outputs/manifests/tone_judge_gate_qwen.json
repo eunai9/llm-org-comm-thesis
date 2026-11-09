@@ -1,0 +1,9 @@
+{
+  "judge": "qwen/qwen3.8-27b",
+  "per_direction": 67,
+  "gate": {
+    "weighted_kappa": 0.5092,
+    "n_items": 97,
+    "bar": 0.4
+  }
+}

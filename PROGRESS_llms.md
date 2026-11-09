@@ -2462,17 +2462,39 @@ count.
 - Same pattern as sections 13 and 16: generated replies show hierarchy
   *more* than real email does, not less.
 
-Caveats. One judge, and gpt-oss-120b also judges its own replies (but
-gpt-oss-20b and qwen show the effect too). No human ratings yet. No
-correction across the 10 tests. 10 personas means 10 clusters, so the
-model p-values are likely too small (see section 21).
+**Other judges: do they agree with themselves? (Nov 9)** All results
+above come from one judge. Before adding a second judge, two other models
+took the same reliability gate: the same 100 emails, scored three times.
+
+| Judge | Weighted kappa | Emails | Passes the 0.4 bar |
+|---|---:|---:|---|
+| gpt-oss-120b | 0.877 | 100 | Yes |
+| gpt-oss-20b | 0.785 | 100 | Yes |
+| qwen3.8-27b | 0.509 | 97 | Yes, barely |
+
+- **gpt-oss-20b is almost as stable as gpt-oss-120b.** It is the better
+  second judge.
+- **qwen often gives the same email a different score on another pass.**
+  Its scores would be noisier. For 3 emails it gave no valid answer: it
+  broke out of the JSON format, and Groq rejected the reply.
+- gpt-oss-20b ran on Groq, not NVIDIA. NVIDIA timed out on every request
+  from Nov 7 to Nov 9.
+- Neither judge has scored the 750 emails per source yet.
+
+Caveats. One judge for the results, and gpt-oss-120b also judges its own
+replies (but gpt-oss-20b and qwen show the effect too). No human ratings
+yet. No correction across the 10 tests. 10 personas means 10 clusters, so
+the model p-values are likely too small (see section 21).
 
 Code: `src/thesis/analysis/tone_judge.py`, on branch
 `layer1-consensus-tone` (not merged into main yet). Pilot: `python -m
 thesis.analysis.tone_judge`. Larger run: add `--per-direction 250
 --skip-gate --out outputs/manifests/tone_judge_250.json`. Manifests:
 `outputs/manifests/tone_judge_pilot.json` and
-`outputs/manifests/tone_judge_250.json`. Figure:
+`outputs/manifests/tone_judge_250.json`. Other judges: add `--gate-only
+--judge-model <model>` (and `--provider groq` for gpt-oss-20b).
+Manifests: `outputs/manifests/tone_judge_gate_gpt_oss_20b_groq.json` and
+`outputs/manifests/tone_judge_gate_qwen.json`. Figure:
 `docs/figures/tone_judge_by_direction.png`, made by `plots.py`.
 
 ---

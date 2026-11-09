@@ -1,0 +1,10 @@
+{
+  "judge": "openai/gpt-oss-20b@low",
+  "provider": "groq",
+  "per_direction": 67,
+  "gate": {
+    "weighted_kappa": 0.7854,
+    "n_items": 100,
+    "bar": 0.4
+  }
+}
