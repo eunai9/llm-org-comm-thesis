@@ -1089,6 +1089,35 @@ def main() -> None:
         x_label="mean authoritative-tone score (1 = defers, 7 = in charge)",
     )
 
+    # Section 22: the same direction contrasts from both tone judges, one
+    # column per (contrast, judge). From outputs/manifests/tone_judge_250.json
+    # (gpt-oss-120b) and tone_judge_250_gpt_oss_20b.json (gpt-oss-20b).
+    plot_coefficient_heatmap(
+        ("real email", "llama3.2:3b", "gpt-oss-20b", "gpt-oss-120b", "qwen3.8-27b"),
+        ("down\n120b judge", "down\n20b judge", "up\n120b judge", "up\n20b judge"),
+        np.array(
+            [
+                [0.2358, 0.1458, 0.1077, 0.0022],
+                [0.0739, 0.2015, 0.1432, 0.3120],
+                [0.4072, 0.2595, 0.0567, -0.2684],
+                [0.4536, 0.5770, 0.0566, 0.2197],
+                [0.5638, 0.5795, -0.4207, -0.3893],
+            ]
+        ),
+        np.array(
+            [
+                [0.1694, 0.4202, 0.5558, 0.9901],
+                [0.5334, 0.2350, 0.3455, 0.0101],
+                [0.000022, 0.0751, 0.5938, 0.0080],
+                [0.000039, 0.000485, 0.6391, 0.1562],
+                [0.0, 0.0, 0.0, 0.000131],
+            ]
+        ),
+        path=DOCS_FIGURES_DIR / "tone_judge_two_judges.png",
+        title="Both tone judges find the same large effects",
+        subtitle="Tone score vs. writing to a peer, 1-7 scale. * p<.05, ** p<.01, *** p<.001.",
+    )
+
     # Section 23: politeness from a model trained on human ratings, on the
     # same emails as the tone judge. Mean P(polite) writing down vs. up,
     # from outputs/manifests/politeness_250.json.

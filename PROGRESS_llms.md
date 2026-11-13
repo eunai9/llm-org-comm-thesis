@@ -2479,10 +2479,63 @@ took the same reliability gate: the same 100 emails, scored three times.
   broke out of the JSON format, and Groq rejected the reply.
 - gpt-oss-20b ran on Groq, not NVIDIA. NVIDIA timed out on every request
   from Nov 7 to Nov 9.
-- Neither judge has scored the 750 emails per source yet.
+- gpt-oss-20b then scored the 750 emails per source. See the next part.
 
-Caveats. One judge for the results, and gpt-oss-120b also judges its own
-replies (but gpt-oss-20b and qwen show the effect too). No human ratings
+**A second judge on the full sample (Nov 13).** gpt-oss-20b scored the
+same 3,750 emails (750 per source) on Groq. 0 invalid scores. Same prompt,
+same models, same tests as the gpt-oss-120b run above.
+
+First, do the two judges give the same email a similar score? Weighted
+kappa is the same agreement measure as in the reliability gate, now
+between two judges instead of three passes of one.
+
+| Source | Weighted kappa | Spearman | Same score | Within 1 point | 20b minus 120b |
+|---|---:|---:|---:|---:|---:|
+| Real email | 0.62 | 0.66 | 42% | 78% | +0.51 |
+| Llama 3.2 3B | 0.70 | 0.68 | 39% | 81% | −0.02 |
+| gpt-oss-20b | 0.69 | 0.71 | 39% | 81% | +0.32 |
+| gpt-oss-120b | 0.74 | 0.74 | 45% | 83% | −0.07 |
+| qwen3.8-27b | 0.69 | 0.71 | 39% | 86% | +0.53 |
+| All 3,750 | 0.74 | 0.75 | | | |
+
+The judges agree well, but less than gpt-oss-120b agrees with itself
+(0.88). gpt-oss-20b gives higher scores on real email and on qwen, by about
+half a point. This does not change the direction tests, since each test
+compares directions within one judge and one source.
+
+Second, do the two judges find the same direction effects?
+
+| Source | Down vs. peer, 120b → 20b | Up vs. peer, 120b → 20b | Mean down / peer / up, 20b |
+|---|---|---|---|
+| Real email | +0.24 (p=.17) → +0.15 (p=.42) | +0.11 (p=.56) → +0.00 (p=.99) | 3.68 / 3.57 / 3.37 |
+| Llama 3.2 3B | +0.07 (p=.53) → +0.20 (p=.24) | +0.14 (p=.35) → +0.31 (p=.010) | 3.28 / 3.08 / 3.38 |
+| gpt-oss-20b | +0.41 (p<.001) → +0.26 (p=.075) | +0.06 (p=.59) → −0.27 (p=.008) | 4.58 / 4.33 / 4.06 |
+| gpt-oss-120b | +0.45 (p<.001) → +0.58 (p<.001) | +0.06 (p=.64) → +0.22 (p=.16) | 4.26 / 3.71 / 3.90 |
+| qwen3.8-27b | +0.56 (p<.001) → +0.58 (p<.001) | −0.42 (p<.001) → −0.39 (p<.001) | 5.95 / 5.41 / 5.00 |
+
+For real email, the 20b judge's mixed model gives the same answer (down
++0.09, p=.64; up −0.11, p=.51). On real email its score goes with orders
+(Spearman +0.22) and against questions (−0.12), like the 120b judge.
+
+![Two tone judges](docs/figures/tone_judge_two_judges.png)
+
+Each cell is one direction effect from one judge. Blue means a higher tone
+score than writing to a peer, orange a lower one. Stars mark p-values.
+
+- **The main findings hold with both judges.** Real email shows no
+  direction effect. gpt-oss-120b and qwen sound more in charge when
+  writing down. qwen also sounds more deferent when writing up.
+- **The smaller effects depend on the judge.** For gpt-oss-20b's replies,
+  only the 120b judge finds a clear writing-down effect, and only the 20b
+  judge finds a writing-up effect (−0.27). For Llama, only the 20b judge
+  finds a writing-up effect (+0.31, in the "wrong" direction). These
+  should not be used as results.
+- So the thesis can rely on an effect only if both judges find it.
+
+Caveats. The two judges come from the same model family (gpt-oss), so
+they may share blind spots. gpt-oss-120b also judges its own replies, and
+gpt-oss-20b its own, but the effects both judges agree on do not depend on
+this (qwen's are the largest). No human ratings
 yet. No correction across the 10 tests. 10 personas means 10 clusters, so
 the model p-values are likely too small (see section 21).
 
@@ -2494,8 +2547,13 @@ thesis.analysis.tone_judge`. Larger run: add `--per-direction 250
 `outputs/manifests/tone_judge_250.json`. Other judges: add `--gate-only
 --judge-model <model>` (and `--provider groq` for gpt-oss-20b).
 Manifests: `outputs/manifests/tone_judge_gate_gpt_oss_20b_groq.json` and
-`outputs/manifests/tone_judge_gate_qwen.json`. Figure:
-`docs/figures/tone_judge_by_direction.png`, made by `plots.py`.
+`outputs/manifests/tone_judge_gate_qwen.json`. Second judge on the full
+sample: `--judge-model openai/gpt-oss-20b@low --provider groq
+--per-direction 250 --skip-gate`, manifest
+`outputs/manifests/tone_judge_250_gpt_oss_20b.json`. The agreement table
+is computed from the cached scores of both runs. Figures:
+`docs/figures/tone_judge_by_direction.png` and
+`docs/figures/tone_judge_two_judges.png`, made by `plots.py`.
 
 ---
 
