@@ -1,0 +1,816 @@
+{
+ "writer": "qwen3.8-27b",
+ "judge": "openai/gpt-oss-120b@low",
+ "n": 1440,
+ "n_tone": 1440,
+ "baselines": {
+  "stakes": "routine",
+  "tone_in": "neutral"
+ },
+ "means": {
+  "tone": {
+   "stakes": {
+    "down": {
+     "high": 5.596,
+     "routine": 5.229
+    },
+    "lateral": {
+     "high": 5.125,
+     "routine": 4.458
+    },
+    "up": {
+     "high": 4.888,
+     "routine": 4.292
+    }
+   },
+   "tone_in": {
+    "down": {
+     "assertive": 5.333,
+     "deferential": 5.392,
+     "neutral": 5.483,
+     "warm": 5.442
+    },
+    "lateral": {
+     "assertive": 5.05,
+     "deferential": 4.567,
+     "neutral": 4.808,
+     "warm": 4.742
+    },
+    "up": {
+     "assertive": 4.875,
+     "deferential": 4.592,
+     "neutral": 4.458,
+     "warm": 4.433
+    }
+   }
+  },
+  "politeness_logit": {
+   "stakes": {
+    "down": {
+     "high": 3.411,
+     "routine": 3.963
+    },
+    "lateral": {
+     "high": 3.914,
+     "routine": 4.264
+    },
+    "up": {
+     "high": 4.015,
+     "routine": 4.481
+    }
+   },
+   "tone_in": {
+    "down": {
+     "assertive": 3.457,
+     "deferential": 3.928,
+     "neutral": 3.788,
+     "warm": 3.575
+    },
+    "lateral": {
+     "assertive": 3.628,
+     "deferential": 4.455,
+     "neutral": 4.106,
+     "warm": 4.166
+    },
+    "up": {
+     "assertive": 3.932,
+     "deferential": 4.424,
+     "neutral": 4.355,
+     "warm": 4.281
+    }
+   }
+  },
+  "order_share": {
+   "stakes": {
+    "down": {
+     "high": 0.547,
+     "routine": 0.499
+    },
+    "lateral": {
+     "high": 0.401,
+     "routine": 0.404
+    },
+    "up": {
+     "high": 0.357,
+     "routine": 0.35
+    }
+   },
+   "tone_in": {
+    "down": {
+     "assertive": 0.493,
+     "deferential": 0.496,
+     "neutral": 0.538,
+     "warm": 0.565
+    },
+    "lateral": {
+     "assertive": 0.408,
+     "deferential": 0.376,
+     "neutral": 0.406,
+     "warm": 0.419
+    },
+    "up": {
+     "assertive": 0.366,
+     "deferential": 0.332,
+     "neutral": 0.356,
+     "warm": 0.36
+    }
+   }
+  },
+  "hedge_share": {
+   "stakes": {
+    "down": {
+     "high": 0.0,
+     "routine": 0.003
+    },
+    "lateral": {
+     "high": 0.004,
+     "routine": 0.005
+    },
+    "up": {
+     "high": 0.008,
+     "routine": 0.01
+    }
+   },
+   "tone_in": {
+    "down": {
+     "assertive": 0.003,
+     "deferential": 0.003,
+     "neutral": 0.0,
+     "warm": 0.0
+    },
+    "lateral": {
+     "assertive": 0.003,
+     "deferential": 0.009,
+     "neutral": 0.002,
+     "warm": 0.004
+    },
+    "up": {
+     "assertive": 0.008,
+     "deferential": 0.012,
+     "neutral": 0.013,
+     "warm": 0.002
+    }
+   }
+  },
+  "words": {
+   "stakes": {
+    "down": {
+     "high": 45.233,
+     "routine": 41.108
+    },
+    "lateral": {
+     "high": 47.488,
+     "routine": 40.017
+    },
+    "up": {
+     "high": 46.021,
+     "routine": 41.979
+    }
+   },
+   "tone_in": {
+    "down": {
+     "assertive": 41.908,
+     "deferential": 44.942,
+     "neutral": 43.783,
+     "warm": 42.05
+    },
+    "lateral": {
+     "assertive": 43.975,
+     "deferential": 44.375,
+     "neutral": 42.958,
+     "warm": 43.7
+    },
+    "up": {
+     "assertive": 42.2,
+     "deferential": 44.033,
+     "neutral": 43.667,
+     "warm": 46.1
+    }
+   }
+  }
+ },
+ "within_direction": [
+  {
+   "measure": "tone",
+   "direction": "down",
+   "term": "high",
+   "coef": 0.3667,
+   "se": 0.0936,
+   "p": 0.0001,
+   "n": 480,
+   "p_holm": 0.0049
+  },
+  {
+   "measure": "tone",
+   "direction": "down",
+   "term": "assertive",
+   "coef": -0.15,
+   "se": 0.1287,
+   "p": 0.244,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "tone",
+   "direction": "down",
+   "term": "deferential",
+   "coef": -0.0917,
+   "se": 0.1272,
+   "p": 0.4713,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "tone",
+   "direction": "down",
+   "term": "warm",
+   "coef": -0.0417,
+   "se": 0.1339,
+   "p": 0.7557,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "tone",
+   "direction": "lateral",
+   "term": "high",
+   "coef": 0.6667,
+   "se": 0.1048,
+   "p": 0.0,
+   "n": 480,
+   "p_holm": 0.0
+  },
+  {
+   "measure": "tone",
+   "direction": "lateral",
+   "term": "assertive",
+   "coef": 0.2417,
+   "se": 0.1459,
+   "p": 0.0975,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "tone",
+   "direction": "lateral",
+   "term": "deferential",
+   "coef": -0.2417,
+   "se": 0.1542,
+   "p": 0.1172,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "tone",
+   "direction": "lateral",
+   "term": "warm",
+   "coef": -0.0667,
+   "se": 0.1482,
+   "p": 0.6528,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "tone",
+   "direction": "up",
+   "term": "high",
+   "coef": 0.5958,
+   "se": 0.1088,
+   "p": 0.0,
+   "n": 480,
+   "p_holm": 0.0
+  },
+  {
+   "measure": "tone",
+   "direction": "up",
+   "term": "assertive",
+   "coef": 0.4167,
+   "se": 0.1488,
+   "p": 0.0051,
+   "n": 480,
+   "p_holm": 0.2555
+  },
+  {
+   "measure": "tone",
+   "direction": "up",
+   "term": "deferential",
+   "coef": 0.1333,
+   "se": 0.1578,
+   "p": 0.3981,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "tone",
+   "direction": "up",
+   "term": "warm",
+   "coef": -0.025,
+   "se": 0.154,
+   "p": 0.871,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "politeness_logit",
+   "direction": "down",
+   "term": "high",
+   "coef": -0.5519,
+   "se": 0.1278,
+   "p": 0.0,
+   "n": 480,
+   "p_holm": 0.0009
+  },
+  {
+   "measure": "politeness_logit",
+   "direction": "down",
+   "term": "assertive",
+   "coef": -0.3309,
+   "se": 0.1725,
+   "p": 0.055,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "politeness_logit",
+   "direction": "down",
+   "term": "deferential",
+   "coef": 0.1407,
+   "se": 0.1825,
+   "p": 0.4409,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "politeness_logit",
+   "direction": "down",
+   "term": "warm",
+   "coef": -0.2129,
+   "se": 0.1843,
+   "p": 0.2481,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "politeness_logit",
+   "direction": "lateral",
+   "term": "high",
+   "coef": -0.3496,
+   "se": 0.116,
+   "p": 0.0026,
+   "n": 480,
+   "p_holm": 0.1323
+  },
+  {
+   "measure": "politeness_logit",
+   "direction": "lateral",
+   "term": "assertive",
+   "coef": -0.4777,
+   "se": 0.1756,
+   "p": 0.0065,
+   "n": 480,
+   "p_holm": 0.3199
+  },
+  {
+   "measure": "politeness_logit",
+   "direction": "lateral",
+   "term": "deferential",
+   "coef": 0.3491,
+   "se": 0.1626,
+   "p": 0.0318,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "politeness_logit",
+   "direction": "lateral",
+   "term": "warm",
+   "coef": 0.0599,
+   "se": 0.162,
+   "p": 0.7116,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "politeness_logit",
+   "direction": "up",
+   "term": "high",
+   "coef": -0.4658,
+   "se": 0.1094,
+   "p": 0.0,
+   "n": 480,
+   "p_holm": 0.0012
+  },
+  {
+   "measure": "politeness_logit",
+   "direction": "up",
+   "term": "assertive",
+   "coef": -0.4227,
+   "se": 0.1401,
+   "p": 0.0025,
+   "n": 480,
+   "p_holm": 0.1323
+  },
+  {
+   "measure": "politeness_logit",
+   "direction": "up",
+   "term": "deferential",
+   "coef": 0.0693,
+   "se": 0.147,
+   "p": 0.6373,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "politeness_logit",
+   "direction": "up",
+   "term": "warm",
+   "coef": -0.0741,
+   "se": 0.1438,
+   "p": 0.6064,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "order_share",
+   "direction": "down",
+   "term": "high",
+   "coef": 0.0484,
+   "se": 0.0213,
+   "p": 0.0234,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "order_share",
+   "direction": "down",
+   "term": "assertive",
+   "coef": -0.0451,
+   "se": 0.0313,
+   "p": 0.1502,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "order_share",
+   "direction": "down",
+   "term": "deferential",
+   "coef": -0.0416,
+   "se": 0.0307,
+   "p": 0.1759,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "order_share",
+   "direction": "down",
+   "term": "warm",
+   "coef": 0.0267,
+   "se": 0.0302,
+   "p": 0.3766,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "order_share",
+   "direction": "lateral",
+   "term": "high",
+   "coef": -0.0024,
+   "se": 0.0197,
+   "p": 0.9015,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "order_share",
+   "direction": "lateral",
+   "term": "assertive",
+   "coef": 0.0021,
+   "se": 0.0283,
+   "p": 0.9413,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "order_share",
+   "direction": "lateral",
+   "term": "deferential",
+   "coef": -0.0302,
+   "se": 0.0257,
+   "p": 0.2396,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "order_share",
+   "direction": "lateral",
+   "term": "warm",
+   "coef": 0.0124,
+   "se": 0.0288,
+   "p": 0.6669,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "order_share",
+   "direction": "up",
+   "term": "high",
+   "coef": 0.0077,
+   "se": 0.0201,
+   "p": 0.7014,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "order_share",
+   "direction": "up",
+   "term": "assertive",
+   "coef": 0.0104,
+   "se": 0.0288,
+   "p": 0.7178,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "order_share",
+   "direction": "up",
+   "term": "deferential",
+   "coef": -0.0239,
+   "se": 0.0278,
+   "p": 0.3903,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "order_share",
+   "direction": "up",
+   "term": "warm",
+   "coef": 0.0039,
+   "se": 0.0286,
+   "p": 0.8908,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "hedge_share",
+   "direction": "down",
+   "term": "high",
+   "coef": -0.0029,
+   "se": 0.0018,
+   "p": 0.101,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "hedge_share",
+   "direction": "down",
+   "term": "assertive",
+   "coef": 0.0031,
+   "se": 0.0022,
+   "p": 0.1603,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "hedge_share",
+   "direction": "down",
+   "term": "deferential",
+   "coef": 0.0028,
+   "se": 0.0028,
+   "p": 0.3234,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "hedge_share",
+   "direction": "down",
+   "term": "warm",
+   "coef": 0.0,
+   "se": 0.0006,
+   "p": 1.0,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "hedge_share",
+   "direction": "lateral",
+   "term": "high",
+   "coef": -0.0016,
+   "se": 0.0032,
+   "p": 0.6147,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "hedge_share",
+   "direction": "lateral",
+   "term": "assertive",
+   "coef": 0.0014,
+   "se": 0.0029,
+   "p": 0.6324,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "hedge_share",
+   "direction": "lateral",
+   "term": "deferential",
+   "coef": 0.0076,
+   "se": 0.0051,
+   "p": 0.1342,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "hedge_share",
+   "direction": "lateral",
+   "term": "warm",
+   "coef": 0.0025,
+   "se": 0.0035,
+   "p": 0.473,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "hedge_share",
+   "direction": "up",
+   "term": "high",
+   "coef": -0.0026,
+   "se": 0.0047,
+   "p": 0.5878,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "hedge_share",
+   "direction": "up",
+   "term": "assertive",
+   "coef": -0.0049,
+   "se": 0.0072,
+   "p": 0.5015,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "hedge_share",
+   "direction": "up",
+   "term": "deferential",
+   "coef": -0.0007,
+   "se": 0.0082,
+   "p": 0.9327,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "hedge_share",
+   "direction": "up",
+   "term": "warm",
+   "coef": -0.0115,
+   "se": 0.0062,
+   "p": 0.0635,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "words",
+   "direction": "down",
+   "term": "high",
+   "coef": 4.125,
+   "se": 1.3461,
+   "p": 0.0022,
+   "n": 480,
+   "p_holm": 0.1156
+  },
+  {
+   "measure": "words",
+   "direction": "down",
+   "term": "assertive",
+   "coef": -1.875,
+   "se": 1.9121,
+   "p": 0.3268,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "words",
+   "direction": "down",
+   "term": "deferential",
+   "coef": 1.1583,
+   "se": 1.9107,
+   "p": 0.5444,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "words",
+   "direction": "down",
+   "term": "warm",
+   "coef": -1.7333,
+   "se": 1.9197,
+   "p": 0.3666,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "words",
+   "direction": "lateral",
+   "term": "high",
+   "coef": 7.4708,
+   "se": 1.2393,
+   "p": 0.0,
+   "n": 480,
+   "p_holm": 0.0
+  },
+  {
+   "measure": "words",
+   "direction": "lateral",
+   "term": "assertive",
+   "coef": 1.0167,
+   "se": 1.7612,
+   "p": 0.5638,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "words",
+   "direction": "lateral",
+   "term": "deferential",
+   "coef": 1.4167,
+   "se": 1.8476,
+   "p": 0.4432,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "words",
+   "direction": "lateral",
+   "term": "warm",
+   "coef": 0.7417,
+   "se": 1.7375,
+   "p": 0.6695,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "words",
+   "direction": "up",
+   "term": "high",
+   "coef": 4.0417,
+   "se": 1.2967,
+   "p": 0.0018,
+   "n": 480,
+   "p_holm": 0.0987
+  },
+  {
+   "measure": "words",
+   "direction": "up",
+   "term": "assertive",
+   "coef": -1.4667,
+   "se": 1.6415,
+   "p": 0.3716,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "words",
+   "direction": "up",
+   "term": "deferential",
+   "coef": 0.3667,
+   "se": 1.7095,
+   "p": 0.8302,
+   "n": 480,
+   "p_holm": 1.0
+  },
+  {
+   "measure": "words",
+   "direction": "up",
+   "term": "warm",
+   "coef": 2.4333,
+   "se": 1.9863,
+   "p": 0.2206,
+   "n": 480,
+   "p_holm": 1.0
+  }
+ ],
+ "direction_interaction": {
+  "tone": {
+   "stakes_x_direction_p": 0.07743793331486126,
+   "tone_in_x_direction_p": 0.018479408270777528
+  },
+  "politeness_logit": {
+   "stakes_x_direction_p": 0.4894336665721419,
+   "tone_in_x_direction_p": 0.5543821017764504
+  },
+  "order_share": {
+   "stakes_x_direction_p": 0.18872130230092932,
+   "tone_in_x_direction_p": 0.6499157038564736
+  },
+  "hedge_share": {
+   "stakes_x_direction_p": 0.9356391265375161,
+   "tone_in_x_direction_p": 0.36766601242360986
+  },
+  "words": {
+   "stakes_x_direction_p": 0.08701401960761142,
+   "tone_in_x_direction_p": 0.4819370619204286
+  }
+ }
+}

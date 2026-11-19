@@ -36,7 +36,7 @@ directly (the Q1 real-email comparison).
 
 Other open items: a run without the "act" instruction, an embedding map and
 review pack for the newer models, and committing the blind-coding module.
-See "25. Next steps" at the end.
+See "26. Next steps" at the end.
 
 ---
 
@@ -672,13 +672,13 @@ robust, sender-clustered fit (section 15).
   standard deviation (`hierarchy.py`). gpt-oss-120b's case (reported p=5e-08,
   honest p≈.001) is what exposed it. Fixed: the code now also fits a
   persona-clustered cross-check on its own (`Q1Result.sentence_model_persona_fe`,
-  commit `85e833a`) -- see the "25. Next steps" done-block below for what still
+  commit `85e833a`) -- see the "26. Next steps" done-block below for what still
   needs it substituted in.
 - **Two small bugs found while checking this result, since fixed.** The Q1
   grid generator now writes `prompt_text_hash()` onto the saved grid instead
   of only computing it in memory (commit `5ee4b46`), and `q1_models.py`'s
   grid loader now counts real cache/generation numbers instead of
-  hard-coding every row as "from cache" (commit `36fbc3e`). See "25. Next
+  hard-coding every row as "from cache" (commit `36fbc3e`). See "26. Next
   steps" for the one small gap that remains.
 
 ---
@@ -987,7 +987,7 @@ Chance that a sentence gives an order, by direction:
   scale** (1.98 at pilot scale, 4.75 for real email). A short reply
   inflates the "orders per sentence" share for the same underlying
   behavior -- the same caveat the pilot section raised. No length-matched
-  version of this comparison exists yet (see "25. Next steps").
+  version of this comparison exists yet (see "26. Next steps").
 - **qwen3.8-27b shows the biggest writing-down effect of the four:
   +0.510, about twice real email's +0.253.** Its replies are 3.87
   sentences long, the closest to real email's 4.75, so the short-reply
@@ -2680,7 +2680,118 @@ Manifest: `outputs/manifests/politeness_250.json`. Figure:
 
 ---
 
-## 24. Where the code lives
+## 24. Stakes and incoming tone inside each direction (Q1, Nov 19)
+
+**Finding.** High stakes clearly changes qwen's replies in every
+direction: they sound more in charge, less polite and a bit longer. The
+tone of the incoming message matters much less. Its one clear effect is on
+the tone score, and there it depends on direction: an assertive message
+makes qwen sound more in charge when it writes up or to a peer, but not
+when it writes down. qwen matches assertiveness from seniors and peers,
+but not from juniors.
+
+**Why this was needed.** The qwen main set crosses direction with two more
+factors: stakes (routine, high) and the tone of the incoming message
+(deferential, warm, neutral, assertive). Every Q1 result so far pooled
+over both. The design asked two questions about them: does deference
+toward a senior grow when stakes are high, and does the tone of the
+incoming message shape the reply on top of who it goes to? This section
+answers both for qwen. Incoming tone is a property of the message the
+persona receives, not an instruction to the persona (see
+`sim/scenario.py`).
+
+**Data.** All 1,440 qwen3.8-27b replies of the main set (draw 1): 480 per
+direction. Every reply now has a gpt-oss-120b tone score. Section 22 scored
+750 of them; the other 690 were scored for this section with the same
+prompt (0 invalid). Politeness, orders and hedges are measured as in
+sections 23 and 21. Length is words.
+
+**Method.** For each direction separately, one regression per measure:
+
+    measure ~ stakes + incoming tone + task type + persona
+
+Baselines are routine stakes and a neutral incoming message. Standard
+errors are HC3 (robust). A Holm correction runs over all 60 stakes and tone
+coefficients (5 measures x 3 directions x 4 terms). A second model on all
+directions together tests whether the stakes effects, or the tone effects,
+differ by direction (F-test on the interaction terms).
+
+**Result: stakes (high vs. routine).** Bold = still significant after Holm.
+
+| Measure | Down | Peer | Up | Differs by direction? |
+|---|---:|---:|---:|---|
+| Tone score (1-7) | **+0.37** | **+0.67** | **+0.60** | p=.08 |
+| Politeness (log-odds) | **−0.55** | −0.35 (p=.003) | **−0.47** | p=.49 |
+| Length (words) | +4.1 (p=.002) | **+7.5** | +4.0 (p=.002) | p=.09 |
+| Order share | +0.05 (p=.02) | 0.00 | +0.01 | p=.19 |
+| Hedge share | 0.00 | 0.00 | 0.00 | p=.94 |
+
+**Result: incoming tone (vs. a neutral message).** No coefficient survives
+Holm. The ones with p<.05:
+
+| Measure | Down | Peer | Up | Differs by direction? |
+|---|---|---|---|---|
+| Tone score, assertive message | −0.15 (p=.24) | +0.24 (p=.10) | +0.42 (p=.005) | **p=.018** |
+| Politeness, assertive message | −0.33 (p=.055) | −0.48 (p=.007) | −0.42 (p=.003) | p=.55 |
+| Politeness, deferential message | +0.14 (p=.44) | +0.35 (p=.03) | +0.07 (p=.64) | (same test) |
+
+Warm messages change nothing. Orders, hedges and length do not move with
+incoming tone.
+
+![Stakes and incoming tone by direction](docs/figures/stakes_tone_qwen.png)
+
+Each row is one factor level, compared with routine stakes or a neutral
+message. The three dots are the three directions. A dot right of the gray
+line means that factor level raises the measure. Only the top row (high
+stakes) is clearly away from zero on the first, second and fourth panels.
+
+**What this means.**
+
+- **High stakes makes qwen firmer, not more deferent.** The design asked
+  whether deference toward a senior grows when stakes are high. For qwen
+  it does not: writing up, high stakes raises the tone score by 0.60 and
+  lowers politeness. The effect has the same sign in every direction.
+- **Stakes narrows the direction gap a little.** Writing down, the tone
+  score goes from 5.23 to 5.60. Writing up, from 4.29 to 4.89. So the
+  down-up gap is 0.94 at routine stakes and 0.71 at high stakes. The test
+  that the stakes effect differs by direction is not significant (p=.08).
+- **The stakes effect may follow the prompt wording.** The high-stakes
+  prompt says "real money and visible accountability". A firmer and longer
+  reply is the expected answer to that line. So this shows qwen reacts to
+  stated stakes, not that stakes changes real email the same way.
+- **Incoming tone is mostly ignored, except assertiveness.** An assertive
+  message makes the reply a little less polite in every direction. On the
+  tone score, qwen matches an assertive senior (+0.42) or peer (+0.24), but
+  not an assertive junior (−0.15). This is a form of mirroring that depends
+  on rank. It is the least certain result here: only the overall direction
+  test (p=.018) is significant, no single coefficient survives Holm.
+- **Orders do not respond to either factor.** The writing-down effect on
+  orders (in this set: 52% of sentences down, 40% to a peer, 35% up) stays the same
+  across stakes and tones. Only high stakes when writing down adds about 5
+  points (p=.02, not significant after Holm).
+
+**Caveats.**
+
+- One model and one draw per cell. Each direction x tone group has 120
+  replies; each direction x stakes group has 240.
+- Persona enters as a fixed effect with robust errors, not clustered by
+  persona: 10 clusters are too few for clustered errors (see section 21).
+- No real-email comparison is possible: real emails carry no stakes or
+  incoming-tone label.
+- The tone scores come from one judge (gpt-oss-120b). Section 22 showed
+  that gpt-oss-20b agrees on large effects but not always on small ones.
+
+Code: `src/thesis/analysis/stakes_tone.py`, on branch
+`layer1-consensus-tone` (commit `7d2aa48`, not merged into main yet). Run
+with `python -m thesis.analysis.stakes_tone`. Add `--judge` to score
+uncached replies with the tone judge on Groq. Per-reply scores:
+`data/interim/q1_qwen_stakes_tone_scores.parquet` (not committed, like all
+data). Manifest: `outputs/manifests/stakes_tone_qwen.json`. Figure:
+`docs/figures/stakes_tone_qwen.png`.
+
+---
+
+## 25. Where the code lives
 
 **The clients.** `src/thesis/llm/openai_compatible.py` holds the shared
 request and retry logic. `nvidia_client.py` and `groq_client.py` are thin
@@ -2728,7 +2839,7 @@ made along the way, are in `PROGRESS_nvidia.md`.
 
 ---
 
-## 25. Next steps
+## 26. Next steps
 
 Most valuable first.
 
