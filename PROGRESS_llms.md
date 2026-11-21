@@ -36,7 +36,7 @@ directly (the Q1 real-email comparison).
 
 Other open items: a run without the "act" instruction, an embedding map and
 review pack for the newer models, and committing the blind-coding module.
-See "26. Next steps" at the end.
+See "27. Next steps" at the end.
 
 ---
 
@@ -672,13 +672,13 @@ robust, sender-clustered fit (section 15).
   standard deviation (`hierarchy.py`). gpt-oss-120b's case (reported p=5e-08,
   honest p≈.001) is what exposed it. Fixed: the code now also fits a
   persona-clustered cross-check on its own (`Q1Result.sentence_model_persona_fe`,
-  commit `85e833a`) -- see the "26. Next steps" done-block below for what still
+  commit `85e833a`) -- see the "27. Next steps" done-block below for what still
   needs it substituted in.
 - **Two small bugs found while checking this result, since fixed.** The Q1
   grid generator now writes `prompt_text_hash()` onto the saved grid instead
   of only computing it in memory (commit `5ee4b46`), and `q1_models.py`'s
   grid loader now counts real cache/generation numbers instead of
-  hard-coding every row as "from cache" (commit `36fbc3e`). See "26. Next
+  hard-coding every row as "from cache" (commit `36fbc3e`). See "27. Next
   steps" for the one small gap that remains.
 
 ---
@@ -987,7 +987,7 @@ Chance that a sentence gives an order, by direction:
   scale** (1.98 at pilot scale, 4.75 for real email). A short reply
   inflates the "orders per sentence" share for the same underlying
   behavior -- the same caveat the pilot section raised. No length-matched
-  version of this comparison exists yet (see "26. Next steps").
+  version of this comparison exists yet (see "27. Next steps").
 - **qwen3.8-27b shows the biggest writing-down effect of the four:
   +0.510, about twice real email's +0.253.** Its replies are 3.87
   sentences long, the closest to real email's 4.75, so the short-reply
@@ -2791,7 +2791,168 @@ data). Manifest: `outputs/manifests/stakes_tone_qwen.json`. Figure:
 
 ---
 
-## 25. Where the code lives
+## 25. The direction gap in each scenario (Q1, Nov 21)
+
+**Finding.** qwen changes how it writes by direction in every scenario, but
+the size of the change depends on the scenario. Writing down, qwen gives
+the work to the other person. Writing up, it takes the work itself and
+reports back. The gap is largest in scheduling and in resolving a
+disagreement. It almost disappears in a one-line confirmation. What qwen
+decides (accept, decline, defer) does not depend on direction in any
+scenario.
+
+**Why this was needed.** Every Q1 result so far pooled over the six task
+types (the scenarios). A pooled effect can hide scenarios where direction
+matters a lot and scenarios where it does not matter. This section splits
+the effect by scenario and says in words what the replies do differently.
+
+**Data.** The same 1,440 qwen3.8-27b replies as section 24 (draw 1). Each
+scenario has 80 replies per direction: 10 personas x 2 stakes x 4 incoming
+tones. The measures are the same as in section 24. The decision and its
+confidence come from the reply's own `decision` and `confidence` fields.
+
+**Method.**
+
+- Measures: inside each scenario, one regression per measure,
+  `measure ~ direction + stakes + incoming tone + persona`, HC3 errors. An
+  F-test asks if direction matters. Holm runs over all 29 scenario tests
+  (hedge share has no variance in report_problem). A second model on all
+  scenarios tests if the direction effect differs across scenarios
+  (F-test on direction x scenario).
+- Decisions: a chi-square test of direction x decision in each scenario.
+- Who does the work: two keyword markers, counted per reply.
+  "Tells the other to act" means the reply gives the other person a task
+  ("Send...", "Pull...", "Verify...", "Please..."). "I'll do it" means the
+  reply contains "I'll" or "I will". These are rough counts, not a
+  validated measure. The patterns are saved in the manifest.
+
+**Result: measures.** Down − Up is the mean writing down minus the mean
+writing up. Bold = significant after Holm.
+
+| Scenario | Tone (1-7) | Politeness (log-odds) | Order share |
+|---|---:|---:|---:|
+| schedule_coordination | **+1.53** | **−0.67** | **+0.15** |
+| request_information | **+1.10** | **−0.57** | **+0.24** |
+| report_problem | **+0.79** | −0.01 | **+0.14** |
+| resolve_disagreement | **+0.65** | **−1.11** | **+0.34** |
+| approve_or_decline | **+0.59** | −0.95 (p=.009) | +0.08 (p=.03) |
+| confirm_details | **+0.29** | −0.06 | +0.07 |
+| Differs by scenario? | p<.001 | p<.001 | p<.001 |
+
+Length does not move with direction in any scenario (largest gap 3.3 words,
+none significant after Holm; differs by scenario p=.38). Hedges are close to
+zero everywhere (at most 2.4% of sentences).
+
+**Result: decisions and who does the work.** Percent of replies.
+
+| Scenario | Direction | Accept | Decline | Defer | Tells other to act | I'll do it | High confidence |
+|---|---|---:|---:|---:|---:|---:|---:|
+| request_information | down | 65 | 6 | 25 | 48 | 22 | 66 |
+| | up | 74 | 4 | 21 | 26 | 24 | 66 |
+| approve_or_decline | down | 4 | 61 | 34 | 36 | 14 | 62 |
+| | up | 6 | 50 | 42 | 28 | 19 | 56 |
+| report_problem | down | 45 | 6 | 44 | 36 | 30 | 68 |
+| | up | 40 | 2 | 56 | 4 | 28 | 70 |
+| schedule_coordination | down | 79 | 1 | 18 | 59 | 19 | 72 |
+| | up | 66 | 0 | 34 | 31 | 34 | 75 |
+| resolve_disagreement | down | 49 | 6 | 41 | 74 | 14 | 72 |
+| | up | 36 | 1 | 61 | 29 | 55 | 59 |
+| confirm_details | down | 95 | 0 | 5 | 38 | 8 | 80 |
+| | up | 98 | 0 | 1 | 32 | 8 | 61 |
+
+The decision mix does not depend on direction in any scenario (chi-square
+p from .15 to .61). Peer values are in the manifest.
+
+![Direction gap in each scenario](docs/figures/scenario_direction_qwen.png)
+
+Each row is one scenario. The three dots are the means writing down, to a
+peer and writing up. A long gray line means a large gap between down and
+up. Scenarios are sorted by the tone gap, largest on top.
+
+**What qwen does in each scenario.** The quotes are typical replies.
+
+- **request_information** (someone asks for last month's numbers). qwen
+  sends the numbers in every direction (65% to 74% accept). Writing down, it
+  adds instructions: "Check row B", "Don't rely on the preliminary export."
+  48% tell the other to act, against 26% writing up. Writing up, it hands
+  the numbers over and offers more help: "Let me know if you need the
+  breakdown by product type." It does not decline more when writing down
+  (6% against 4%).
+- **approve_or_decline** (sign off on moving a settlement date forward).
+  qwen almost never approves, in any direction (about 5%). Writing down, it
+  declines a bit more often (61% against 50%) and more bluntly: "Let's push
+  back... I am not clearing a date change like this on a whim." Writing up,
+  it defers more (42% against 34%) and softens the refusal: "I can't sign
+  off on this right now." The politeness gap is large (−0.95) but not
+  significant after Holm.
+- **report_problem** (someone checks in; qwen has found an error). qwen
+  reports the error in every direction. Writing down, it adds orders: "No.
+  The numbers are off. Don't send those reports Friday." 36% tell the other
+  to act. Writing up or to a peer, it explains the problem and commits to
+  its own timeline: "I'm working through the line items. I'll confirm by
+  EOD." Only 4% to 5% tell the other to act. Politeness does not change:
+  these replies are plain and factual in every direction.
+- **schedule_coordination** (find a meeting time next week). This has the
+  largest tone gap (5.23 writing down, 3.70 writing up). Writing down, qwen
+  names its slots and hands off the logistics: "Send out invites for 10 AM",
+  "Block Thursday 2-4 on my calendar." 59% tell the other to act. Writing
+  up, it offers times and asks what works for the others: "Can you check if
+  those work for the others?" It says thanks more (14% against 4%) and
+  defers more (34% against 18%). The few hedges in the data appear here and
+  in resolve_disagreement, writing up.
+- **resolve_disagreement** (someone says the draft's numbers use the wrong
+  basis). This shows the clearest role reversal. Writing down, qwen takes
+  control and gives the fix to the other person: "Pull the underlying data
+  and verify the basis... send the updated figures by end of day." 74% tell
+  the other to act, and 72% of sentences are orders. Writing up, it concedes
+  and does the fix itself: "You're right, the basis was off. I'm re-pulling
+  the data now." 55% say "I'll", against 14% writing down. It also defers
+  more (61% against 41%) and is less often highly confident (59% against
+  72%).
+- **confirm_details** (confirm the plan is still on track). This shows the
+  smallest effect. qwen answers "Confirmed, proceed" in every direction (95%
+  to 98%). The replies are short (about 30 words), so there is little room
+  for rank to show. Politeness and orders barely change. The tone gap is
+  significant but small, and tone is higher writing up (5.54) than to a
+  peer (5.30). Writing up, qwen is less often highly confident (61% against
+  80%).
+
+**What this means.**
+
+- **The direction effect is about who does the work.** The clearest change
+  is not politeness but the division of labor. Writing down, qwen assigns
+  tasks. Writing up, it takes them on. This matches the order-share result
+  of earlier sections, and the keyword markers make it concrete.
+- **The effect needs room to show.** It is strong when the task allows
+  assigning work (scheduling, a disagreement, a request). It nearly
+  disappears when the reply is a one-line confirmation. So a pooled Q1
+  effect depends on the mix of scenarios in the design.
+- **Rank changes style, not the decision.** qwen's decision follows the
+  scenario, not the direction. Some shifts point the expected way (fewer
+  outright declines and more defers when writing up), but none is
+  significant.
+
+**Caveats.**
+
+- One model and one draw. Each scenario x direction cell has 80 replies
+  from 10 personas.
+- For Llama, the decision field agreed across draws only about 60% of the
+  time (section 13). qwen's has not been measured. So small decision
+  shifts may be noise.
+- The two "who does the work" markers are keyword counts, checked only by
+  reading about 40 replies.
+- The tone scores come from one judge (gpt-oss-120b).
+
+Code: `src/thesis/analysis/scenario_direction.py`, on branch
+`layer1-consensus-tone` (commit `0d34880`, not merged into main yet). Run
+with `python -m thesis.analysis.scenario_direction`. It reads the score
+cache built by `stakes_tone.py` and calls no model. Manifest:
+`outputs/manifests/scenario_direction_qwen.json`. Figure:
+`docs/figures/scenario_direction_qwen.png`.
+
+---
+
+## 26. Where the code lives
 
 **The clients.** `src/thesis/llm/openai_compatible.py` holds the shared
 request and retry logic. `nvidia_client.py` and `groq_client.py` are thin
@@ -2839,7 +3000,7 @@ made along the way, are in `PROGRESS_nvidia.md`.
 
 ---
 
-## 26. Next steps
+## 27. Next steps
 
 Most valuable first.
 
