@@ -36,7 +36,7 @@ directly (the Q1 real-email comparison).
 
 Other open items: a run without the "act" instruction, an embedding map and
 review pack for the newer models, and committing the blind-coding module.
-See "27. Next steps" at the end.
+See "28. Next steps" at the end.
 
 ---
 
@@ -672,13 +672,13 @@ robust, sender-clustered fit (section 15).
   standard deviation (`hierarchy.py`). gpt-oss-120b's case (reported p=5e-08,
   honest p≈.001) is what exposed it. Fixed: the code now also fits a
   persona-clustered cross-check on its own (`Q1Result.sentence_model_persona_fe`,
-  commit `85e833a`) -- see the "27. Next steps" done-block below for what still
+  commit `85e833a`) -- see the "28. Next steps" done-block below for what still
   needs it substituted in.
 - **Two small bugs found while checking this result, since fixed.** The Q1
   grid generator now writes `prompt_text_hash()` onto the saved grid instead
   of only computing it in memory (commit `5ee4b46`), and `q1_models.py`'s
   grid loader now counts real cache/generation numbers instead of
-  hard-coding every row as "from cache" (commit `36fbc3e`). See "27. Next
+  hard-coding every row as "from cache" (commit `36fbc3e`). See "28. Next
   steps" for the one small gap that remains.
 
 ---
@@ -987,7 +987,7 @@ Chance that a sentence gives an order, by direction:
   scale** (1.98 at pilot scale, 4.75 for real email). A short reply
   inflates the "orders per sentence" share for the same underlying
   behavior -- the same caveat the pilot section raised. No length-matched
-  version of this comparison exists yet (see "27. Next steps").
+  version of this comparison exists yet (see "28. Next steps").
 - **qwen3.8-27b shows the biggest writing-down effect of the four:
   +0.510, about twice real email's +0.253.** Its replies are 3.87
   sentences long, the closest to real email's 4.75, so the short-reply
@@ -2952,7 +2952,146 @@ cache built by `stakes_tone.py` and calls no model. Manifest:
 
 ---
 
-## 26. Where the code lives
+## 26. The direction gap in each scenario, all four models (Q1, Nov 23)
+
+**Finding.** Only qwen shows a direction gap in every scenario. The other
+models show it in a few scenarios, and each model in different ones.
+gpt-oss-120b reacts to rank mainly when it must approve or decline: it
+approves more and declines more when writing down, and defers when
+writing up. gpt-oss-20b reacts mainly in resolve_disagreement. Llama shows
+no clear gap in any scenario. One pattern is shared by qwen and both
+gpt-oss models: in resolve_disagreement, writing down they assign the fix
+to the other person, and writing up they do it themselves.
+
+**Why this was needed.** Section 25 described qwen only. The question is
+whether the scenario pattern is a property of qwen or of the task itself.
+If all models showed the gap in the same scenarios, the scenario would
+explain it. They do not.
+
+**Data.** The draw-1 main set of each model: 1,440 replies for qwen,
+gpt-oss-120b and Llama, 1,428 for gpt-oss-20b (78 to 80 per scenario x
+direction cell). Every reply now has a gpt-oss-120b tone score. 1,857 were
+scored for this section (gpt-oss-120b 578, gpt-oss-20b 676, Llama 603), all
+valid. Llama has three draws; only draw 1 is used here, the same as for
+the other models.
+
+**Method.** The same as section 25, run once per model. Holm runs inside
+each model. The keyword markers are the same.
+
+**Result.** Down − Up per scenario. Bold = significant after Holm inside
+that model.
+
+| Scenario | Tone: qwen | 120b | 20b | Llama | Orders: qwen | 120b | 20b | Llama |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| schedule_coordination | **+1.52** | −0.01 | +0.32 | −0.15 | **+0.15** | 0.00 | +0.08 | +0.02 |
+| request_information | **+1.10** | 0.00 | +0.20 | +0.31 | **+0.24** | +0.02 | −0.07 | +0.06 |
+| report_problem | **+0.79** | **+0.68** | **+0.49** | +0.04 | **+0.14** | +0.15 | +0.05 | +0.04 |
+| resolve_disagreement | **+0.65** | +0.41 | +0.42 | +0.49 | **+0.34** | **+0.22** | **+0.21** | +0.01 |
+| approve_or_decline | **+0.59** | **+1.32** | +0.21 | +0.07 | +0.08 | +0.09 | +0.01 | −0.05 |
+| confirm_details | **+0.29** | +0.23 | −0.09 | +0.11 | +0.07 | +0.06 | +0.08 | +0.01 |
+| Differs by scenario? | p<.001 | p<.001 | p=.22 | p=.16 | p<.001 | p<.001 | p<.001 | p=.53 |
+
+Politeness: significant only for qwen (3 scenarios, section 25),
+gpt-oss-120b in approve_or_decline (−0.78) and gpt-oss-20b in
+resolve_disagreement (−0.25). Length does not move with direction for any
+model.
+
+Decisions: the decision mix depends on direction in only two cells.
+gpt-oss-120b in approve_or_decline (p<.001) and in schedule_coordination
+(p=.005, see below). Llama's report_problem has p=.023, not corrected.
+
+![Direction gap per scenario and model](docs/figures/scenario_direction_models.png)
+
+Each cell is writing down minus writing up. Blue means the measure is
+higher when writing down. Bold cells are significant after Holm.
+Per-model figures like the one in section 25:
+`docs/figures/scenario_direction_{gpt_oss_120b,gpt_oss_20b,llama}.png`.
+
+**What each model does in each scenario.**
+
+- **gpt-oss-120b.** Its replies are short (17 to 38 words) and often the
+  same in every direction.
+  - approve_or_decline: the clearest direction effect of any model on the
+    decision itself. Writing down, it approves 21% and declines 40%.
+    Writing up, it approves 5%, declines 21% and defers 66%: "I'm not
+    comfortable approving... can we get the latest exposure analysis?"
+    It escalates only when writing up (8%). Tone gap +1.32, politeness
+    −0.78.
+  - report_problem: writing down, it tells the other person what to do
+    (31% against 6% writing up). Tone gap +0.68.
+  - resolve_disagreement: writing up, it does the fix itself ("I'll" in
+    81% against 39% writing down). Orders gap +0.22.
+  - request_information and schedule_coordination: no gap at all. The
+    replies are nearly the same in every direction: "Here are the
+    numbers... Let me know if you need anything else", "I'm free Monday
+    afternoon... Let me know which slot works best for the group." Only
+    the decision field moves in scheduling: "none" rises from 9% writing
+    down to 25% writing up. The emails themselves do not change.
+- **gpt-oss-20b.** Longer and more varied replies (25 to 47 words), but a
+  weak direction effect.
+  - resolve_disagreement: the same role reversal as qwen, smaller.
+    Writing down, it assigns the re-run ("Re-run the numbers with the
+    correct basis and send me the updated draft"). Writing up, it does
+    it ("I'll re-run the model... and send you the revised figures by
+    noon"). "I'll" rises from 45% to 78%. Orders gap +0.21, politeness
+    −0.25.
+  - report_problem: tone gap +0.49. The replies report the problem and
+    the fix in every direction. The wording is only a bit firmer writing
+    down.
+  - The other four scenarios: no significant gap. Approvals drop from 24%
+    writing down to 14% writing up in approve_or_decline, but the test
+    is not significant (p=.12).
+- **Llama 3.2 3B.** Very short replies (12 to 22 words) that often repeat
+  the request instead of answering it ("Send over the volume numbers for
+  last month when you get a chance"). No scenario shows a significant
+  gap on any measure. The largest tone gap is +0.49 in
+  resolve_disagreement, not significant. This does not contradict
+  section 12, where Llama's writing-down effect on imperatives was significant:
+  that used all three draws and pooled the scenarios. Split into six
+  scenarios and one draw, the effect is too small to detect.
+
+**What this means.**
+
+- **The scenario pattern belongs to the model, not to the task.** qwen
+  shows the largest gap in scheduling. gpt-oss-120b shows none there.
+  gpt-oss-120b's largest gap is in approve_or_decline, where qwen's is
+  among the smallest. So a pooled Q1 effect means different things for
+  different models.
+- **resolve_disagreement is the one shared case.** Three of four models
+  give more orders when writing down, and do the work themselves when
+  writing up. This is the most robust scenario-level result.
+- **Only gpt-oss-120b lets rank change the decision.** For the other
+  models, rank changes how the reply is written, not what it decides.
+  gpt-oss-120b approves less and defers more when writing to a senior.
+  This is closer to the Q1 idea of deference toward a superior than any
+  style effect.
+- **Some models do not vary because their replies are templates.**
+  gpt-oss-120b in two scenarios and Llama in most give nearly the same
+  reply to everyone. A missing gap there means the model ignores the
+  relationship, not that it judged the relationship irrelevant.
+
+**Caveats.**
+
+- One draw per model. A power check on qwen's gaps (80% power, observed
+  gap taken as true) shows that a gap of about 0.6 tone points needs about
+  55 replies per direction at α=.05, and about twice that after Holm. Smaller gaps here, like most of
+  gpt-oss-20b's and Llama's, are below what 80 replies can detect.
+- gpt-oss-120b judges the tone of its own replies. Section 22 found that
+  the gpt-oss-20b judge agrees on large effects, but self-scoring was not
+  checked per scenario.
+- The keyword markers are rough. They were checked by reading about a
+  dozen replies per model.
+- Persona is a fixed effect with robust errors, as in section 24.
+
+Code: `src/thesis/analysis/scenario_direction.py`, on branch
+`layer1-consensus-tone` (commit `6819ee8`). Run with
+`python -m thesis.analysis.scenario_direction --writer MODEL --judge`, one
+model at a time, then `--compare` for the comparison figure. Manifests:
+`outputs/manifests/scenario_direction_{qwen,gpt_oss_120b,gpt_oss_20b,llama}.json`.
+
+---
+
+## 27. Where the code lives
 
 **The clients.** `src/thesis/llm/openai_compatible.py` holds the shared
 request and retry logic. `nvidia_client.py` and `groq_client.py` are thin
@@ -3000,7 +3139,7 @@ made along the way, are in `PROGRESS_nvidia.md`.
 
 ---
 
-## 27. Next steps
+## 28. Next steps
 
 Most valuable first.
 

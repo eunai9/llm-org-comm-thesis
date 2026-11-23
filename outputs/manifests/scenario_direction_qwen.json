@@ -1,6 +1,7 @@
 {
  "writer": "qwen3.8-27b",
  "n": 1440,
+ "n_tone": 1440,
  "n_per_cell": 80,
  "measures": [
   {
