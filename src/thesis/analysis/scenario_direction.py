@@ -1,7 +1,7 @@
 """Q1: how does the direction effect differ across the six scenarios?
 
 Every Q1 result so far pooled over the six task types (the scenarios). This
-module splits qwen3.8-27b's main set by task type and, inside each one,
+module splits one writer's main set (draw 1) by task type and, inside each one,
 compares the replies written down, to a peer and up. It reports:
 
 - the mean of each measure per scenario and direction, with an F-test that
@@ -15,19 +15,26 @@ compares the replies written down, to a peer and up. It reports:
   person to act, or says "I'll" / "I will". These are rough counts, not a
   validated measure.
 
-The measures come from the cache that ``thesis.analysis.stakes_tone`` built.
-Run with ``python -m thesis.analysis.scenario_direction``.
+The measures are those of ``thesis.analysis.stakes_tone``, cached per writer.
+Run with ``python -m thesis.analysis.scenario_direction --writer MODEL``
+(default qwen3.8-27b). Add ``--judge`` to send replies the tone judge has not
+scored yet to gpt-oss-120b on Groq; without it, only cached tone scores are
+used. ``--compare`` draws one figure of all four writers from their saved
+manifests.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
+from pathlib import Path
 from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import statsmodels.formula.api as smf
+from matplotlib.colors import LinearSegmentedColormap
 from scipy.stats import chi2_contingency
 from statsmodels.stats.multitest import multipletests
 
@@ -42,16 +49,21 @@ from thesis.analysis.plots import (
     SURFACE,
     _style_axes,
 )
-from thesis.analysis.role_inference import build_absolute_items_from_grid
-from thesis.analysis.stakes_tone import SCORES_PATH, WRITER, load_grid, tone_scores
+from thesis.analysis.role_inference import GENERATING_GRIDS, build_absolute_items_from_grid
+from thesis.analysis.stakes_tone import SCORES_PATH, local_scores, tone_scores
 from thesis.llm.cache import ResponseCache
 from thesis.logging_setup import configure_logging, get_logger
-from thesis.paths import CACHE_DIR, DOCS_FIGURES_DIR, MANIFESTS_DIR, ensure_dirs
+from thesis.paths import CACHE_DIR, DOCS_FIGURES_DIR, INTERIM_DIR, MANIFESTS_DIR, ensure_dirs
 
 log = get_logger(__name__)
 
-MANIFEST_PATH = MANIFESTS_DIR / "scenario_direction_qwen.json"
-FIGURE_PATH = DOCS_FIGURES_DIR / "scenario_direction_qwen.png"
+SLUGS = {
+    "llama3.2:3b": "llama",
+    "gpt-oss-20b": "gpt_oss_20b",
+    "gpt-oss-120b": "gpt_oss_120b",
+    "qwen3.8-27b": "qwen",
+}
+COMPARE_FIGURE_PATH = DOCS_FIGURES_DIR / "scenario_direction_models.png"
 MEASURES = ("tone", "politeness_logit", "order_share", "hedge_share", "words")
 DIRECTIONS = ("down", "lateral", "up")
 _LOGIT_EPS = 1e-6
@@ -68,14 +80,32 @@ _MARKERS = {
 }
 
 
-def load_frame() -> pd.DataFrame:
-    """qwen's draw-1 replies with their text, measures and keyword markers."""
-    grid = load_grid()
+def scores_path(writer: str) -> Path:
+    """Where the local measures of one writer's replies are cached."""
+    if writer == "qwen3.8-27b":
+        return SCORES_PATH
+    return INTERIM_DIR / f"q1_{SLUGS[writer]}_stakes_tone_scores.parquet"
+
+
+def load_frame(writer: str, *, judge: bool = False) -> pd.DataFrame:
+    """One writer's draw-1 replies with their text, measures and keyword markers.
+
+    The local measures are computed once and cached. Tone scores come from the
+    response cache; with ``judge``, uncached replies are sent to the tone judge.
+    """
+    grid = pd.read_parquet(GENERATING_GRIDS[writer])
+    grid = grid[grid["replicate"] == 1].copy()
+    grid["tone_in"] = grid["scenario_id"].str.split("__").str[-1]
     items, _ = build_absolute_items_from_grid(grid)
     grid["text"] = grid["cell_id"].map({item.item_id: item.text for item in items})
-    scores = pd.read_parquet(SCORES_PATH).drop(columns="tone", errors="ignore")
+    path = scores_path(writer)
+    if path.exists():
+        scores = pd.read_parquet(path).drop(columns="tone", errors="ignore")
+    else:
+        scores = local_scores(items)
+        scores.to_parquet(path)
     scores["tone"] = scores["cell_id"].map(
-        tone_scores(items, ResponseCache(CACHE_DIR), judge=False)
+        tone_scores(items, ResponseCache(CACHE_DIR), judge=judge)
     )
     clipped = scores["politeness"].clip(_LOGIT_EPS, 1 - _LOGIT_EPS)
     scores["politeness_logit"] = np.log(clipped / (1 - clipped))
@@ -145,7 +175,7 @@ def decision_table(frame: pd.DataFrame) -> list[dict[str, Any]]:
     return rows
 
 
-def plot_scenarios(frame: pd.DataFrame, order: list[str]) -> None:
+def plot_scenarios(frame: pd.DataFrame, order: list[str], writer: str, path: Path) -> None:
     """One panel per measure: the three direction means in each scenario."""
     panels = [
         ("tone", "Authoritative tone (1-7)", 1.0),
@@ -197,7 +227,7 @@ def plot_scenarios(frame: pd.DataFrame, order: list[str]) -> None:
         labelcolor=INK_SECONDARY,
     )
     fig.suptitle(
-        "qwen3.8-27b: the direction gap in each scenario",
+        f"{writer}: the direction gap in each scenario",
         x=0.01,
         ha="left",
         color=INK_PRIMARY,
@@ -207,20 +237,108 @@ def plot_scenarios(frame: pd.DataFrame, order: list[str]) -> None:
     fig.text(
         0.01,
         0.9,
-        "Mean of 80 replies per dot. Scenarios sorted by the down-up tone gap, largest on top.",
+        "Mean of about 80 replies per dot. Scenarios sorted by the down-up tone gap, "
+        "largest on top.",
         color=INK_SECONDARY,
         fontsize=9.5,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.88))
-    FIGURE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(FIGURE_PATH, dpi=200, facecolor=SURFACE, bbox_inches="tight")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=200, facecolor=SURFACE, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_models() -> None:
+    """Heatmaps of the down-up gap, scenario x model, read from the saved manifests."""
+    panels = [("tone", "Authoritative tone (1-7)", 1.0), ("order_share", "Order share (%)", 100.0)]
+    writers = list(SLUGS)[::-1]
+    tables = {
+        w: pd.DataFrame(
+            json.loads(
+                (MANIFESTS_DIR / f"scenario_direction_{SLUGS[w]}.json").read_text(encoding="utf-8")
+            )["measures"]
+        )
+        for w in writers
+    }
+    order = (
+        tables["qwen3.8-27b"]
+        .query("measure == 'tone'")
+        .sort_values("down_minus_up", ascending=False)["task_type"]
+        .tolist()
+    )
+    cmap = LinearSegmentedColormap.from_list("gap", [SERIES_2, SURFACE, SERIES_1])
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.2))
+    fig.patch.set_facecolor(SURFACE)
+    for ax, (measure, title, scale) in zip(axes, panels, strict=True):
+        cells = {
+            w: t[t["measure"] == measure].set_index("task_type").loc[order]
+            for w, t in tables.items()
+        }
+        gap = np.array([[cells[w].loc[s, "down_minus_up"] * scale for w in writers] for s in order])
+        sig = np.array([[cells[w].loc[s, "p_holm"] < 0.05 for w in writers] for s in order])
+        limit = np.abs(gap).max() * 1.6
+        ax.imshow(gap, cmap=cmap, vmin=-limit, vmax=limit, aspect="auto")
+        for i in range(len(order)):
+            for j in range(len(writers)):
+                ax.text(
+                    j,
+                    i,
+                    f"{gap[i, j]:+.2f}" if scale == 1.0 else f"{round(gap[i, j]):+d}",
+                    ha="center",
+                    va="center",
+                    fontsize=10,
+                    fontweight="bold" if sig[i, j] else "normal",
+                    color=INK_PRIMARY if sig[i, j] else INK_SECONDARY,
+                )
+        ax.set_xticks(range(len(writers)), writers, color=INK_SECONDARY, fontsize=9.5)
+        ax.set_yticks(range(len(order)), [s.replace("_", " ") for s in order])
+        ax.tick_params(length=0, colors=INK_SECONDARY)
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+        ax.set_title(title, color=INK_PRIMARY, fontsize=11, loc="left")
+    axes[1].set_yticklabels([])
+    fig.suptitle(
+        "Writing down minus writing up, per scenario and model",
+        x=0.01,
+        ha="left",
+        color=INK_PRIMARY,
+        fontsize=12.5,
+        fontweight="bold",
+    )
+    fig.text(
+        0.01,
+        0.89,
+        "Blue: higher when writing down. Orange: higher when writing up. "
+        "Bold: significant after Holm (per model).",
+        color=INK_SECONDARY,
+        fontsize=9.5,
+    )
+    fig.tight_layout(rect=(0, 0, 1, 0.88))
+    COMPARE_FIGURE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(COMPARE_FIGURE_PATH, dpi=200, facecolor=SURFACE, bbox_inches="tight")
     plt.close(fig)
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--writer", choices=list(SLUGS), default="qwen3.8-27b")
+    parser.add_argument(
+        "--judge", action="store_true", help="Score uncached replies with the tone judge."
+    )
+    parser.add_argument(
+        "--compare", action="store_true", help="Only draw the model comparison from manifests."
+    )
+    args = parser.parse_args()
+
     configure_logging()
     ensure_dirs()
-    frame = load_frame()
+    if args.compare:
+        plot_models()
+        log.info("wrote %s", COMPARE_FIGURE_PATH)
+        return
+    manifest_path = MANIFESTS_DIR / f"scenario_direction_{SLUGS[args.writer]}.json"
+    figure_path = DOCS_FIGURES_DIR / f"scenario_direction_{SLUGS[args.writer]}.png"
+    frame = load_frame(args.writer, judge=args.judge)
     table = measure_table(frame)
     gaps = table[table["measure"] == "tone"].set_index("task_type")["down_minus_up"]
     order = gaps.sort_values(ascending=False).index.tolist()
@@ -228,8 +346,9 @@ def main() -> None:
     marker_means = frame.groupby(["task_type", "direction"])[markers].mean().mul(100).round(1)
 
     manifest: dict[str, Any] = {
-        "writer": WRITER,
+        "writer": args.writer,
         "n": len(frame),
+        "n_tone": int(frame["tone"].notna().sum()),
         "n_per_cell": int(frame.groupby(["task_type", "direction"]).size().min()),
         "measures": table.round(4).to_dict(orient="records"),
         "direction_x_scenario_p": {m: interaction_p(frame, m) for m in MEASURES},
@@ -237,9 +356,9 @@ def main() -> None:
         "markers_percent": {task: marker_means.loc[task].to_dict(orient="index") for task in order},
         "marker_patterns": _MARKERS,
     }
-    MANIFEST_PATH.write_text(json.dumps(manifest, indent=1), encoding="utf-8")
-    plot_scenarios(frame, order)
-    log.info("wrote %s and %s", MANIFEST_PATH, FIGURE_PATH)
+    manifest_path.write_text(json.dumps(manifest, indent=1), encoding="utf-8")
+    plot_scenarios(frame, order, args.writer, figure_path)
+    log.info("wrote %s and %s", manifest_path, figure_path)
 
 
 if __name__ == "__main__":
