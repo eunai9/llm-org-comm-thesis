@@ -1,0 +1,140 @@
+% =====================================================================
+% CHAPTER 2: BACKGROUND AND RELATED WORK                    budget: 6 pages
+% ROLE: Give the reader exactly the concepts that chapters 3-7 use:
+%       (a) how hierarchy shows in text, (b) LLMs as simulated people,
+%       (c) LLMs as judges, (d) how to compare generated and real text.
+%       Anything not used later does not belong here.
+% Literature notes on OneDrive: identifying_hierarchy.md,
+%   authoritativeness-detection-text-research.md,
+%   holistic-tone-authoritativeness-research.md,
+%   llm-as-judge-communication-emotion-research.md,
+%   llm-email-simulator-mirroring-research.md
+% =====================================================================
+\chapter{Background and Related Work}
+\label{ch:background}
+
+\section{Hierarchy and power in workplace language}
+% budget: 2 pages
+
+% P1 KEY: Formal rank and the power people show in text are not the same
+%         thing. This thesis uses formal rank.
+% SUPPORT:
+%   - Bramsen et al. 2011 (Extracting Social Power Relationships).
+%   - Prabhakaran et al. ("Who's (Really) the Boss?"): situational power
+%     differs from the org chart.
+%   - Nguyen et al. survey; Lam et al. 2018: text power and formal rank
+%     often differ.
+%   - Why it matters later: limitation in Ch. 8.
+
+% P2 KEY: Research names several language markers of power. These are the
+%         candidates for the Q1 measures.
+% SUPPORT:
+%   - Orders / controlling acts: Prabhakaran et al. (Overt Display of Power).
+%   - Pronoun "you": Kacewicz et al. 2014.
+%   - Hierarchy phrases: Gilbert 2012 (built on Enron).
+%   - Hedges and commitment: Prabhakaran, Ganeshkumar & Rambow 2018.
+%   - Politeness and gratitude: Danescu-Niculescu-Mizil et al. 2013.
+
+% P3 KEY: Reading formal rank from one email is hard even for trained
+%         models. So only a small real signal is expected.
+% SUPPORT:
+%   - Bramsen 2011 and Prabhakaran 2012: hierarchical power F1 34.8 on Enron.
+%   - Lam et al. 2018 (Power Networks): a neural model for power relations.
+%     TODO: take its reported scores from the paper.
+%   - Ziems et al. (LLMs for CSS): zero-shot LLMs can classify power, with limits.
+
+% P4 KEY: People also judge power from the whole message, not only from
+%         single words. This motivates a holistic tone judge.
+% SUPPORT:
+%   - Körner et al. 2024: power is perceived from short texts, with consensus.
+%   - Lens model: cue validity (does a cue go with the true trait?) and
+%     cue utilization (does the reader use it?).
+%   - Danescu-Niculescu-Mizil 2013: politeness as a human rating of the
+%     whole message.
+
+% P5 KEY: The Enron corpus is the standard data for this work, with a known
+%         hierarchy.
+% SUPPORT:
+%   - About 500,000 emails from Enron employees (Exposé p.5).
+%   - Agarwal et al. (Comprehensive Gold Standard for the Enron hierarchy).
+%   - Used by most power studies above, so results can be compared.
+
+\section{LLMs as simulated people}
+% budget: 2 pages
+
+% P6 KEY: LLMs given a persona can act as human-like agents in experiments,
+%         with known caveats.
+% SUPPORT:
+%   - Horton et al. (Homo silicus): replicate economic experiments.
+%   - Their caveats: memorization, "prompt hacking", causal inference is hard.
+%   - "Using Large Language Models to Simulate Human Behavioural Experiments"
+%     (Port of Mars game). TODO: check authors for the citation.
+
+% P7 KEY: Agent simulations add memory and social settings.
+% SUPPORT:
+%   - Park et al. 2023 (Generative Agents): memory stream, retrieval, reflection.
+%     Our persona memory follows this (Ch. 3).
+%   - SOTOPIA: social goals and a holistic evaluation.
+%   - Simulating Teams (VirT-Lab): team simulation and ground-truth checks.
+
+% P8 KEY: The closest prior work studies power and workplace email
+%         directly, but not against real email on the same measures.
+% SUPPORT:
+%   - "Do LLM Agents Mirror Socio-Cognitive Effects in Power-Asymmetric
+%     Conversations": persona pairs like manager-employee.
+%   - Moral Mazes in the Era of LLMs (HR Simulator): human vs. LLM email tone.
+%   - Training tools (CommCoach, GLOSS) simulate workplace partners (Exposé p.7).
+
+% P9 KEY: Simulators have known failure modes: echoing the input, agreeing
+%         with the user, and repeating stock text.
+% SUPPORT:
+%   - Hao et al. (echo of prompt); Sharma et al. 2024 (sycophancy).
+%   - Li et al. 2016 (dull, generic replies).
+%   - Enron is likely in training data, so named personas could recall real
+%     people. We use no names (Ch. 3).
+
+\section{LLMs as judges}
+% budget: 1.5 pages
+
+% P10 KEY: An LLM judge scores text on a rubric. This is now common for
+%          evaluating generated dialogue.
+% SUPPORT:
+%   - Zheng et al. 2023: pointwise scoring, MT-Bench.
+%   - Gu et al. (survey): reliability has three axes, bias is one.
+%   - Written score anchors (The Biased Oracle); several named dimensions
+%     reported separately (ESC-Judge, HEART).
+%   - Törnberg: LLMs can outperform expert coders at annotation.
+
+% P11 KEY: Judges have known biases. The ones that matter here are
+%          self-preference, length and rank.
+% SUPPORT:
+%   - Zheng et al. 2023: self-enhancement and verbosity bias. Advice: judge
+%     from another model family.
+%   - The Biased Oracle: rank bias, use more than one judge.
+
+% P12 KEY: A judge must be checked before use: against itself, against other
+%          judges, and against people.
+% SUPPORT:
+%   - Stability across repeated runs (voice-agent judge paper, arXiv:2608.24314).
+%   - Human-coded samples as the standard check (ESC-Judge, HEART, MT-Bench).
+
+\section{Comparing generated and real text}
+% budget: 0.5 pages
+
+% P13 KEY: Realism can be tested without a judge: by a classifier, by
+%          embeddings, and by diversity.
+% SUPPORT:
+%   - Paired design: human and model replies to the same input (HEART).
+%   - Style embeddings that ignore topic: StyleDistance (Patel et al. 2025).
+%   - Self-BLEU (Zhu et al. 2018, Texygen), named in the Exposé.
+
+\section{Research gap}
+% budget: 0.5 pages
+
+% P14 KEY: No study combines a role-based email simulator, a real-email
+%          benchmark on the same measures, and a tested judge, using only
+%          free models.
+% SUPPORT:
+%   - P8: prior work uses invented settings, no real benchmark.
+%   - P11-P12: judge checks are rarely done with free, same-family judges.
+%   - Leads to Q1-Q3.

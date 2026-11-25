@@ -1,0 +1,84 @@
+% =====================================================================
+% THESIS SKELETON: paragraph outline as LaTeX comments
+% =====================================================================
+%
+% How the notes work (supervisor's advice, Nov 2026):
+%   - Every paragraph has one block of comments before it.
+%   - "P<n> KEY:" is the one idea of that paragraph. If a paragraph does not
+%     serve its KEY, or its KEY does not serve the chapter's ROLE, cut it.
+%   - "SUPPORT:" lists the facts, numbers and references the paragraph needs.
+%   - "SRC:" points to where the numbers come from:
+%       RO x.y  = "Results overview (2026-11).md", section x.y (OneDrive)
+%       PL n    = PROGRESS_llms.md, section n (repo, branch main)
+%   - "FIG:" / "TAB:" mark a planned figure or table.
+%   - "TODO:" marks something not done or not checked yet.
+%   - Keep the comments when the text is written. They help navigate.
+%
+% Length: official limit 35-70 pages for the whole thesis.
+% Target: main text 40 pages, plus references and a short appendix.
+% Page budget per chapter is in each chapter file.
+%
+% ---------------------------------------------------------------------
+% MAIN STORY (every chapter must serve this)
+% ---------------------------------------------------------------------
+% Free LLMs can be prompted to write workplace email in a given role.
+% (Q1) They show hierarchy, even more clearly than real Enron email does.
+%      But the effect is fragile: it depends on the persona set, the
+%      scenario and the model. It changes the wording and who does the
+%      work, rarely the decision.
+% (Q2) Their replies stay on topic, but they are easy to tell from real
+%      email by style, and they are less diverse.
+% (Q3) A strong LLM judge is consistent and does not favor its own
+%      writing. But it needs the incoming message and has not been
+%      checked against people.
+% => LLM email simulation is useful for controlled "what if" comparisons
+%    of hierarchy. It is not a stand-in for real organizational email,
+%    and every result needs a real-email benchmark and a robustness check.
+% =====================================================================
+
+\documentclass[11pt,a4paper]{report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage[round]{natbib}
+\usepackage{hyperref}
+
+\title{LLMs for Simulating Organizational Communication and Decision-Making with Email}
+\author{Euna Goo}
+\date{TODO: submission date}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+% KEY: the whole thesis in about 200 words. Write it last.
+% SUPPORT (from the LMU SLDS template):
+%   - the problem and the three questions
+%   - the method: simulator, 4 free models, 3 designs, real-email benchmark
+%   - the main results, with the most important numbers
+%   - what the results mean
+%   - no citations, no abbreviations, no figure references
+\end{abstract}
+
+\tableofcontents
+
+\input{chapters/01_introduction}
+\input{chapters/02_background}
+\input{chapters/03_data_and_design}
+\input{chapters/04_measures}
+\input{chapters/05_q1_hierarchy}
+\input{chapters/06_q2_realism}
+\input{chapters/07_q3_judges}
+\input{chapters/08_discussion}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\appendix
+\input{chapters/appendix}
+
+\end{document}

@@ -1,0 +1,85 @@
+% =====================================================================
+% CHAPTER 1: INTRODUCTION                                   budget: 3 pages
+% ROLE: Say why the question matters, state Q1-Q3, and preview the answer.
+% Write this chapter last, when the results chapters are fixed.
+% =====================================================================
+\chapter{Introduction}
+\label{ch:intro}
+
+\section{Motivation}
+
+% P1 KEY: Communication inside an organization shapes its decisions, and
+%         hierarchy shapes that communication.
+% SUPPORT:
+%   - Exposé p.2: communication drives decision efficiency and alignment.
+%   - Email is the main written channel in firms. Enron is the standard
+%     public example.
+%   - Power shows in workplace language (Gilbert 2012; Prabhakaran et al.).
+
+% P2 KEY: LLMs are now used as stand-ins for people (as simulated agents)
+%         and as evaluators of text (as judges).
+% SUPPORT:
+%   - Agents: Horton et al. ("Homo silicus"); Park et al. 2023 (Generative Agents).
+%   - Judges: Zheng et al. 2023 (MT-Bench, LLM-as-a-judge).
+%   - Promise: controlled experiments on role and hierarchy that are hard
+%     to run with real employees.
+
+% P3 KEY: Whether this works for organizational email is open: do simulated
+%         replies show real hierarchy patterns, and can a judge score them?
+% SUPPORT:
+%   - Power-asymmetric conversations paper: LLM agents mirror some
+%     socio-cognitive effects, not all.
+%   - Moral Mazes (HR Simulator): LLM email tone differs from human email.
+%   - Few studies compare simulated email to real email on the same measures.
+
+\section{Research questions}
+
+% P4 KEY: This thesis builds an email simulator with role personas and
+%         asks three questions.
+% SUPPORT:
+%   - Q1: How does hierarchical role influence response content, sentiment
+%     and decision attitude?
+%   - Q2: Are LLM-generated responses diverse enough and similar to
+%     empirical patterns?
+%   - Q3: Can LLM-as-a-judge give consistent and calibrated scores for
+%     communication quality?
+%   - Wording from the Exposé (p.3). Keep it.
+
+% P5 KEY: How each question is made measurable.
+% SUPPORT:
+%   - Q1: writing direction (up / to a peer / down) as the treatment.
+%     Outcomes: orders, tone, politeness, decision field.
+%   - Q2: generated vs. real replies to the same Enron emails, plus Self-BLEU.
+%   - Q3: self-agreement, agreement between judges, self-preference, effect
+%     of showing the incoming message, check against people.
+
+% P6 KEY: The thesis uses only free models, which makes it a study of what
+%         openly available LLMs can do.
+% SUPPORT:
+%   - No paid API (agreed with the supervisor).
+%   - 4 models: Llama 3.2 3B (local), gpt-oss-20b, gpt-oss-120b, qwen3.8-27b
+%     (free hosted tiers). Total cost $0.
+%   - SRC: RO 0 (Models).
+
+\section{Contributions}
+
+% P7 KEY: What this thesis adds.
+% SUPPORT:
+%   - A reproducible simulator: 4 models, 3 designs, about 12,000 cached replies.
+%   - A "real email first" rule: every hierarchy measure is tested on
+%     real Enron email before it is used on generated replies.
+%   - Q1: the hierarchy effect exists but is fragile (personas, scenario, model).
+%   - Q2: the gap to real email is style, not topic.
+%   - Q3: a corrected self-preference test (neutral reference writer) and
+%     evidence that the judge needs the incoming message.
+
+% P8 KEY: The answer in short (the main story from main.tex, in 3-4 sentences).
+% SUPPORT:
+%   - Copy the MAIN STORY block and shorten it once chapters 5-7 are written.
+
+\section{Outline}
+
+% P9 KEY: One sentence per chapter.
+% SUPPORT:
+%   - Ch. 2 background, Ch. 3 data and simulator, Ch. 4 measures,
+%     Ch. 5-7 one chapter per question, Ch. 8 discussion and conclusion.

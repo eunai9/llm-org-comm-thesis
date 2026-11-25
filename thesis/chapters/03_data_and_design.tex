@@ -1,0 +1,136 @@
+% =====================================================================
+% CHAPTER 3: DATA AND SIMULATION DESIGN                     budget: 6 pages
+% ROLE: Describe the real data and the simulator well enough that a
+%       reader could rebuild them. No results here.
+% =====================================================================
+\chapter{Data and Simulation Design}
+\label{ch:design}
+
+\section{Enron data and hierarchy labels}
+% budget: 1.5 pages
+
+% P1 KEY: How the raw corpus was turned into usable messages and threads.
+% SUPPORT:
+%   - Rebuild the message column, parse headers, find threads (Exposé p.8).
+%   - TODO: fill in from PROGRESS.md / PROGRESS_llms.md (preprocessing
+%     steps, duplicates removed, final counts).
+
+% P2 KEY: Rank comes from job titles. Direction comes from comparing the
+%         ranks of sender and recipient.
+% SUPPORT:
+%   - Job titles of 156 employees, 6 ranks; departments Trading and Legal.
+%   - Direction: down / to a peer / up.
+%   - Limitation (formal rank only): see Ch. 2 P1 and Ch. 8.
+%   - SRC: RO 2.0.
+
+% P3 KEY: Which real-email samples are used, and for what.
+% SUPPORT:
+%   - Q1 benchmark: 2,202 emails from 107 senders.
+%   - Design A: 183 real threads (from 200 sampled).
+%   - Direction judge (Layer 1): 1,001 real emails.
+%   - Tone and politeness: 750 per source, 250 per direction.
+%   - TAB: sample, size, used in which section.
+
+\section{Models}
+% budget: 1 page
+
+% P4 KEY: Four models of different size and family, all free.
+% SUPPORT:
+%   - TAB: model, family, where it runs, role (writer / judge).
+%   - Llama 3.2 3B local (Ollama); gpt-oss-20b, gpt-oss-120b, qwen3.8-27b
+%     on NVIDIA and Groq free tiers.
+%   - Why: no paid API; the laptop cannot run models above about 8B.
+%   - SRC: RO 0 (Models).
+
+% P5 KEY: Free tiers set practical limits, and a cache makes every result
+%         reproducible.
+% SUPPORT:
+%   - Groq: about 1,000 requests and 200,000 tokens per day.
+%   - Every reply is cached locally; a result never depends on the service.
+%   - Total cost $0.
+%   - Prompts with Enron text go to third-party servers (link to ethics, Ch. 8).
+
+\section{Prompt structure}
+% budget: 1.5 pages
+% FIG: system diagram (update the Exposé diagram, p.9, to what was built).
+
+% P6 KEY: Each persona is a role, built from real writing statistics, and
+%         never a named person.
+% SUPPORT:
+%   - 10 personas: 5 ranks x 2 departments (Trading, Legal).
+%   - Each summarizes how real employees at that rank wrote: length,
+%     recipients, share of orders, hedges, deference, questions.
+%   - Each built from at least 3 real people; rank 6 left out (too few).
+%   - No names: the model may have memorized Enron (Ch. 2 P9).
+%   - SRC: RO 1.1.
+
+% P7 KEY: Each persona has a small memory, following Generative Agents.
+% SUPPORT:
+%   - 15 invented recent events (observations) and a few reflections.
+%   - The most relevant ones for persona and direction go in the prompt.
+%   - Park et al. 2023.
+
+% P8 KEY: The reply comes as structured output. Its decision field is the
+%         "decision attitude" of Q1.
+% SUPPORT:
+%   - 5 fields: subject, body, decision (accept / decline / defer /
+%     escalate / none), confidence (low / medium / high), reason.
+
+% P9 KEY: A hand reading found that small models hand requests back to the
+%         sender, so the prompt says the persona must act.
+% SUPPORT:
+%   - About a quarter of 100 Llama replies mirrored the request.
+%   - The added paragraph describes the behavior, not words, so it does not
+%     target the mirroring measure.
+%   - On Llama it changed little (borrowed words 0.579 -> 0.565, p=.61).
+%   - Full prompt in the appendix.
+
+\section{Three generation designs}
+% budget: 1.5 pages
+% TAB: the three designs side by side (input, personas, size, used for).
+
+% P10 KEY: Design A answers real Enron emails, so each generated reply has a
+%          real reply to compare with (Q2).
+% SUPPORT:
+%   - First message of a real thread; the persona matches the real replier's
+%     rank and department; direction from the real ranks.
+%   - 183 threads. Same paired logic as HEART.
+%   - SRC: RO 1.2.
+
+% P11 KEY: Design B is a full scenario grid that varies direction under
+%          controlled conditions (Q1, Q3).
+% SUPPORT:
+%   - 6 task types x 3 directions x 2 stakes x 4 incoming tones = 144 scenarios.
+%   - x 10 personas = 1,440 replies per draw. Llama: 3 draws (4,320).
+%   - Incoming tone is a property of the message, not an instruction.
+%   - Judge-swap set: 60 scenarios (2 task types x 3 directions, neutral tone).
+%   - SRC: RO 1.3.
+
+% P12 KEY: Design C uses 40 personas, so a rank effect cannot come from
+%          one persona's prompt.
+% SUPPORT:
+%   - Problem: 10 personas = 10 clusters; clustered errors too small
+%     (Cameron & Miller 2015); Llama's p moved from .248 to .018 between draws.
+%   - 4 variants per role: tenure (2 or 12 years) x origin (internal / external).
+%   - Each writes to a named receiver one rank up, same rank, one rank down.
+%   - Pilot: 832 replies per model; qwen stopped (Groq limit).
+%   - SRC: RO 1.4.
+
+% P13 KEY: Generation worked for all models at no cost, but models write
+%          shorter replies than people.
+% SUPPORT:
+%   - TAB: generation summary (RO 1.5): valid replies, mean length.
+%   - Design A mean words: Llama 22.7, 20b 32.8, 120b 28.6, qwen 48.3, real 65.0.
+%   - Length matters for several measures (Ch. 4, length matching).
+
+\section{Changes from the original plan}
+% budget: 0.5 pages
+
+% P14 KEY: Some Exposé parts were dropped or changed, each for a reason.
+% SUPPORT:
+%   - Power score per message -> did not track rank; replaced by
+%     sentence-level orders and judges.
+%   - Scenario builder from threads -> Design A uses threads directly.
+%   - Judge from another model family -> not possible on the free path;
+%     replaced by the judge-swap design (Ch. 7).
+%   - Human coders -> TODO: done or not? Decide before writing Ch. 7.

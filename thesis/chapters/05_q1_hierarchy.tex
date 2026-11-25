@@ -1,0 +1,157 @@
+% =====================================================================
+% CHAPTER 5: Q1 - DOES HIERARCHY SHOW IN THE REPLIES?       budget: 8 pages
+% ROLE: Answer Q1. Story of the chapter:
+%   real email shows a small effect -> models show it too, even more ->
+%   but it breaks with more personas and differs by scenario and model ->
+%   it changes the wording and who does the work, rarely the decision.
+% =====================================================================
+\chapter{Q1: Does Hierarchy Show in the Replies?}
+\label{ch:q1}
+
+% P0 KEY: What this chapter tests and in which order.
+% SUPPORT:
+%   - Treatment: direction. Outcomes: orders (5.1), judge reads (5.2),
+%     tone and politeness (5.3), scenarios and decisions (5.4).
+
+\section{Orders in real email and in the simulator}
+% budget: 2 pages
+
+% P1 KEY: Real email shows a small hierarchy effect: more orders when
+%         writing down.
+% SUPPORT:
+%   - Writing down vs. peer: +0.249 log-odds, p=.034. Writing up: none.
+%   - Order share: 17.5% down, 14.2% peer, 15.0% up.
+%   - Also follows research for "you" and hierarchy phrases. Gratitude goes
+%     against it (more thanks when writing down).
+%   - SRC: RO 2.1, 2.3.
+
+% P2 KEY: With 10 personas, all four models show the same effect, often
+%         larger, and give 2-3 times more orders overall.
+% SUPPORT:
+%   - Writing down: Llama +0.127, 20b +0.258, 120b +0.483, qwen +0.510 (all p<.001).
+%   - gpt-oss-20b closest to real (p=.943 for the difference).
+%   - FIG: q1_models_full_writing_down.png.
+%   - SRC: RO 2.1.
+
+% P3 KEY: Part of the gap to real email is reply length.
+% SUPPORT:
+%   - Real email cut to model length: no model differs from it (all p>.29).
+
+% P4 KEY: With 40 personas, the writing-down effect disappears for every
+%         model. It came from the few persona prompts, not from rank.
+% SUPPORT:
+%   - Llama -0.148 (p=.22), 20b +0.009 (p=.90), 120b -0.069 (p=.67).
+%   - TAB: 10 vs. 40 personas per model.
+%   - Caveat: 832 replies per model, less power than the 10-persona runs.
+%   - SRC: RO 2.2.
+
+% P5 KEY: The other word measures do not follow research in a stable way.
+% SUPPORT:
+%   - Models follow the expected direction in 3 of 16 cells (10 personas)
+%     and 3 of 12 (40 personas).
+%   - Only stable result: Llama hedges less writing down.
+%   - Full table in the appendix. SRC: RO 2.3.
+
+\section{Can a judge read the direction?}
+% budget: 1 page
+
+% P6 KEY: A judge cannot tell direction from one real email, but it can from
+%         generated replies.
+% SUPPORT:
+%   - Only gpt-oss-120b passes the gate (kappa 0.542).
+%   - Balanced accuracy: real 35.7% (chance 33%); Llama 35.6%; 20b 40.7%;
+%     120b 43.5%; qwen 47.9%.
+%   - FIG: role_inference_accuracy.png. SRC: RO 2.4.
+
+% P7 KEY: The judge reads direction mainly from orders.
+% SUPPORT:
+%   - Orders are the main cue for every source (+0.43 to +1.03 log-odds per SD).
+%   - "you" works in opposite directions in real and generated email.
+%   - Caveat: 120b judges its own replies, but 20b and qwen also beat real email.
+
+\section{Tone and politeness}
+% budget: 2 pages
+
+% P8 KEY: The larger models sound more in charge when writing down. Real
+%         email and Llama do not.
+% SUPPORT:
+%   - Tone judge stable: kappa 0.877.
+%   - Down vs. peer: real +0.24 (p=.17), Llama +0.07, 20b +0.41, 120b +0.45,
+%     qwen +0.56 (last three p<.001). Only qwen also more deferent up (-0.42).
+%   - Larger models sound more in charge overall (3.9-5.4 vs. 2.9-3.2 real).
+%   - FIG: tone_judge_by_direction.png. SRC: RO 2.5.
+
+% P9 KEY: A second judge confirms the large effects but not the small ones.
+% SUPPORT:
+%   - gpt-oss-20b as judge: weighted kappa 0.74 with 120b.
+%   - Holds: 120b and qwen writing down, qwen writing up.
+%   - Judge-dependent: 20b's own replies, Llama writing up.
+
+% P10 KEY: Politeness changes with direction only for qwen. The gpt-oss
+%          models give orders, but politely.
+% SUPPORT:
+%   - Median P(polite) 0.97-0.99 everywhere (ceiling).
+%   - qwen: -0.45 down, +0.18 up (p<.001). Others and real email: no effect.
+%   - Politeness goes against tone (Spearman -0.12 real, -0.25 to -0.45 models).
+%   - SRC: RO 2.6.
+
+% P11 KEY: For qwen, high stakes makes replies firmer in every direction,
+%          not more deferent. The incoming tone matters little.
+% SUPPORT:
+%   - High stakes: tone +0.37 / +0.67 / +0.60 (down / peer / up), less polite.
+%   - May follow the prompt wording ("real money and visible accountability").
+%   - Assertive message: qwen matches a senior (+0.42) or peer, not a junior.
+%     Weak result (no coefficient survives Holm).
+%   - Tables in the appendix. SRC: RO 2.7.
+
+\section{Scenarios and decisions}
+% budget: 2 pages
+
+% P12 KEY: A pooled effect can hide scenarios where direction matters a lot
+%          and scenarios where it does not. So the effect is split by task type.
+% SUPPORT:
+%   - About 80 replies per scenario x direction cell. Holm inside each model.
+
+% P13 KEY: qwen shows the gap in every scenario. It is about who does the
+%          work: writing down it assigns tasks, writing up it takes them.
+% SUPPORT:
+%   - Tone gap from +0.29 (confirm_details) to +1.53 (schedule_coordination).
+%   - resolve_disagreement: "tells other to act" 74% down vs. 29% up;
+%     "I'll" 14% vs. 55%.
+%   - One short example pair (from RO 2.8). Full table in the appendix.
+
+% P14 KEY: The other models show the gap only in a few scenarios, each in
+%          different ones. Llama shows it in none.
+% SUPPORT:
+%   - 120b: approve_or_decline (+1.32), report_problem (+0.68).
+%   - 20b: report_problem (+0.49), resolve_disagreement (orders).
+%   - So the scenario pattern belongs to the model, not to the task.
+%   - FIG: scenario_direction_models.png. SRC: RO 2.8.
+
+% P15 KEY: resolve_disagreement is the one shared case.
+% SUPPORT:
+%   - qwen and both gpt-oss models: more orders writing down, do the fix
+%     themselves writing up. 20b "I'll" 45% -> 78%.
+
+% P16 KEY: Only gpt-oss-120b lets rank change the decision itself.
+% SUPPORT:
+%   - approve_or_decline: down approve 21% / decline 40%; up approve 5% /
+%     defer 66% (p<.001).
+%   - Closest result to "deference toward a superior".
+%   - Others: rank changes the wording, not the decision.
+%   - Caveats: one draw; Llama's decision field repeats only about 60% of
+%     the time; most small gaps are below the design's power.
+
+\section{Summary}
+% budget: 1 page
+
+% P17 KEY: The answer to Q1 in three points.
+% SUPPORT:
+%   - Real email shows little hierarchy; models show more, mostly through orders.
+%   - The effect is fragile: it breaks with 40 personas and depends on
+%     scenario and model.
+%   - Rank changes style and division of labor, rarely the decision.
+
+% P18 KEY: Bridge to Q2: the replies show hierarchy, but do they look real?
+% SUPPORT:
+%   - Models give 2-3x more orders than people: a first sign of a style gap.

@@ -1,0 +1,100 @@
+% =====================================================================
+% CHAPTER 4: MEASURES AND STATISTICAL ANALYSIS              budget: 4 pages
+% ROLE: Define every measure and model that chapters 5-7 report, once.
+%       Results chapters then only point back here.
+% =====================================================================
+\chapter{Measures and Statistical Analysis}
+\label{ch:measures}
+
+\section{The real-email-first rule}
+% budget: 0.5 pages
+
+% P1 KEY: Every hierarchy measure is first tested on real email. A measure
+%         that shows no hierarchy there is not used on generated replies.
+% SUPPORT:
+%   - Why: early simulator tests found no effect, with nothing to compare with.
+%   - Dropped this way: "I", "we", apology, please, greeting, style matching.
+%   - Same logic as Gupta et al. 2022; "cue validity" in Körner et al. 2024.
+%   - SRC: RO 2.0, 2.3.
+
+\section{Text measures}
+% budget: 1 page
+
+% P2 KEY: The main Q1 measure is the share of sentences that are orders.
+% SUPPORT:
+%   - Counted per sentence, because 57% of generated replies have one
+%     sentence (a per-reply share is then 0 or 1).
+%   - Imperative detection as in TV-AfD (precision 0.80).
+%   - Validated power marker in Enron (Prabhakaran et al.).
+%   - SRC: RO 2.1.
+
+% P3 KEY: Secondary word measures, each with an expected direction from research.
+% SUPPORT:
+%   - "you" rate, hierarchy phrases (974 weighted phrases), gratitude, hedges.
+%   - TAB (short): measure, expected direction, paper. SRC: RO 2.3.
+
+% P4 KEY: Politeness comes from a model trained on human ratings.
+% SUPPORT:
+%   - xlm-roberta-large-tydip (Srinivasan & Choi 2022), trained on the
+%     Stanford Politeness Corpus. Score: P(polite).
+%   - Most emails score near 1, so the log-odds are analyzed.
+%   - SRC: RO 2.6.
+
+% P5 KEY: Two keyword markers show who does the work.
+% SUPPORT:
+%   - "Tells the other to act" (Send..., Pull..., Please...) and "I'll do it".
+%   - Rough counts, checked by reading a few dozen replies. Not validated.
+%   - SRC: RO 2.8.
+
+\section{LLM judge instruments}
+% budget: 1 page
+
+% P6 KEY: Three judge tasks: guess the direction, rate the tone, score a rubric.
+% SUPPORT:
+%   - Direction (Layer 1): names removed, guess up / peer / down; score =
+%     balanced accuracy (chance 33%). Layer 2: which cues go with "down".
+%   - Tone: 1-7 on the whole email. Anchor 1 "defers to the reader",
+%     anchor 7 "writes as the one in charge". No role shown.
+%   - Rubric: 6 items, 1-5, with written anchors. Fidelity: role_consistency,
+%     contextual_fit, corpus_plausibility. Performance: clarity,
+%     politeness_appropriateness, conflict_management (Exposé p.8).
+%   - Prompts in the appendix.
+
+% P7 KEY: A judge is used only if it agrees with itself.
+% SUPPORT:
+%   - Weighted kappa over 3 passes on the same items; bar 0.4.
+%   - Results of the gate are in Ch. 7 (Q3), the gate itself is used in Ch. 5.
+
+\section{Realism and diversity measures}
+% budget: 0.5 pages
+
+% P8 KEY: Four measures compare generated and real replies to the same email.
+% SUPPORT:
+%   - Borrowed words: share of a reply's content words already in the incoming
+%     email. Flag at >= 0.80. AUC 0.834 against 100 hand codes.
+%   - Word classifier: TF-IDF + logistic regression, 5-fold CV, AUC.
+%     Controls: length only; real reply cut to its partner's length.
+%   - Embeddings: nomic-embed-text (topic + style) and StyleDistance (style only).
+%     "Tracks its own email": closer to its own real partner than to another.
+%   - Self-BLEU: vs. real replies (paired), and within one scenario.
+%   - SRC: RO 3.1-3.5.
+
+\section{Statistical models}
+% budget: 1 page
+
+% P9 KEY: Direction effects come from regressions that compare each
+%         direction with writing to a peer.
+% SUPPORT:
+%   - Orders: logistic model, P(order) ~ direction + persona fixed effects,
+%     errors clustered by persona.
+%   - Real email: mixed model with a sender intercept and sender rank;
+%     sender-clustered robust errors.
+%   - Scenario and stakes analyses: OLS with persona fixed effects, HC3 errors.
+
+% P10 KEY: Three checks guard against false positives.
+% SUPPORT:
+%   - Length matching: real emails cut to the model's mean reply length.
+%   - Holm correction where many tests are run.
+%   - Power analysis: e.g. a 0.6 tone-point gap needs about 55 replies per
+%     direction at alpha=.05 (PL 26).
+%   - Known weakness: 10 personas = 10 clusters (Ch. 3 P12).

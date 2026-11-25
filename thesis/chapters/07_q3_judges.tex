@@ -1,0 +1,84 @@
+% =====================================================================
+% CHAPTER 7: Q3 - CAN AN LLM JUDGE BE TRUSTED?             budget: 4 pages
+% ROLE: Answer Q3, and back up the judge results used in Ch. 5 and 6.
+%   Story: consistent (on some questions) -> no self-preference once tested
+%   correctly -> needs the incoming message -> not yet checked against people.
+% =====================================================================
+\chapter{Q3: Can an LLM Judge Be Trusted?}
+\label{ch:q3}
+
+% P0 KEY: Q1 and Q2 already use judges. This chapter checks them.
+% SUPPORT:
+%   - Every usable judge is also a writer (free path), so self-preference
+%     must be tested.
+
+\section{Consistency and agreement}
+% budget: 1 page
+
+% P1 KEY: Whether a judge agrees with itself depends on the question.
+% SUPPORT:
+%   - Direction: only gpt-oss-120b passes (0.542); 20b -0.016; small local
+%     models fail.
+%   - Tone: 120b 0.877, 20b 0.785, qwen 0.509 (all pass 0.4).
+%   - TAB: judge x task kappa. SRC: RO 2.4, 2.5, 4.3.
+
+% P2 KEY: Two judges agree on tone and find the same large effects.
+% SUPPORT:
+%   - Weighted kappa 0.74 between 120b and 20b; same score 39-45%, within
+%     1 point 78-86%.
+%   - FIG: tone_judge_two_judges.png.
+%   - Caveat: both from the gpt-oss family.
+
+\section{Self-preference}
+% budget: 1.5 pages
+
+% P3 KEY: The judge-swap design measures whether a judge scores its own
+%         replies higher than expected.
+% SUPPORT:
+%   - All 4 models write replies to the same 60 scenarios; 3 models judge all.
+%   - Self-preference = generator x judge interaction, against one reference
+%     writer and one reference judge.
+%   - Zheng et al. 2023 (self-enhancement bias).
+
+% P4 KEY: The first reading found self-preference. It was wrong: the gpt-oss
+%         judges are harsh on Llama, not kind to themselves.
+% SUPPORT:
+%   - Reference Llama: 120b +0.68, 20b +0.59 (p<.0001).
+%   - Reference qwen (writes, does not judge): 120b -0.05 (p=.70),
+%     20b -0.12 (p=.34).
+%   - FIG: judge_swap_free_tier_self_preference_corrected.png. SRC: RO 4.1.
+
+% P5 KEY: Lesson: report the interaction with a neutral reference writer and
+%         with the cell means.
+
+\section{Showing the judge the incoming message}
+% budget: 1 page
+
+% P6 KEY: Only gpt-oss-120b uses the incoming message well. With it, it
+%         catches mirrored replies.
+% SUPPORT:
+%   - contextual_fit gap, sound vs. mirrored: 0.24 (p=.59) -> 0.65 (p=.001).
+%   - 20b does not improve (0.37 -> 0.20).
+%   - FIG: judge_context_contextual_fit_gpt_oss_120b.png. SRC: RO 4.2.
+
+% P7 KEY: The message moves judges in opposite directions, and still shows
+%         no self-preference.
+% SUPPORT:
+%   - Change in overall mean: Llama -0.25, 120b +0.21, 20b +0.30 (all p<.001).
+%   - Scores with and without the message cannot be mixed.
+%   - Self-preference with message vs. qwen: 120b +0.23 (p=.085), 20b +0.05.
+
+\section{Calibration against people}
+% budget: 0.5 pages
+
+% P8 KEY: No person has checked any judge score yet.
+% SUPPORT:
+%   - Plan: 120 emails, 3 raters, about 1 hour each; would also check tone
+%     and politeness.
+%   - TODO: decide with the supervisor. If done, this becomes a result;
+%     if not, a limitation in Ch. 8.
+
+% P9 KEY: The answer to Q3.
+% SUPPORT:
+%   - gpt-oss-120b is consistent and not self-biased, but needs the incoming
+%     message and has no human check.

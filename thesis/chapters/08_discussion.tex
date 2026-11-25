@@ -1,0 +1,76 @@
+% =====================================================================
+% CHAPTER 8: DISCUSSION AND CONCLUSION                      budget: 4 pages
+% ROLE: Put the three answers together, say what they mean, and be honest
+%       about the limits. No new results here.
+% =====================================================================
+\chapter{Discussion and Conclusion}
+\label{ch:discussion}
+
+\section{The three answers together}
+% budget: 1 page
+
+% P1 KEY: Models show hierarchy more clearly than real people do, but the
+%         effect is fragile.
+% SUPPORT:
+%   - Ch. 5: orders, judge reads, tone. Breaks with 40 personas.
+
+% P2 KEY: The simulated hierarchy is a matter of style, not of decision.
+% SUPPORT:
+%   - Who does the work changes; the decision rarely does (only 120b).
+%   - Fits Q2: the gap to real email is also style.
+
+% P3 KEY: The judge is good enough to measure these effects, under conditions.
+% SUPPORT:
+%   - Ch. 7: gpt-oss-120b, with the message, large effects only.
+
+\section{Implications}
+% budget: 1 page
+
+% P4 KEY: For LLM simulation research: the persona set is a design factor,
+%         and a real-email benchmark is needed.
+% SUPPORT:
+%   - Homo silicus caveats (prompt hacking, memorization) seen here:
+%     the stakes effect may follow the prompt wording.
+%   - A result with 10 personas did not survive 40.
+%   - Compare with the power-asymmetry paper and Moral Mazes.
+
+% P5 KEY: For LLM judges: use a neutral reference writer, give the input,
+%         and check against people.
+
+\section{Limitations}
+% budget: 1 page
+
+% P6 KEY: Measurement limits.
+% SUPPORT:
+%   - No human coding (unless done, see Ch. 7).
+%   - Rank from job titles, not perceived power.
+%   - Keyword markers not validated; politeness model trained outside email.
+
+% P7 KEY: Design limits.
+% SUPPORT:
+%   - 10 personas = 10 clusters; one draw for most models.
+%   - Design C is a pilot (832 per model, no qwen).
+%   - Stakes and tone effects only tested on qwen.
+
+% P8 KEY: Model limits.
+% SUPPORT:
+%   - Free models only. Both reliable judges are from one family, and each
+%     judges its own replies.
+
+\section{Ethics}
+% budget: 0.5 pages
+
+% P9 KEY: Enron is real correspondence, so it was handled with care.
+% SUPPORT:
+%   - Analysis only; data not shared; no personas named after real people.
+%   - Prompts with Enron text went to free third-party APIs.
+
+\section{Conclusion and outlook}
+% budget: 0.5 pages
+
+% P10 KEY: The main story in one paragraph (see main.tex).
+
+% P11 KEY: What comes next.
+% SUPPORT:
+%   - Human coding; the full 40-persona design; showing the judge the
+%     writer's role while testing for rank bias.

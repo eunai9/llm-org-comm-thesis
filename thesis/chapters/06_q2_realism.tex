@@ -1,0 +1,94 @@
+% =====================================================================
+% CHAPTER 6: Q2 - DO GENERATED REPLIES LOOK LIKE REAL EMAIL? budget: 5 pages
+% ROLE: Answer Q2. Story of the chapter:
+%   models stay on topic -> but are easy to tell from real email, by style ->
+%   judges still rate them as plausible -> and they are less diverse.
+% =====================================================================
+\chapter{Q2: Do Generated Replies Look Like Real Email?}
+\label{ch:q2}
+
+% P0 KEY: Q2 uses the paired Design A: real and generated replies to the
+%         same 183 emails.
+% SUPPORT:
+%   - Exceptions: rubric (judge-swap set) and Self-BLEU within a scenario (Design B).
+
+\section{Mirroring}
+% budget: 0.5 pages
+
+% P1 KEY: Copying the sender's words is mainly a weakness of the small model.
+% SUPPORT:
+%   - Borrowed words (same length): Llama 0.565 (19.1% flagged), 20b 0.373,
+%     120b 0.435, qwen 0.298, real 0.294.
+%   - All models borrow at least as much as real writers.
+%   - FIG (optional): nvidia_four_models_mirroring.png. SRC: RO 3.1.
+
+\section{Telling real from generated}
+% budget: 2 pages
+
+% P2 KEY: A simple word classifier tells real from generated replies almost
+%         always.
+% SUPPORT:
+%   - AUC, same length: Llama 0.881, 20b 0.970, 120b 0.962, qwen 0.982.
+%   - Length alone explains it only for Llama (0.837).
+%   - SRC: RO 3.2.
+
+% P3 KEY: The models are given away by stock phrases.
+% SUPPORT:
+%   - "I'll" in 59-61% of gpt-oss replies vs. 5-6% of real ones; "let"
+%     (Let me know); "review"; "team".
+%   - Real replies: sign-off names, "attached", "office".
+%   - A larger model was not harder to spot.
+
+% P4 KEY: In meaning space the replies stay tied to the email they answer.
+% SUPPORT:
+%   - nomic embeddings: AUC 0.82-0.94 (same length).
+%   - "Tracks its own email" 0.81-0.86.
+%   - SRC: RO 3.3.
+
+% P5 KEY: Style alone separates them even better. The gap is how replies are
+%         written, not what they say.
+% SUPPORT:
+%   - StyleDistance: AUC 0.97-0.99; "tracks its own email" falls to about 0.5,
+%     as intended.
+%   - Llama moves most (0.82 -> 0.97).
+%   - FIG: embedding_style_vs_nomic_auc.png.
+
+\section{Rubric scores from judges}
+% budget: 1 page
+
+% P6 KEY: Judges rate the larger models' replies as high quality and plausible.
+% SUPPORT:
+%   - Overall mean 4.4-4.6 of 5 under every judge.
+%   - Llama depends on the judge (4.28 own judge; 3.48-3.60 gpt-oss judges),
+%     mainly on role_consistency and contextual_fit.
+%   - TAB: overall mean by writer x judge. Per-item table in the appendix.
+%   - SRC: RO 3.4.
+
+% P7 KEY: This disagrees with the classifier: "reads as plausible" is not the
+%         same as "cannot be told apart from real".
+% SUPPORT:
+%   - Same replies: rubric ~4.5, classifier AUC ~0.97.
+%   - The judge saw only the reply, not the role or message (Ch. 7).
+
+\section{Diversity}
+% budget: 1 page
+
+% P8 KEY: All models are less diverse than real email.
+% SUPPORT:
+%   - Self-BLEU generated 0.51-0.57 vs. real 0.27-0.31 (same length), all p<.001.
+%   - Fits P3: repeated stock phrases.
+%   - FIG: self_bleu_vs_real.png. SRC: RO 3.5.
+
+% P9 KEY: A different persona changes qwen's wording a lot and gpt-oss-120b's
+%         very little.
+% SUPPORT:
+%   - Within one scenario: qwen 0.17, 20b 0.30, Llama 0.38, 120b 0.60.
+%   - Model size does not decide diversity.
+
+\section{Summary}
+% budget: 0.5 pages
+
+% P10 KEY: The answer to Q2, and the bridge to Q3.
+% SUPPORT:
+%   - On topic, but easy to spot by style, and less diverse.
+%   - Judges call them plausible. So can the judge be trusted? -> Ch. 7.
